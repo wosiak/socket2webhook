@@ -1,6 +1,9 @@
 // Use environment variables for API configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+// Use Supabase Edge Functions directly
+const API_BASE_URL = `${SUPABASE_URL}/functions/v1/make-server-661cf1c3`
 
 class ApiService {
   private async request(endpoint: string, options: RequestInit = {}) {
