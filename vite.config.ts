@@ -10,17 +10,6 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    sourcemap: false,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-tabs']
-        }
-      }
-    }
-  },
-  define: {
-    __APP_VERSION__: JSON.stringify(process.env.npm_package_version)
+    sourcemap: false
   }
 })
