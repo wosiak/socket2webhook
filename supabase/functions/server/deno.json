@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "lib": ["deno.window"],
+    "strict": true
+  },
+  "imports": {
+    "hono": "npm:hono@^4.0.0",
+    "hono/cors": "npm:hono@^4.0.0/cors",
+    "hono/logger": "npm:hono@^4.0.0/logger",
+    "@supabase/supabase-js": "jsr:@supabase/supabase-js@2"
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-env index.tsx"
+  }
+}

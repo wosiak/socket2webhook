@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: webhook-proxy-backend
+    runtime: deno
+    plan: free
+    buildCommand: deno cache supabase/functions/server/index.tsx
+    startCommand: deno run --allow-net --allow-env supabase/functions/server/index.tsx
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+    healthCheckPath: /make-server-661cf1c3/health
