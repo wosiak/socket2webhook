@@ -3,6 +3,7 @@ import { cors } from 'npm:hono/cors'
 import { logger } from 'npm:hono/logger'
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { companiesDB, eventsDB, webhooksDB, executionsDB, metricsDB } from './database.tsx'
+import { webhookService } from './webhook_service.tsx'
 
 const app = new Hono()
 
@@ -334,6 +335,94 @@ app.get('/make-server-661cf1c3/most-used-events', validateAuth, async (c) => {
     console.error('Error fetching most used events:', error)
     return c.json({ 
       error: 'Failed to fetch most used events',
+      details: error.message 
+    }, 500)
+  }
+})
+
+// Webhook connection management endpoints
+app.post('/make-server-661cf1c3/webhook/connect', validateAuth, async (c) => {
+  try {
+    const body = await c.req.json()
+    const { company_id } = body
+    
+    if (!company_id) {
+      return c.json({ error: 'Missing required field: company_id' }, 400)
+    }
+
+    // Busca a empresa e seus webhooks
+    const company = await companiesDB.getById(company_id)
+    if (!company) {
+      return c.json({ error: 'Company not found' }, 404)
+    }
+
+    const webhooks = await webhooksDB.getByCompanyId(company_id)
+    const activeWebhooks = webhooks.filter(w => w.is_active)
+
+    if (activeWebhooks.length === 0) {
+      return c.json({ error: 'No active webhooks found for this company' }, 400)
+    }
+
+    // Conecta ao socket da 3C Plus
+    await webhookService.connectToSocket(company_id, company.api_token, activeWebhooks)
+    
+    console.log(`✅ Conectado ao socket da 3C Plus para empresa ${company_id}`)
+    return c.json({ 
+      success: true, 
+      message: `Connected to 3C Plus socket for company ${company_id}`,
+      activeWebhooks: activeWebhooks.length
+    })
+  } catch (error) {
+    console.error('Error connecting to webhook:', error)
+    return c.json({ 
+      error: 'Failed to connect to webhook',
+      details: error.message 
+    }, 500)
+  }
+})
+
+app.post('/make-server-661cf1c3/webhook/disconnect', validateAuth, async (c) => {
+  try {
+    const body = await c.req.json()
+    const { company_id } = body
+    
+    if (!company_id) {
+      return c.json({ error: 'Missing required field: company_id' }, 400)
+    }
+
+    webhookService.disconnectFromSocket(company_id)
+    
+    console.log(`🔌 Desconectado do socket da 3C Plus para empresa ${company_id}`)
+    return c.json({ 
+      success: true, 
+      message: `Disconnected from 3C Plus socket for company ${company_id}`
+    })
+  } catch (error) {
+    console.error('Error disconnecting from webhook:', error)
+    return c.json({ 
+      error: 'Failed to disconnect from webhook',
+      details: error.message 
+    }, 500)
+  }
+})
+
+app.get('/make-server-661cf1c3/webhook/status', validateAuth, async (c) => {
+  try {
+    const status = webhookService.getConnectionStatus()
+    const activeConnections = webhookService.getActiveConnections()
+    
+    return c.json({ 
+      success: true, 
+      data: {
+        connections: status,
+        activeConnections,
+        totalConnections: activeConnections.length
+      }
+    })
+  } catch (error) {
+    console.error('Error getting webhook status:', error)
+    return c.json({ 
+      error: 'Failed to get webhook status',
       details: error.message 
     }, 500)
   }

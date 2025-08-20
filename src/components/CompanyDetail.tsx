@@ -8,6 +8,7 @@ import { Switch } from "./ui/switch";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { MultiEventTypeSelector } from "./MultiEventTypeSelector";
+import { WebhookConnectionManager } from "./WebhookConnectionManager";
 import { Company, Webhook, ExecutionHistory, Event } from "../types";
 import { ArrowLeft, Edit, Plus, Trash2, Webhook as WebhookIcon, History, CheckCircle, XCircle, RotateCcw, Eye, Settings } from "lucide-react";
 
@@ -295,6 +296,15 @@ export function CompanyDetail({
             </Dialog>
           </div>
         </div>
+
+        {/* Webhook Connection Manager */}
+        <WebhookConnectionManager 
+          companyId={company.id}
+          companyName={company.name}
+          onStatusChange={(connected) => {
+            console.log(`Webhook connection status changed for ${company.name}: ${connected}`)
+          }}
+        />
 
         {/* Webhooks Section */}
         <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">

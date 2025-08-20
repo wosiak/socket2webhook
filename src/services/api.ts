@@ -174,6 +174,25 @@ class ApiService {
   async getSocketEvents() {
     return this.request('/socket-events')
   }
+
+  // Webhook connection management
+  async connectWebhook(companyId: string) {
+    return this.request('/webhook/connect', {
+      method: 'POST',
+      body: JSON.stringify({ company_id: companyId }),
+    })
+  }
+
+  async disconnectWebhook(companyId: string) {
+    return this.request('/webhook/disconnect', {
+      method: 'POST',
+      body: JSON.stringify({ company_id: companyId }),
+    })
+  }
+
+  async getWebhookStatus() {
+    return this.request('/webhook/status')
+  }
 }
 
 export const apiService = new ApiService()
