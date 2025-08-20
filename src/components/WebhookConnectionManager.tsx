@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { apiService } from '../services/api'
+import { webhookSocketService } from '../services/webhookSocketService'
 
 interface WebhookConnectionManagerProps {
   companyId: string
@@ -28,6 +29,16 @@ interface ConnectionStatus {
   totalConnections: number
 }
 
+interface WebhookConfig {
+  id: string
+  company_id: string
+  url: string
+  event_types: string[]
+  is_active: boolean
+  auth_header?: string
+  signing_secret?: string
+}
+
 export function WebhookConnectionManager({ 
   companyId, 
   companyName, 
@@ -37,17 +48,28 @@ export function WebhookConnectionManager({
   const [isLoading, setIsLoading] = useState(false)
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [webhooks, setWebhooks] = useState<WebhookConfig[]>([])
+
+  // Carrega webhooks da empresa
+  const loadWebhooks = async () => {
+    try {
+      const response = await apiService.getWebhooks(companyId)
+      const webhookData = response.data || []
+      setWebhooks(webhookData)
+    } catch (err) {
+      console.error('Error loading webhooks:', err)
+    }
+  }
 
   // Verifica o status da conexão
   const checkConnectionStatus = async () => {
     try {
-      const response = await apiService.getWebhookStatus()
-      const status: ConnectionStatus = response.data
-      setConnectionStatus(status)
+      // Usa o serviço local de socket
+      const connectionInfo = webhookSocketService.getConnectionInfo()
+      const isSocketConnected = connectionInfo.isConnected && connectionInfo.companyId === companyId
       
-      const companyConnected = status.connections[companyId] || false
-      setIsConnected(companyConnected)
-      onStatusChange?.(companyConnected)
+      setIsConnected(isSocketConnected)
+      onStatusChange?.(isSocketConnected)
       
       setError(null)
     } catch (err) {
@@ -62,7 +84,28 @@ export function WebhookConnectionManager({
     setError(null)
     
     try {
-      await apiService.connectWebhook(companyId)
+      // Busca a empresa para obter o token
+      const companiesResponse = await apiService.getCompanies()
+      const company = companiesResponse.data.find((c: any) => c.id === companyId)
+      
+      if (!company) {
+        throw new Error('Empresa não encontrada')
+      }
+
+      if (!company.api_token) {
+        throw new Error('Token de API não configurado para esta empresa')
+      }
+
+      // Filtra webhooks ativos
+      const activeWebhooks = webhooks.filter(w => w.is_active)
+      
+      if (activeWebhooks.length === 0) {
+        throw new Error('Nenhum webhook ativo encontrado para esta empresa')
+      }
+
+      // Conecta ao socket da 3C Plus
+      await webhookSocketService.connectToSocket(companyId, company.api_token, activeWebhooks)
+      
       setIsConnected(true)
       onStatusChange?.(true)
       await checkConnectionStatus()
@@ -80,7 +123,7 @@ export function WebhookConnectionManager({
     setError(null)
     
     try {
-      await apiService.disconnectWebhook(companyId)
+      webhookSocketService.disconnectFromSocket()
       setIsConnected(false)
       onStatusChange?.(false)
       await checkConnectionStatus()
@@ -94,6 +137,7 @@ export function WebhookConnectionManager({
 
   // Carrega o status inicial
   useEffect(() => {
+    loadWebhooks()
     checkConnectionStatus()
     
     // Atualiza o status a cada 30 segundos
@@ -205,21 +249,19 @@ export function WebhookConnectionManager({
           </div>
         </div>
 
-        {connectionStatus && (
+        {webhooks.length > 0 && (
           <>
             <Separator />
             <div className="space-y-2">
-              <p className="text-sm font-medium">Informações do Sistema</p>
+              <p className="text-sm font-medium">Webhooks Configurados</p>
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div>
-                  <span className="text-muted-foreground">Conexões Ativas:</span>
-                  <span className="ml-1 font-medium">{connectionStatus.totalConnections}</span>
+                  <span className="text-muted-foreground">Total:</span>
+                  <span className="ml-1 font-medium">{webhooks.length}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Esta Empresa:</span>
-                  <span className="ml-1 font-medium">
-                    {connectionStatus.connections[companyId] ? 'Conectada' : 'Desconectada'}
-                  </span>
+                  <span className="text-muted-foreground">Ativos:</span>
+                  <span className="ml-1 font-medium">{webhooks.filter(w => w.is_active).length}</span>
                 </div>
               </div>
             </div>
