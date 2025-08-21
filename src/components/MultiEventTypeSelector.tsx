@@ -31,11 +31,20 @@ export function MultiEventTypeSelector({
   console.log('MultiEventTypeSelector - SafeEvents length:', safeEvents.length);
 
   const handleToggleEvent = (eventId: string) => {
+    console.log('🔄 Toggle event:', eventId);
+    console.log('📋 Current selected:', safeSelectedEventIds);
+    
+    let newSelection;
     if (safeSelectedEventIds.includes(eventId)) {
-      onSelectionChange(safeSelectedEventIds.filter(id => id !== eventId));
+      newSelection = safeSelectedEventIds.filter(id => id !== eventId);
+      console.log('➖ Removendo evento:', eventId);
     } else {
-      onSelectionChange([...safeSelectedEventIds, eventId]);
+      newSelection = [...safeSelectedEventIds, eventId];
+      console.log('➕ Adicionando evento:', eventId);
     }
+    
+    console.log('📤 Nova seleção:', newSelection);
+    onSelectionChange(newSelection);
   };
 
   const handleRemoveEvent = (eventId: string) => {
@@ -110,12 +119,16 @@ export function MultiEventTypeSelector({
                     return (
                       <div
                         key={`${event.id}-${index}`}
-                        onClick={() => handleToggleEvent(event.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          handleToggleEvent(event.id);
+                        }}
                         className="flex items-center space-x-2 p-2 hover:bg-gray-50 cursor-pointer rounded"
                       >
                         <Checkbox
                           checked={safeSelectedEventIds.includes(event.id)}
-                          readOnly
+                          onChange={() => {}} // Evita propagação dupla
                           className="text-blue-600"
                         />
                         <div className="flex-1">

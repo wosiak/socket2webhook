@@ -18,11 +18,14 @@ import {
 } from "lucide-react";
 
 interface Metrics {
-  company: string;
-  successful: number;
-  failed: number;
-  pending: number;
-  total: number;
+  company_id: string;
+  company_name: string;
+  total_events: number;
+  successful_events: number;
+  failed_events: number;
+  retrying_events: number;
+  success_rate: number;
+  last_event_at?: string;
 }
 
 interface MostUsedEvent {
@@ -37,6 +40,7 @@ interface Execution {
   event_type: string;
   status: 'pending' | 'success' | 'failed';
   webhook_url: string;
+  webhook_name?: string;
   timestamp: string;
   error_message?: string;
   response_status?: number;
@@ -44,18 +48,17 @@ interface Execution {
 
 interface DashboardProps {
   metrics: Metrics[];
+  companyMetrics: any[];
   executions: Execution[];
   mostUsedEvents: MostUsedEvent[];
-  isSocketConnected: boolean;
-  totalSocketEvents: number;
 }
 
-export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnected, totalSocketEvents }: DashboardProps) {
+export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents }: DashboardProps) {
   // Calculate totals
-  const totalExecutions = metrics.reduce((sum, metric) => sum + metric.total, 0);
-  const totalSuccessful = metrics.reduce((sum, metric) => sum + metric.successful, 0);
-  const totalFailed = metrics.reduce((sum, metric) => sum + metric.failed, 0);
-  const totalPending = metrics.reduce((sum, metric) => sum + metric.pending, 0);
+  const totalExecutions = metrics.reduce((sum, metric) => sum + metric.total_events, 0);
+  const totalSuccessful = metrics.reduce((sum, metric) => sum + metric.successful_events, 0);
+  const totalFailed = metrics.reduce((sum, metric) => sum + metric.failed_events, 0);
+  const totalPending = metrics.reduce((sum, metric) => sum + metric.retrying_events, 0);
   
   const successRate = totalExecutions > 0 ? (totalSuccessful / totalExecutions) * 100 : 0;
   
@@ -118,23 +121,12 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
                 Visão geral do sistema de webhooks e métricas de execução
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-sm text-gray-600">
-                  {isSocketConnected ? 'Conectado' : 'Desconectado'}
-                </span>
-              </div>
-              <Badge variant="outline" className="bg-white/80 backdrop-blur-sm">
-                <Zap className="w-4 h-4 mr-1" />
-                {totalSocketEvents} eventos
-              </Badge>
-            </div>
+
           </div>
         </div>
 
         {/* Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Total de Execuções</CardTitle>
@@ -162,18 +154,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
             </CardContent>
           </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Execuções Pendentes</CardTitle>
-              <Clock className="h-4 w-4 text-yellow-600" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-gray-900">{totalPending}</div>
-              <p className="text-xs text-gray-500">
-                Aguardando processamento
-              </p>
-            </CardContent>
-          </Card>
+
 
           <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -203,7 +184,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
           <CardContent>
             {/* Debug */}
             <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded mb-4">
-              Debug Dashboard: {mostUsedEvents.length} eventos mais utilizados | Primeiro: {mostUsedEvents[0]?.event_name}
+              Debug Dashboard: {mostUsedEvents.length} eventos mais utilizados | Primeiro: {mostUsedEvents[0]?.name || mostUsedEvents[0]?.event_name}
             </div>
             
             {mostUsedEvents.length === 0 ? (
@@ -217,18 +198,18 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
             ) : (
               <div className="space-y-4">
                 {mostUsedEvents.map((event, index) => (
-                  <div key={event.event_name} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
+                  <div key={event.name || event.event_name || index} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full font-semibold">
                         {index + 1}
                       </div>
                       <div>
-                        <h4 className="font-medium text-gray-900">{event.event_name}</h4>
-                        <p className="text-sm text-gray-600">{event.event_description}</p>
+                        <h4 className="font-medium text-gray-900">{event.name || event.event_name || 'Evento sem nome'}</h4>
+                        <p className="text-sm text-gray-600">{event.display_name || event.event_description || 'Sem descrição'}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{event.usage_count}</div>
+                      <div className="text-2xl font-bold text-blue-600">{event.count || event.usage_count || 0}</div>
                       <div className="text-sm text-gray-500">configurações</div>
                     </div>
                   </div>
@@ -250,7 +231,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {metrics.length === 0 ? (
+            {companyMetrics.length === 0 ? (
               <div className="text-center py-12">
                 <Users className="mx-auto h-16 w-16 text-gray-400" />
                 <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhuma empresa encontrada</h3>
@@ -260,9 +241,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
               </div>
             ) : (
               <div className="space-y-4">
-                {metrics.map((metric) => {
-                  const companySuccessRate = metric.total > 0 ? (metric.successful / metric.total) * 100 : 0;
-                  
+                {companyMetrics.map((metric) => {
                   return (
                     <div key={metric.company} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center gap-4">
@@ -290,7 +269,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
                           <div className="text-xs text-gray-500">Pendentes</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-lg font-semibold text-blue-600">{companySuccessRate.toFixed(1)}%</div>
+                          <div className="text-lg font-semibold text-blue-600">{metric.successRate}%</div>
                           <div className="text-xs text-gray-500">Taxa de Sucesso</div>
                         </div>
                       </div>
@@ -331,7 +310,7 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
                       <div>
                         <h4 className="font-medium text-gray-900">{execution.event_type}</h4>
                         <p className="text-sm text-gray-600">
-                          {new Date(execution.timestamp).toLocaleString()}
+                          {execution.webhook_name || 'Webhook'}
                         </p>
                       </div>
                     </div>
@@ -340,11 +319,11 @@ export function Dashboard({ metrics, executions, mostUsedEvents, isSocketConnect
                         {execution.status === 'success' ? 'Sucesso' : 
                          execution.status === 'failed' ? 'Falha' : 'Pendente'}
                       </Badge>
-                      {execution.response_status && (
-                        <Badge variant="outline" className="text-xs">
-                          HTTP {execution.response_status}
-                        </Badge>
-                      )}
+                      <Badge variant="outline" className="text-xs">
+                        {execution.status === 'success' ? `HTTP ${execution.response_status || 200}` : 
+                         execution.status === 'failed' ? `Falha: ${execution.response_status || 0}` : 
+                         'Pendente'}
+                      </Badge>
                     </div>
                   </div>
                 ))}

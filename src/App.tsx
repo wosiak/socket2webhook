@@ -10,7 +10,7 @@ import { CompanyDetail } from "./components/CompanyDetail";
 import { CompanyFormModal } from "./components/CompanyFormModal";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
-import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff } from "lucide-react";
+import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft } from "lucide-react";
 
 export default function App() {
   const {
@@ -19,6 +19,7 @@ export default function App() {
     webhooks,
     executions,
     metrics,
+    companyMetrics,
     mostUsedEvents,
     socketEvents,
     isSocketConnected,
@@ -142,28 +143,35 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
+              {currentView === 'company-detail' && (
+                <button
+                  onClick={() => navigateBack()}
+                  className="inline-flex items-center justify-center p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                  title="Voltar"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
+              )}
               <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                 <Webhook className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">3C+ | Socket2Webhook</h1>
-                <p className="text-sm text-gray-600">Gerenciamento de webhooks</p>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {currentView === 'company-detail' && currentCompany 
+                    ? `${currentCompany.name}`
+                    : '3C+ | W2W'
+                  }
+                </h1>
+                <p className="text-sm text-gray-600">
+                  {currentView === 'company-detail' 
+                    ? 'Detalhes da empresa'
+                    : 'Gerenciamento de webhooks'
+                  }
+                </p>
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-sm text-gray-600">
-                  {isSocketConnected ? 'Conectado' : 'Desconectado'}
-                </span>
-              </div>
-              
-              <Button variant="outline" onClick={refresh} size="sm" className="bg-white/80 backdrop-blur-sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Atualizar
-              </Button>
-            </div>
+
           </div>
         </div>
       </header>
@@ -180,11 +188,12 @@ export default function App() {
               webhooks={companyWebhooks}
               executions={companyExecutions}
               events={events}
-              onBack={navigateBack}
               onUpdateCompany={handleUpdateCompany}
-              onAddWebhook={handleAddWebhook}
+              onDeleteCompany={handleDeleteCompany}
               onUpdateWebhook={handleUpdateWebhook}
               onDeleteWebhook={handleDeleteWebhook}
+              onCreateWebhook={handleAddWebhook}
+              onRefreshData={refresh}
             />
           </>
         ) : (
@@ -203,10 +212,9 @@ export default function App() {
             <TabsContent value="dashboard" className="space-y-6">
               <Dashboard
                 metrics={metrics}
+                companyMetrics={companyMetrics}
                 executions={executions}
                 mostUsedEvents={mostUsedEvents}
-                isSocketConnected={isSocketConnected}
-                totalSocketEvents={socketEvents.length}
               />
             </TabsContent>
 

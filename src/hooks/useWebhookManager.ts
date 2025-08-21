@@ -3,6 +3,7 @@ import { apiService } from '../services/api'
 import { createClient } from '@supabase/supabase-js'
 import { projectId, publicAnonKey } from '../utils/supabase/info'
 import { Company, Event, Webhook, Execution, Metrics, MostUsedEvent, SocketEvent } from '../types'
+import { webhookSocketService } from '../services/webhookSocketService'
 
 // Cliente Supabase para busca direta
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey)
@@ -15,6 +16,7 @@ export const useWebhookManager = () => {
   const [webhooks, setWebhooks] = useState<Webhook[]>([])
   const [executions, setExecutions] = useState<Execution[]>([])
   const [metrics, setMetrics] = useState<Metrics[]>([])
+  const [companyMetrics, setCompanyMetrics] = useState<any[]>([])
   const [mostUsedEvents, setMostUsedEvents] = useState<MostUsedEvent[]>([])
   const [socketEvents, setSocketEvents] = useState<SocketEvent[]>([])
   const [isSocketConnected, setIsSocketConnected] = useState(false)
@@ -43,6 +45,64 @@ export const useWebhookManager = () => {
     }
   }, [])
 
+  // Função para conectar automaticamente todas as empresas com webhooks ativos
+  const connectAllActiveCompanies = useCallback(async () => {
+    try {
+      console.log('🔌 Conectando automaticamente todas as empresas com webhooks ativos...')
+      
+      // Verificar se já está conectado
+      const connectionInfo = webhookSocketService.getConnectionInfo()
+      if (connectionInfo.isConnected) {
+        console.log(`✅ Já conectado à empresa ${connectionInfo.companyId}`)
+        return
+      }
+      
+      // Buscar a primeira empresa com webhooks ativos (uma por vez)
+      const companyWithActiveWebhooks = companies.find(company => {
+        const companyWebhooks = webhooks.filter(w => w.company_id === company.id)
+        const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
+        return activeWebhooks.length > 0 && company.api_token && company.status === 'active'
+      })
+      
+      if (!companyWithActiveWebhooks) {
+        console.log('ℹ️ Nenhuma empresa com webhooks ativos encontrada')
+        return
+      }
+      
+      console.log(`🔌 Conectando empresa: ${companyWithActiveWebhooks.name}`)
+      
+      const companyWebhooks = webhooks.filter(w => w.company_id === companyWithActiveWebhooks.id)
+      const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
+      
+      // Converter webhooks para o formato esperado
+      const webhookConfigs = activeWebhooks.map(webhook => ({
+        id: webhook.id,
+        company_id: webhook.company_id,
+        url: webhook.url,
+        is_active: webhook.is_active || webhook.status === 'active',
+        event_types: webhook.event_types || webhook.webhook_events?.map(we => we.event.name) || []
+      }))
+      
+      await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
+      console.log(`✅ Empresa ${companyWithActiveWebhooks.name} conectada com sucesso`)
+      
+    } catch (error) {
+      console.error('❌ Erro no processo de conexão automática:', error)
+    }
+  }, [companies, webhooks])
+
+  // Conectar automaticamente quando dados são carregados (apenas uma vez)
+  useEffect(() => {
+    if (companies.length > 0 && webhooks.length > 0 && !loading) {
+      console.log('🚀 Dados carregados, iniciando conexão automática...')
+      // Delay para evitar múltiplas conexões
+      const timer = setTimeout(() => {
+        connectAllActiveCompanies()
+      }, 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [companies, webhooks, loading, connectAllActiveCompanies])
+
   // Load initial data
   const loadData = useCallback(async () => {
     try {
@@ -67,7 +127,8 @@ export const useWebhookManager = () => {
         apiService.getWebhooks(),
         apiService.getExecutions(undefined, 100),
         apiService.getMetrics(),
-        apiService.getMostUsedEvents()
+        apiService.getMostUsedEvents(),
+        apiService.getMetricsByCompany()
       ])
 
       console.log('API results:', results)
@@ -123,16 +184,64 @@ export const useWebhookManager = () => {
 
       // Process executions
       if (results[3].status === 'fulfilled') {
-        setExecutions(results[3].value.data || [])
+        const executionsData = results[3].value.data || []
+        // Transform executions data to match Dashboard interface
+        const transformedExecutions = executionsData.map((execution: any) => ({
+          id: execution.id,
+          company_id: execution.company_id,
+          event_type: execution.event?.name || execution.event_id || 'Evento',
+          status: execution.status,
+          webhook_url: execution.webhook?.url || 'N/A',
+          webhook_name: execution.webhook?.name || 'Webhook',
+          timestamp: execution.created_at || execution.executed_at,
+          error_message: execution.error_message,
+          response_status: execution.response_status
+        }))
+        setExecutions(transformedExecutions)
+        console.log('Executions transformed:', transformedExecutions.length)
       } else {
         console.error('Failed to load executions:', results[3].reason)
       }
 
-      // Process metrics
+      // Process metrics (general metrics)
       if (results[4].status === 'fulfilled') {
-        setMetrics(results[4].value.data || [])
+        const metricsData = results[4].value.data
+        console.log('📊 Métricas recebidas da API:', metricsData)
+        
+        // Usar os dados reais da API de métricas
+        const metricsArray = [{
+          total_events: metricsData.totalExecutions || 0,
+          successful_events: metricsData.successfulExecutions || 0,
+          failed_events: metricsData.failedExecutions || 0,
+          retrying_events: 0, // Não temos dados de retry ainda
+          success_rate: metricsData.successRate || 0,
+          company_id: 'global',
+          company_name: 'Global'
+        }]
+        
+        console.log('📊 Métricas transformadas para Dashboard:', metricsArray)
+        setMetrics(metricsArray)
       } else {
         console.error('Failed to load metrics:', results[4].reason)
+        setMetrics([{
+          total_events: 0,
+          successful_events: 0,
+          failed_events: 0,
+          retrying_events: 0,
+          success_rate: 0,
+          company_id: 'global',
+          company_name: 'Global'
+        }])
+      }
+
+      // Process metrics by company
+      if (results[6].status === 'fulfilled') {
+        const companyMetricsData = results[6].value.data
+        setCompanyMetrics(companyMetricsData || [])
+        console.log('✅ Métricas por empresa carregadas:', companyMetricsData?.length || 0)
+      } else {
+        console.error('Failed to load company metrics:', results[6].reason)
+        setCompanyMetrics([])
       }
 
       // Process most used events
@@ -454,6 +563,7 @@ export const useWebhookManager = () => {
     webhooks,
     executions,
     metrics,
+    companyMetrics,
     mostUsedEvents,
     socketEvents,
     isSocketConnected,

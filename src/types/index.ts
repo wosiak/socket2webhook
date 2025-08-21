@@ -23,6 +23,9 @@ export interface Webhook {
   name: string;
   url: string;
   status: 'active' | 'inactive' | 'paused';
+  is_active?: boolean; // Para compatibilidade com a API
+  event_types?: string[]; // Para compatibilidade com a API
+  event_ids?: string[]; // IDs dos eventos para edição
   created_at: string;
   updated_at: string;
   company?: {
@@ -49,6 +52,7 @@ export interface ExecutionHistory {
   company_id: string;
   webhook_id: string;
   event_id: string;
+  event_type?: string; // Nome do evento para exibição
   payload: any;
   status: 'pending' | 'success' | 'failed' | 'retrying';
   attempts: number;

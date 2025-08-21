@@ -53,11 +53,22 @@ export function WebhookConnectionManager({
   // Carrega webhooks da empresa
   const loadWebhooks = async () => {
     try {
+      console.log('🔄 Carregando webhooks para empresa:', companyId)
       const response = await apiService.getWebhooks(companyId)
       const webhookData = response.data || []
+      console.log('📋 Webhooks carregados:', webhookData)
+      console.log('📊 Detalhes dos webhooks:')
+      webhookData.forEach((webhook: any, index: number) => {
+        console.log(`  ${index + 1}. ID: ${webhook.id}`)
+        console.log(`     Nome: ${webhook.name}`)
+        console.log(`     URL: ${webhook.url}`)
+        console.log(`     Ativo: ${webhook.is_active}`)
+        console.log(`     Eventos: ${webhook.event_types?.join(', ') || 'Nenhum'}`)
+        console.log(`     Company ID: ${webhook.company_id}`)
+      })
       setWebhooks(webhookData)
     } catch (err) {
-      console.error('Error loading webhooks:', err)
+      console.error('❌ Error loading webhooks:', err)
     }
   }
 
@@ -67,6 +78,13 @@ export function WebhookConnectionManager({
       // Usa o serviço local de socket
       const connectionInfo = webhookSocketService.getConnectionInfo()
       const isSocketConnected = connectionInfo.isConnected && connectionInfo.companyId === companyId
+      
+      console.log('🔍 Verificando status da conexão:')
+      console.log('  - ConnectionInfo:', connectionInfo)
+      console.log('  - CompanyId atual:', companyId)
+      console.log('  - CompanyId da conexão:', connectionInfo.companyId)
+      console.log('  - IsConnected:', connectionInfo.isConnected)
+      console.log('  - Resultado final:', isSocketConnected)
       
       setIsConnected(isSocketConnected)
       onStatusChange?.(isSocketConnected)
@@ -84,9 +102,14 @@ export function WebhookConnectionManager({
     setError(null)
     
     try {
+      console.log('🚀 Iniciando conexão ao webhook para empresa:', companyId)
+      
       // Busca a empresa para obter o token
+      console.log('🔍 Buscando dados da empresa...')
       const companiesResponse = await apiService.getCompanies()
       const company = companiesResponse.data.find((c: any) => c.id === companyId)
+      
+      console.log('🏢 Dados da empresa encontrados:', company)
       
       if (!company) {
         throw new Error('Empresa não encontrada')
@@ -96,21 +119,39 @@ export function WebhookConnectionManager({
         throw new Error('Token de API não configurado para esta empresa')
       }
 
+      console.log('🔑 Token da empresa encontrado:', company.api_token ? 'Sim' : 'Não')
+      console.log('📋 Webhooks disponíveis:', webhooks.length)
+      console.log('📊 Webhooks carregados no estado:', webhooks)
+
       // Filtra webhooks ativos
       const activeWebhooks = webhooks.filter(w => w.is_active)
+      console.log('✅ Webhooks ativos encontrados:', activeWebhooks.length)
+      console.log('📋 Detalhes dos webhooks ativos:')
+      activeWebhooks.forEach((webhook, index) => {
+        console.log(`  ${index + 1}. ID: ${webhook.id}`)
+        console.log(`     Nome: ${webhook.name}`)
+        console.log(`     URL: ${webhook.url}`)
+        console.log(`     Eventos: ${webhook.event_types?.join(', ') || 'Nenhum'}`)
+      })
       
       if (activeWebhooks.length === 0) {
+        console.log('❌ Nenhum webhook ativo encontrado. Webhooks disponíveis:')
+        webhooks.forEach((webhook, index) => {
+          console.log(`  ${index + 1}. ID: ${webhook.id} - Ativo: ${webhook.is_active}`)
+        })
         throw new Error('Nenhum webhook ativo encontrado para esta empresa')
       }
 
+      console.log('🔌 Conectando ao socket da 3C Plus...')
       // Conecta ao socket da 3C Plus
       await webhookSocketService.connectToSocket(companyId, company.api_token, activeWebhooks)
       
+      console.log('✅ Conexão ao socket estabelecida com sucesso!')
       setIsConnected(true)
       onStatusChange?.(true)
       await checkConnectionStatus()
     } catch (err: any) {
-      console.error('Error connecting webhook:', err)
+      console.error('❌ Error connecting webhook:', err)
       setError(err.message || 'Erro ao conectar webhook')
     } finally {
       setIsLoading(false)
@@ -137,6 +178,9 @@ export function WebhookConnectionManager({
 
   // Carrega o status inicial
   useEffect(() => {
+    console.log('🔄 WebhookConnectionManager: useEffect executado')
+    console.log('🏢 Company ID:', companyId)
+    
     loadWebhooks()
     checkConnectionStatus()
     
