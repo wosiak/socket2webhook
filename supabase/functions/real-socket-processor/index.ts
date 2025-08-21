@@ -35,6 +35,9 @@ serve(async (req) => {
       case 'ensure_all_active_connected':
         return await ensureAllActiveConnected(supabase)
       
+      case 'disconnect_all':
+        return await disconnectAll()
+      
       default:
         return new Response(
           JSON.stringify({ error: 'Invalid action' }),
@@ -430,6 +433,49 @@ async function ensureAllActiveConnected(supabase: any) {
     )
   } catch (error) {
     console.error(`❌ Error ensuring all active companies connected:`, error)
+    throw error
+  }
+}
+
+async function disconnectAll() {
+  try {
+    console.log(`🛑 Disconnecting all companies...`)
+    
+    const disconnectedCompanies = []
+    
+    // Disconnect all active connections
+    for (const [companyId, connection] of activeConnections.entries()) {
+      try {
+        const socket = socketInstances.get(companyId)
+        if (socket) {
+          socket.disconnect()
+          socketInstances.delete(companyId)
+        }
+        disconnectedCompanies.push({
+          company_id: companyId,
+          company_name: connection.company?.name || 'Unknown'
+        })
+      } catch (error) {
+        console.error(`❌ Error disconnecting company ${companyId}:`, error)
+      }
+    }
+    
+    // Clear all connections
+    activeConnections.clear()
+    socketInstances.clear()
+
+    console.log(`✅ Disconnected ${disconnectedCompanies.length} companies`)
+
+    return new Response(
+      JSON.stringify({ 
+        message: 'All companies disconnected',
+        disconnected_count: disconnectedCompanies.length,
+        disconnected_companies: disconnectedCompanies
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  } catch (error) {
+    console.error(`❌ Error disconnecting all companies:`, error)
     throw error
   }
 }

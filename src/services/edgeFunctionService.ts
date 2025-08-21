@@ -141,10 +141,16 @@ class EdgeFunctionService {
     try {
       console.log('🔄 Starting all active webhook processors (REAL sockets)...')
       
-      // Primeiro, conectar ao socket REAL da 3C Plus
+      // 1. Iniciar monitor que garante conexões persistentes
+      await this.startWebhookMonitor()
+      
+      // 2. Conectar ao socket REAL da 3C Plus
       await this.connectAllRealSockets()
       
-      // Depois, iniciar processadores de backup
+      // 3. Forçar reconexão para garantir que tudo está conectado
+      await this.forceReconnectAll()
+      
+      // 4. Iniciar processadores de backup
       await this.startBackupProcessors()
       
     } catch (error) {
@@ -223,10 +229,54 @@ class EdgeFunctionService {
     }
   }
 
+  // Iniciar monitor de webhooks
+  async startWebhookMonitor(): Promise<EdgeFunctionResponse> {
+    console.log(`🔍 Starting webhook monitor`)
+    
+    return await this.callEdgeFunction('webhook-monitor', {
+      action: 'start_monitor'
+    })
+  }
+
+  // Parar monitor de webhooks
+  async stopWebhookMonitor(): Promise<EdgeFunctionResponse> {
+    console.log(`🛑 Stopping webhook monitor`)
+    
+    return await this.callEdgeFunction('webhook-monitor', {
+      action: 'stop_monitor'
+    })
+  }
+
+  // Forçar reconexão de todos os webhooks
+  async forceReconnectAll(): Promise<EdgeFunctionResponse> {
+    console.log(`🔄 Force reconnecting all webhooks`)
+    
+    return await this.callEdgeFunction('webhook-monitor', {
+      action: 'force_reconnect_all'
+    })
+  }
+
+  // Verificar status do monitor
+  async checkMonitorStatus(): Promise<EdgeFunctionResponse> {
+    console.log(`🔍 Checking monitor status`)
+    
+    return await this.callEdgeFunction('webhook-monitor', {
+      action: 'check_monitor_status'
+    })
+  }
+
   // Parar processamento para todas as empresas
   async stopAllProcessors(): Promise<void> {
     try {
       console.log('🛑 Stopping all webhook processors...')
+      
+      // Stop monitor first
+      await this.stopWebhookMonitor()
+      
+      // Disconnect all real sockets
+      await this.callEdgeFunction('real-socket-processor', {
+        action: 'disconnect_all'
+      })
       
       // Buscar todas as empresas
       const { data: companies, error } = await supabase
