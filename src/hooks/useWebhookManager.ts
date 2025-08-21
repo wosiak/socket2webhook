@@ -46,46 +46,62 @@ export const useWebhookManager = () => {
     }
   }, [])
 
-  // Função para conectar automaticamente todas as empresas com webhooks ativos via Edge Functions
+  // Função para conectar automaticamente todas as empresas com webhooks ativos (Sistema Local + Edge Functions)
   const connectAllActiveCompanies = useCallback(async () => {
     try {
-      console.log('🚀 Initializing Edge Function processors...')
+      console.log('🚀 Initializing webhook system (Local + Edge Functions)...')
       
-      // Buscar empresas com webhooks ativos
-      const companiesWithActiveWebhooks = companies.filter(company => {
+      // Verificar se já está conectado
+      const connectionInfo = webhookSocketService.getConnectionInfo()
+      if (connectionInfo.isConnected) {
+        console.log(`✅ Already connected to company ${connectionInfo.companyId}`)
+        return
+      }
+      
+      // Buscar a primeira empresa com webhooks ativos (uma por vez para estabilidade)
+      const companyWithActiveWebhooks = companies.find(company => {
         const companyWebhooks = webhooks.filter(w => w.company_id === company.id)
         const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
         return activeWebhooks.length > 0 && company.api_token && company.status === 'active'
       })
       
-      if (companiesWithActiveWebhooks.length === 0) {
-        console.log('📭 No companies with active webhooks found for Edge Functions')
+      if (!companyWithActiveWebhooks) {
+        console.log('📭 No companies with active webhooks found')
         return
       }
       
-      console.log(`📋 Found ${companiesWithActiveWebhooks.length} companies with active webhooks`)
+      console.log(`🔌 Connecting to company: ${companyWithActiveWebhooks.name}`)
       
-      // Inicializar processadores para todas as empresas ativas
-      const results = await Promise.allSettled(
-        companiesWithActiveWebhooks.map(async (company) => {
-          try {
-            console.log(`🚀 Starting Edge Function processor for: ${company.name}`)
-            await edgeFunctionService.startWebhookProcessor(company.id)
-            console.log(`✅ Edge Function processor started for: ${company.name}`)
-          } catch (error) {
-            console.error(`❌ Failed to start processor for ${company.name}:`, error)
-            throw error
-          }
-        })
-      )
+      const companyWebhooks = webhooks.filter(w => w.company_id === companyWithActiveWebhooks.id)
+      const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
       
-      const successful = results.filter(r => r.status === 'fulfilled').length
-      const failed = results.filter(r => r.status === 'rejected').length
+      // Converter webhooks para o formato esperado
+      const webhookConfigs = activeWebhooks.map(webhook => ({
+        id: webhook.id,
+        company_id: webhook.company_id,
+        url: webhook.url,
+        is_active: webhook.is_active || webhook.status === 'active',
+        event_types: webhook.event_types || webhook.webhook_events?.map(we => we.event.name) || []
+      }))
       
-      console.log(`✅ Edge Function processors initialized: ${successful} successful, ${failed} failed`)
+      // Conectar via socket local (funciona imediatamente)
+      await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
+      console.log(`✅ Local socket connected for: ${companyWithActiveWebhooks.name}`)
+      
+      // Tentar inicializar Edge Function como backup (sem bloquear se falhar)
+      try {
+        console.log(`🚀 Starting Edge Function backup for: ${companyWithActiveWebhooks.name}`)
+        await Promise.race([
+          edgeFunctionService.startWebhookProcessor(companyWithActiveWebhooks.id),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+        ])
+        console.log(`✅ Edge Function backup started for: ${companyWithActiveWebhooks.name}`)
+      } catch (error) {
+        console.log(`⚠️ Edge Function backup failed (using local only): ${error.message}`)
+      }
       
     } catch (error) {
-      console.error('❌ Error initializing Edge Function processors:', error)
+      console.error('❌ Error in webhook system initialization:', error)
     }
   }, [companies, webhooks])
 
