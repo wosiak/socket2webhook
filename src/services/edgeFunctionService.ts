@@ -107,10 +107,73 @@ class EdgeFunctionService {
     })
   }
 
-  // Iniciar processamento para todas as empresas ativas
+  // Conectar empresa ao socket REAL da 3C Plus
+  async connectRealSocket(companyId: string): Promise<EdgeFunctionResponse> {
+    console.log(`🔌 Connecting REAL socket for company: ${companyId}`)
+    
+    return await this.callEdgeFunction('real-socket-processor', {
+      action: 'connect_real_socket',
+      companyId
+    })
+  }
+
+  // Desconectar empresa do socket REAL da 3C Plus  
+  async disconnectRealSocket(companyId: string): Promise<EdgeFunctionResponse> {
+    console.log(`🔌 Disconnecting REAL socket for company: ${companyId}`)
+    
+    return await this.callEdgeFunction('real-socket-processor', {
+      action: 'disconnect_real_socket',
+      companyId
+    })
+  }
+
+  // Verificar status das conexões REAIS
+  async checkRealConnections(): Promise<EdgeFunctionResponse> {
+    console.log(`🔍 Checking REAL socket connections status`)
+    
+    return await this.callEdgeFunction('real-socket-processor', {
+      action: 'check_connections'
+    })
+  }
+
+  // Iniciar processamento para todas as empresas ativas (Socket REAL da 3C Plus)
   async startAllActiveProcessors(): Promise<void> {
     try {
-      console.log('🔄 Starting all active webhook processors...')
+      console.log('🔄 Starting all active webhook processors (REAL sockets)...')
+      
+      // Primeiro, conectar ao socket REAL da 3C Plus
+      await this.connectAllRealSockets()
+      
+      // Depois, iniciar processadores de backup
+      await this.startBackupProcessors()
+      
+    } catch (error) {
+      console.error('❌ Error starting active processors:', error)
+      throw error
+    }
+  }
+
+  // Conectar todas as empresas ativas ao socket REAL da 3C Plus  
+  async connectAllRealSockets(): Promise<void> {
+    try {
+      console.log('🚀 Connecting all companies to REAL 3C Plus sockets...')
+      
+      const response = await this.callEdgeFunction('real-socket-processor', {
+        action: 'ensure_all_active_connected'
+      })
+      
+      console.log('✅ Real socket connections result:', response)
+      
+    } catch (error) {
+      console.error('❌ Error connecting real sockets:', error)
+      // Continue anyway, local system will work
+    }
+  }
+
+  // Iniciar processadores de backup
+  async startBackupProcessors(): Promise<void> {
+    try {
+      console.log('🔄 Starting backup processors...')
       
       // Buscar todas as empresas com webhooks ativos
       const { data: companies, error } = await supabase
@@ -142,9 +205,9 @@ class EdgeFunctionService {
         companies.map(async (company) => {
           try {
             await this.startWebhookProcessor(company.id)
-            console.log(`✅ Started processor for company: ${company.name}`)
+            console.log(`✅ Started backup processor for company: ${company.name}`)
           } catch (error) {
-            console.error(`❌ Failed to start processor for company ${company.name}:`, error)
+            console.error(`❌ Failed to start backup processor for company ${company.name}:`, error)
             throw error
           }
         })
@@ -153,9 +216,9 @@ class EdgeFunctionService {
       const successful = results.filter(r => r.status === 'fulfilled').length
       const failed = results.filter(r => r.status === 'rejected').length
 
-      console.log(`📊 Processors started: ${successful} successful, ${failed} failed`)
+      console.log(`📊 Backup processors started: ${successful} successful, ${failed} failed`)
     } catch (error) {
-      console.error('❌ Error starting active processors:', error)
+      console.error('❌ Error starting backup processors:', error)
       throw error
     }
   }
