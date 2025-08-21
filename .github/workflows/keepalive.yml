@@ -2,8 +2,8 @@ name: Webhook Keepalive
 
 on:
   schedule:
-    # Executa a cada 15 minutos
-    - cron: '*/15 * * * *'
+    # Executa a cada 5 minutos para garantia máxima
+    - cron: '*/5 * * * *'
   workflow_dispatch: # Permite execução manual
 
 jobs:
@@ -15,24 +15,22 @@ jobs:
       run: |
         echo "🔄 Keeping webhook system alive..."
         
-        # Call keepalive scheduler
+        # Call public keepalive (não precisa de auth)
         response=$(curl -s -X POST \
+          https://primzeelnavovenfdhma.supabase.co/functions/v1/public-keepalive \
+          -H "Content-Type: application/json" \
+          --max-time 45)
+        
+        echo "Public keepalive response: $response"
+        
+        # Backup call with auth
+        auth_response=$(curl -s -X POST \
           https://primzeelnavovenfdhma.supabase.co/functions/v1/keepalive-scheduler \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByaW16ZWVsbmF2b3ZlbmZkaG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NDgyMzgsImV4cCI6MjA3MTEyNDIzOH0.exCcezOlx0klLLCkwb5rY68ZxsAsWKfsskQmKiv-M08" \
           -H "Content-Type: application/json" \
           -d '{"action": "keepalive"}' \
           --max-time 30)
         
-        echo "Keepalive response: $response"
-        
-        # Call webhook monitor
-        monitor_response=$(curl -s -X POST \
-          https://primzeelnavovenfdhma.supabase.co/functions/v1/webhook-monitor \
-          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
-          -H "Content-Type: application/json" \
-          -d '{"action": "force_reconnect_all"}' \
-          --max-time 30)
-        
-        echo "Monitor response: $monitor_response"
+        echo "Backup keepalive response: $auth_response"
         
         echo "✅ Keepalive completed successfully"
