@@ -141,16 +141,19 @@ class EdgeFunctionService {
     try {
       console.log('🔄 Starting all active webhook processors (REAL sockets)...')
       
-      // 1. Iniciar monitor que garante conexões persistentes
+      // 1. Iniciar keepalive scheduler (mantém tudo ativo 24/7)
+      await this.startKeepaliveScheduler()
+      
+      // 2. Iniciar monitor que garante conexões persistentes
       await this.startWebhookMonitor()
       
-      // 2. Conectar ao socket REAL da 3C Plus
+      // 3. Conectar ao socket REAL da 3C Plus
       await this.connectAllRealSockets()
       
-      // 3. Forçar reconexão para garantir que tudo está conectado
+      // 4. Forçar reconexão para garantir que tudo está conectado
       await this.forceReconnectAll()
       
-      // 4. Iniciar processadores de backup
+      // 5. Iniciar processadores de backup
       await this.startBackupProcessors()
       
     } catch (error) {
@@ -262,6 +265,33 @@ class EdgeFunctionService {
     
     return await this.callEdgeFunction('webhook-monitor', {
       action: 'check_monitor_status'
+    })
+  }
+
+  // Iniciar keepalive scheduler
+  async startKeepaliveScheduler(): Promise<EdgeFunctionResponse> {
+    console.log(`🔄 Starting keepalive scheduler`)
+    
+    return await this.callEdgeFunction('keepalive-scheduler', {
+      action: 'start_keepalive'
+    })
+  }
+
+  // Parar keepalive scheduler
+  async stopKeepaliveScheduler(): Promise<EdgeFunctionResponse> {
+    console.log(`🛑 Stopping keepalive scheduler`)
+    
+    return await this.callEdgeFunction('keepalive-scheduler', {
+      action: 'stop_keepalive'
+    })
+  }
+
+  // Verificar status do keepalive
+  async checkKeepaliveStatus(): Promise<EdgeFunctionResponse> {
+    console.log(`🔍 Checking keepalive status`)
+    
+    return await this.callEdgeFunction('keepalive-scheduler', {
+      action: 'status'
     })
   }
 

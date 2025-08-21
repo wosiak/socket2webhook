@@ -1,0 +1,38 @@
+name: Webhook Keepalive
+
+on:
+  schedule:
+    # Executa a cada 15 minutos
+    - cron: '*/15 * * * *'
+  workflow_dispatch: # Permite execução manual
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Keep webhooks alive
+      run: |
+        echo "🔄 Keeping webhook system alive..."
+        
+        # Call keepalive scheduler
+        response=$(curl -s -X POST \
+          https://primzeelnavovenfdhma.supabase.co/functions/v1/keepalive-scheduler \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "keepalive"}' \
+          --max-time 30)
+        
+        echo "Keepalive response: $response"
+        
+        # Call webhook monitor
+        monitor_response=$(curl -s -X POST \
+          https://primzeelnavovenfdhma.supabase.co/functions/v1/webhook-monitor \
+          -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+          -H "Content-Type: application/json" \
+          -d '{"action": "force_reconnect_all"}' \
+          --max-time 30)
+        
+        echo "Monitor response: $monitor_response"
+        
+        echo "✅ Keepalive completed successfully"
