@@ -313,6 +313,6 @@ secret = ""
 # email = "email"
 # name = "name"
 
-[edge_functions]
+# [functions]
 # Configure one of the supported request policies: `oneshot`, `per_worker`, `per_function`.
-request_policy = "per_function"
+# request_policy = "per_function"

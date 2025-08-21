@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "./components/ui/dialog";
 import { Alert, AlertDescription } from "./components/ui/alert";
@@ -10,6 +10,7 @@ import { CompanyDetail } from "./components/CompanyDetail";
 import { CompanyFormModal } from "./components/CompanyFormModal";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
+import { edgeFunctionService } from "./services/edgeFunctionService";
 import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft } from "lucide-react";
 
 export default function App() {
@@ -41,6 +42,25 @@ export default function App() {
   const { currentView, currentCompanyId, navigateTo, navigateBack } = useRouter();
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [edgeProcessorsStarted, setEdgeProcessorsStarted] = useState(false);
+
+  // Inicializar processadores Edge Functions automaticamente
+  useEffect(() => {
+    const initializeEdgeProcessors = async () => {
+      if (!edgeProcessorsStarted && companies.length > 0) {
+        try {
+          console.log('🚀 Initializing Edge Function processors...');
+          await edgeFunctionService.startAllActiveProcessors();
+          setEdgeProcessorsStarted(true);
+          console.log('✅ Edge Function processors initialized successfully');
+        } catch (error) {
+          console.error('❌ Error initializing Edge Function processors:', error);
+        }
+      }
+    };
+
+    initializeEdgeProcessors();
+  }, [companies, edgeProcessorsStarted]);
 
   const currentCompany = companies.find(c => c.id === currentCompanyId);
   const companyWebhooks = webhooks.filter(w => w.company_id === currentCompanyId);

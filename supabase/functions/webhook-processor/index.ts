@@ -127,22 +127,30 @@ async function startWebhookProcessor(supabase: any, companyId: string) {
     console.log(`📋 Found ${webhookConfigs.length} active webhooks for company ${companyId}`)
 
     // Store webhook configs in KV store for the processor
-    await supabase
+    const { error: kvError1 } = await supabase
       .from('kv_store')
       .upsert({
         key: `webhook_configs_${companyId}`,
-        value: JSON.stringify(webhookConfigs),
+        value: webhookConfigs,
         updated_at: new Date().toISOString()
       })
 
+    if (kvError1) {
+      console.error('Error storing webhook configs:', kvError1)
+    }
+
     // Store company info
-    await supabase
+    const { error: kvError2 } = await supabase
       .from('kv_store')
       .upsert({
         key: `company_info_${companyId}`,
-        value: JSON.stringify(company),
+        value: company,
         updated_at: new Date().toISOString()
       })
+
+    if (kvError2) {
+      console.error('Error storing company info:', kvError2)
+    }
 
     return new Response(
       JSON.stringify({ 
@@ -213,7 +221,9 @@ async function processEvent(supabase: any, eventData: any) {
       )
     }
 
-    const webhookConfigs: WebhookConfig[] = JSON.parse(configData.value)
+    const webhookConfigs: WebhookConfig[] = Array.isArray(configData.value) 
+      ? configData.value 
+      : JSON.parse(configData.value as string)
     
     // Filter webhooks that listen to this event type
     const relevantWebhooks = webhookConfigs.filter(config => 
