@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { projectId, publicAnonKey } from '../utils/supabase/info'
 import { Company, Event, Webhook, Execution, Metrics, MostUsedEvent, SocketEvent } from '../types'
 import { webhookSocketService } from '../services/webhookSocketService'
+import { edgeFunctionService } from '../services/edgeFunctionService'
 
 // Cliente Supabase para busca direta
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey)
@@ -45,49 +46,46 @@ export const useWebhookManager = () => {
     }
   }, [])
 
-  // Função para conectar automaticamente todas as empresas com webhooks ativos
+  // Função para conectar automaticamente todas as empresas com webhooks ativos via Edge Functions
   const connectAllActiveCompanies = useCallback(async () => {
     try {
-      console.log('🔌 Conectando automaticamente todas as empresas com webhooks ativos...')
+      console.log('🚀 Initializing Edge Function processors...')
       
-      // Verificar se já está conectado
-      const connectionInfo = webhookSocketService.getConnectionInfo()
-      if (connectionInfo.isConnected) {
-        console.log(`✅ Já conectado à empresa ${connectionInfo.companyId}`)
-        return
-      }
-      
-      // Buscar a primeira empresa com webhooks ativos (uma por vez)
-      const companyWithActiveWebhooks = companies.find(company => {
+      // Buscar empresas com webhooks ativos
+      const companiesWithActiveWebhooks = companies.filter(company => {
         const companyWebhooks = webhooks.filter(w => w.company_id === company.id)
         const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
         return activeWebhooks.length > 0 && company.api_token && company.status === 'active'
       })
       
-      if (!companyWithActiveWebhooks) {
-        console.log('ℹ️ Nenhuma empresa com webhooks ativos encontrada')
+      if (companiesWithActiveWebhooks.length === 0) {
+        console.log('📭 No companies with active webhooks found for Edge Functions')
         return
       }
       
-      console.log(`🔌 Conectando empresa: ${companyWithActiveWebhooks.name}`)
+      console.log(`📋 Found ${companiesWithActiveWebhooks.length} companies with active webhooks`)
       
-      const companyWebhooks = webhooks.filter(w => w.company_id === companyWithActiveWebhooks.id)
-      const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
+      // Inicializar processadores para todas as empresas ativas
+      const results = await Promise.allSettled(
+        companiesWithActiveWebhooks.map(async (company) => {
+          try {
+            console.log(`🚀 Starting Edge Function processor for: ${company.name}`)
+            await edgeFunctionService.startWebhookProcessor(company.id)
+            console.log(`✅ Edge Function processor started for: ${company.name}`)
+          } catch (error) {
+            console.error(`❌ Failed to start processor for ${company.name}:`, error)
+            throw error
+          }
+        })
+      )
       
-      // Converter webhooks para o formato esperado
-      const webhookConfigs = activeWebhooks.map(webhook => ({
-        id: webhook.id,
-        company_id: webhook.company_id,
-        url: webhook.url,
-        is_active: webhook.is_active || webhook.status === 'active',
-        event_types: webhook.event_types || webhook.webhook_events?.map(we => we.event.name) || []
-      }))
+      const successful = results.filter(r => r.status === 'fulfilled').length
+      const failed = results.filter(r => r.status === 'rejected').length
       
-      await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
-      console.log(`✅ Empresa ${companyWithActiveWebhooks.name} conectada com sucesso`)
+      console.log(`✅ Edge Function processors initialized: ${successful} successful, ${failed} failed`)
       
     } catch (error) {
-      console.error('❌ Erro no processo de conexão automática:', error)
+      console.error('❌ Error initializing Edge Function processors:', error)
     }
   }, [companies, webhooks])
 
