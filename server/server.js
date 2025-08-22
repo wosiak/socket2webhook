@@ -24,7 +24,7 @@ const socketInstances = new Map();
 
 // Cache para deduplicação de eventos (evitar POSTs duplicados)
 const eventCache = new Map();
-const CACHE_TTL = 30000; // 30 segundos para considerar evento duplicado
+const CACHE_TTL = 60000; // 60 segundos para considerar evento duplicado
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -403,10 +403,26 @@ async function connect3CPlusSocket(company, webhooks) {
 
 // Funções para deduplicação de eventos
 function createEventKey(companyId, eventName, eventData) {
-  // Criar chave baseada em dados únicos da mensagem
-  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid || eventData?.messageId;
-  const timestamp = eventData?.timestamp || eventData?.created_at || eventData?.createdAt;
-  const phone = eventData?.phone || eventData?.from || eventData?.number || eventData?.contact;
+  // Tentar extrair dados da estrutura { chat: {}, message: {} }
+  const chat = eventData?.chat || {};
+  const message = eventData?.message || {};
+  
+  // Extrair IDs únicos de diferentes locais
+  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid || eventData?.messageId ||
+                   message?.id || message?.message_id || message?.uuid ||
+                   chat?.id || chat?.message_id;
+                   
+  const timestamp = eventData?.timestamp || eventData?.created_at || eventData?.createdAt ||
+                   message?.timestamp || message?.created_at || message?.createdAt ||
+                   chat?.timestamp || chat?.created_at;
+                   
+  const phone = eventData?.phone || eventData?.from || eventData?.number || eventData?.contact ||
+               message?.phone || message?.from || message?.number ||
+               chat?.phone || chat?.from || chat?.number || chat?.id;
+  
+  // Dados do texto da mensagem para fallback
+  const messageText = message?.text || message?.body || message?.content || '';
+  const chatId = chat?.id || chat?.chat_id || chat?.conversation_id;
   
   // Log para debug da chave de deduplicação
   console.log(`🔑 Criando chave de deduplicação:`, {
@@ -415,19 +431,31 @@ function createEventKey(companyId, eventName, eventData) {
     messageId,
     timestamp,
     phone,
-    eventDataKeys: Object.keys(eventData || {})
+    chatId,
+    messageText: messageText.substring(0, 50),
+    eventDataKeys: Object.keys(eventData || {}),
+    chatKeys: Object.keys(chat),
+    messageKeys: Object.keys(message)
   });
   
-  // Se temos ID único da mensagem, usar ele
+  // PRIORIDADE 1: ID único da mensagem
   if (messageId) {
     const key = `${companyId}:${eventName}:${messageId}`;
     console.log(`🔑 Chave baseada em messageId: ${key}`);
     return key;
   }
   
-  // Senão, usar combinação de dados + timestamp mais agressivo (5 segundos)
-  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 5000) : Math.floor(Date.now() / 5000);
-  const key = `${companyId}:${eventName}:${phone}:${truncatedTimestamp}`;
+  // PRIORIDADE 2: Chat ID + texto da mensagem (mais específico)
+  if (chatId && messageText) {
+    const textHash = messageText.substring(0, 20); // Primeiros 20 chars
+    const key = `${companyId}:${eventName}:${chatId}:${textHash}`;
+    console.log(`🔑 Chave baseada em chatId+texto: ${key}`);
+    return key;
+  }
+  
+  // PRIORIDADE 3: Phone + timestamp (mais agressivo: 3 segundos)
+  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 3000) : Math.floor(Date.now() / 3000);
+  const key = `${companyId}:${eventName}:${phone || 'unknown'}:${truncatedTimestamp}`;
   console.log(`🔑 Chave baseada em phone+timestamp: ${key}`);
   
   return key;
@@ -617,7 +645,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-        payload: webhookPayload,
+
         status: status,
         response_status: response.status,
         response_body: responseText.length > 1000 ? responseText.substring(0, 1000) + '...' : responseText,
@@ -649,7 +677,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-        payload: eventData,
+
         status: 'failed',
         error_message: error.message,
         created_at: new Date().toISOString(),

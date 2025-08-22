@@ -84,9 +84,9 @@ export const useWebhookManager = () => {
         event_types: webhook.event_types || webhook.webhook_events?.map(we => we.event.name) || []
       }))
       
-      // Conectar via socket local (funciona imediatamente)
-      await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
-      console.log(`✅ Local socket connected for: ${companyWithActiveWebhooks.name}`)
+      // Frontend socket desabilitado - usando apenas backend Render 24/7
+      // await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
+      console.log(`⚠️ Frontend socket disabled - using backend Render 24/7 for: ${companyWithActiveWebhooks.name}`)
       
       // Tentar inicializar Edge Function como backup (sem bloquear se falhar)
       try {
