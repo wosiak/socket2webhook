@@ -656,7 +656,9 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const status = response.ok ? 'success' : 'failed';
     const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
 
-    // Salvar execução no banco
+    // Salvar execução no banco - DEBUG
+    console.log(`🔍 [DEBUG] Tentando salvar execução: webhook_id=${webhook.id}, company_id=${companyId}, event_id=${eventId}, status=${status}`);
+    
     const { error: executionError } = await supabase
       .from('webhook_executions')
       .insert({
@@ -674,6 +676,9 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 
     if (executionError) {
       console.error('❌ Erro ao salvar execução do webhook:', executionError);
+      console.error('❌ [DEBUG] Detalhes do erro:', JSON.stringify(executionError, null, 2));
+    } else {
+      console.log(`✅ [DEBUG] Execução salva com sucesso no banco de dados!`);
     }
 
     console.log(`✅ Webhook ${webhook.id} executado: ${status} (${response.status})`);
