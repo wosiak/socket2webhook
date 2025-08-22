@@ -555,7 +555,14 @@ export function CompanyDetail({
             {/* Status da Conexão */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                {/* Status visual removido - sistema funciona automaticamente */}
+                {isSocketConnected ? (
+                  <Wifi className="h-4 w-4 text-green-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-gray-400" />
+                )}
+                <span className={`text-sm ${isSocketConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isSocketConnected ? 'Conectado' : 'Desconectado'}
+                </span>
               </div>
               
                              <Dialog open={isWebhookDialogOpen} onOpenChange={(open) => {
