@@ -24,7 +24,11 @@ const socketInstances = new Map();
 
 // Cache para deduplicação de eventos (evitar POSTs duplicados)
 const eventCache = new Map();
-const CACHE_TTL = 60000; // 60 segundos para considerar evento duplicado
+const CACHE_TTL = 120000; // 120 segundos para considerar evento duplicado
+
+// Fila de processamento sequencial para evitar race conditions
+const processingQueue = new Map(); // Map de companyId -> Array de eventos
+const isProcessing = new Map(); // Map de companyId -> boolean
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -356,31 +360,11 @@ async function connect3CPlusSocket(company, webhooks) {
         reject(error);
       });
 
-      // Escutar TODOS os eventos
+      // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
       socket.onAny(async (eventName, eventData) => {
         try {
-          // Criar chave única para deduplicação
-          const eventKey = createEventKey(company.id, eventName, eventData);
-          
-          // Verificar se evento já foi processado recentemente
-          if (isEventDuplicate(eventKey)) {
-            console.log(`🔄 Evento duplicado ignorado para ${company.name}: ${eventName} (chave: ${eventKey})`);
-            return;
-          }
-          
-          console.log(`📡 Evento recebido para ${company.name}: ${eventName} (chave: ${eventKey})`);
-          
-          // Marcar evento como processado
-          markEventAsProcessed(eventKey);
-          
-          // Atualizar última atividade
-          const connection = activeConnections.get(company.id);
-          if (connection) {
-            connection.lastActivity = new Date().toISOString();
-          }
-
-          // Processar evento através dos webhooks
-          await processEventThroughWebhooks(company.id, eventName, eventData, webhooks);
+          // Adicionar evento à fila de processamento sequencial
+          addEventToQueue(company.id, eventName, eventData, company.name);
           
         } catch (error) {
           console.error(`❌ Erro ao processar evento ${eventName} para empresa ${company.name}:`, error);
@@ -401,64 +385,98 @@ async function connect3CPlusSocket(company, webhooks) {
   });
 }
 
-// Funções para deduplicação de eventos
+// SISTEMA DE DEDUPLICAÇÃO ULTRA-AGRESSIVO
 function createEventKey(companyId, eventName, eventData) {
-  // Tentar extrair dados da estrutura { chat: {}, message: {} }
-  const chat = eventData?.chat || {};
-  const message = eventData?.message || {};
-  
-  // Extrair IDs únicos de diferentes locais
-  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid || eventData?.messageId ||
-                   message?.id || message?.message_id || message?.uuid ||
-                   chat?.id || chat?.message_id;
-                   
-  const timestamp = eventData?.timestamp || eventData?.created_at || eventData?.createdAt ||
-                   message?.timestamp || message?.created_at || message?.createdAt ||
-                   chat?.timestamp || chat?.created_at;
-                   
-  const phone = eventData?.phone || eventData?.from || eventData?.number || eventData?.contact ||
-               message?.phone || message?.from || message?.number ||
-               chat?.phone || chat?.from || chat?.number || chat?.id;
-  
-  // Dados do texto da mensagem para fallback
-  const messageText = message?.text || message?.body || message?.content || '';
-  const chatId = chat?.id || chat?.chat_id || chat?.conversation_id;
-  
-  // Log para debug da chave de deduplicação
-  console.log(`🔑 Criando chave de deduplicação:`, {
-    companyId,
-    eventName,
-    messageId,
-    timestamp,
-    phone,
-    chatId,
-    messageText: messageText.substring(0, 50),
-    eventDataKeys: Object.keys(eventData || {}),
-    chatKeys: Object.keys(chat),
-    messageKeys: Object.keys(message)
+  // Criar hash único baseado no conteúdo completo do evento
+  const eventStr = JSON.stringify({
+    company: companyId,
+    event: eventName,
+    data: eventData
   });
   
-  // PRIORIDADE 1: ID único da mensagem
-  if (messageId) {
-    const key = `${companyId}:${eventName}:${messageId}`;
-    console.log(`🔑 Chave baseada em messageId: ${key}`);
-    return key;
+  // Usar crypto para hash único (já importado no topo)
+  const hash = crypto.createHash('md5').update(eventStr).digest('hex').substring(0, 16);
+  
+  // Chave baseada no hash do conteúdo completo
+  const contentKey = `${companyId}:${eventName}:${hash}`;
+  
+  // FALLBACK: Timestamp com janela de 2 segundos (super agressivo)
+  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 2000)}`;
+  
+  console.log(`🔑 DEDUPLICAÇÃO ULTRA-AGRESSIVA:`, {
+    companyId,
+    eventName,
+    contentKey,
+    timestampKey,
+    dataSize: JSON.stringify(eventData).length
+  });
+  
+  return contentKey;
+}
+
+// SISTEMA DE FILA SEQUENCIAL (ELIMINA RACE CONDITIONS)
+function addEventToQueue(companyId, eventName, eventData, companyName) {
+  // Inicializar fila se não existe
+  if (!processingQueue.has(companyId)) {
+    processingQueue.set(companyId, []);
   }
   
-  // PRIORIDADE 2: Chat ID + texto da mensagem (mais específico)
-  if (chatId && messageText) {
-    const textHash = messageText.substring(0, 20); // Primeiros 20 chars
-    const key = `${companyId}:${eventName}:${chatId}:${textHash}`;
-    console.log(`🔑 Chave baseada em chatId+texto: ${key}`);
-    return key;
+  // Adicionar evento à fila
+  processingQueue.get(companyId).push({
+    eventName,
+    eventData,
+    companyName,
+    timestamp: Date.now()
+  });
+  
+  // Iniciar processamento se não está processando
+  if (!isProcessing.get(companyId)) {
+    processEventQueue(companyId);
+  }
+}
+
+async function processEventQueue(companyId) {
+  if (isProcessing.get(companyId)) {
+    return; // Já está processando
   }
   
-  // PRIORIDADE 3: Phone + timestamp (mais agressivo: 3 segundos)
-  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 3000) : Math.floor(Date.now() / 3000);
-  const key = `${companyId}:${eventName}:${phone || 'unknown'}:${truncatedTimestamp}`;
-  console.log(`🔑 Chave baseada em phone+timestamp: ${key}`);
+  isProcessing.set(companyId, true);
   
-  return key;
+  try {
+    while (processingQueue.get(companyId)?.length > 0) {
+      const event = processingQueue.get(companyId).shift();
+      
+      // Criar chave única para deduplicação
+      const eventKey = createEventKey(companyId, event.eventName, event.eventData);
+      
+      // Verificar se evento já foi processado recentemente
+      if (isEventDuplicate(eventKey)) {
+        console.log(`🔄 Evento duplicado ignorado para ${event.companyName}: ${event.eventName} (chave: ${eventKey})`);
+        continue;
+      }
+      
+      console.log(`📡 Processando evento sequencial para ${event.companyName}: ${event.eventName} (chave: ${eventKey})`);
+      
+      // Marcar evento como processado ANTES de processar
+      markEventAsProcessed(eventKey);
+      
+      // Atualizar última atividade
+      const connection = activeConnections.get(companyId);
+      if (connection) {
+        connection.lastActivity = new Date().toISOString();
+      }
+
+      // Processar evento através dos webhooks (SEQUENCIAL)
+      await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
+      
+      // Pequeno delay entre processamentos para estabilidade
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  } catch (error) {
+    console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
+  } finally {
+    isProcessing.set(companyId, false);
+  }
 }
 
 function isEventDuplicate(eventKey) {
