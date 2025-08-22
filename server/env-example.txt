@@ -1,0 +1,10 @@
+# Supabase Configuration
+SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
+
+# Server Configuration
+PORT=3000
+NODE_ENV=production
+
+# Optional: For development
+# NODE_ENV=development
