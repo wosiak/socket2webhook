@@ -1,6 +1,6 @@
-// Render API Service - Substitui Edge Functions
+// Render API Service - Substitui Edge Functions  
 const RENDER_API_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://webhook-proxy-server.onrender.com'
+  ? 'https://socket2webhook-dev.onrender.com'
   : 'http://localhost:3000';
 
 interface RenderApiResponse {

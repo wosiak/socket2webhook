@@ -162,7 +162,7 @@ export function CompanyDetail({
       
       // Notificar backend Render sobre mudança de webhook
       try {
-        const response = await fetch(`https://socket2webhook.onrender.com/check-webhooks/${company.id}`, {
+        const response = await fetch(`https://socket2webhook-dev.onrender.com/check-webhooks/${company.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
