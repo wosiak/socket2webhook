@@ -304,13 +304,13 @@ export function CompanyDetail({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return <Badge variant="default" className="text-xs">Sucesso</Badge>;
+        return <Badge variant="default" className="text-xs text-white">Sucesso</Badge>;
       case 'failed':
-        return <Badge variant="destructive" className="text-xs">Falha</Badge>;
+        return <Badge variant="destructive" className="text-xs text-white bg-red-600">Falha</Badge>;
       case 'pending':
-        return <Badge variant="secondary" className="text-xs">Pendente</Badge>;
+        return <Badge variant="secondary" className="text-xs text-gray-800">Pendente</Badge>;
       default:
-        return <Badge variant="outline" className="text-xs">Desconhecido</Badge>;
+        return <Badge variant="outline" className="text-xs text-gray-800">Desconhecido</Badge>;
     }
   };
 
@@ -687,17 +687,7 @@ export function CompanyDetail({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companyExecutions.slice(0, 10).map((execution) => {
-                    // Debug: verificar status das execuções
-                    console.log('🔍 [DEBUG] Execution data:', {
-                      id: execution?.id,
-                      status: execution?.status,
-                      event_type: execution?.event_type,
-                      attempts: execution?.attempts,
-                      max_attempts: execution?.max_attempts
-                    });
-                    
-                    return (
+                  {companyExecutions.slice(0, 10).map((execution) => (
                     <TableRow key={execution?.id || Math.random()} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -714,8 +704,7 @@ export function CompanyDetail({
                         {execution?.attempts || 1} / {execution?.max_attempts || 3}
                       </TableCell>
                     </TableRow>
-                    );
-                  })}
+                  ))}
                 </TableBody>
               </Table>
             </div>
