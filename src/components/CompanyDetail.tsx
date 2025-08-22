@@ -255,22 +255,16 @@ export function CompanyDetail({
         await onRefreshData();
       }
       
-      // Se ativamos um webhook, forçar reconexão após 2 segundos (mais tempo para dados carregarem)
+      // Se ativamos um webhook, forçar reconexão após 1 segundo (sem reload duplo)
       if (newStatus === 'active') {
-        console.log('✅ Webhook ativado - reconectando em 2 segundos...');
+        console.log('✅ Webhook ativado - reconectando em 1 segundo...');
         setTimeout(async () => {
           if (company?.api_token && company?.status === 'active') {
             console.log('🔄 Forçando reconexão devido à ativação do webhook...');
-            
-            // Recarregar dados novamente antes de conectar
-            if (onRefreshData) {
-              console.log('🔄 Recarregando dados antes da reconexão...');
-              await onRefreshData();
-            }
-            
+            // Não recarregar dados novamente - usar estado já atualizado
             handleConnect();
           }
-        }, 2000);
+        }, 1000);
       }
       
       // Se desativamos um webhook, desconectar se necessário
@@ -555,7 +549,14 @@ export function CompanyDetail({
             {/* Status da Conexão */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                {/* Status visual removido - sistema funciona automaticamente */}
+                {isSocketConnected ? (
+                  <Wifi className="h-4 w-4 text-green-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-gray-400" />
+                )}
+                <span className={`text-sm ${isSocketConnected ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isSocketConnected ? 'Conectado' : 'Desconectado'}
+                </span>
               </div>
               
                              <Dialog open={isWebhookDialogOpen} onOpenChange={(open) => {

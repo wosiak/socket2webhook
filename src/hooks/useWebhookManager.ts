@@ -399,9 +399,17 @@ export const useWebhookManager = () => {
       const response = await apiService.updateWebhook(id, updates)
       const updatedWebhook = response.data
       
-      // CORREÇÃO: Não atualizar estado local imediatamente - aguardar refresh completo
-      // setWebhooks(prev => prev.map(w => w.id === id ? updatedWebhook : w))
-      console.log('✅ Webhook atualizado via API, aguardando refresh...')
+      // CORREÇÃO INTELIGENTE: Atualizar estado local apenas para toggles simples de status
+      if (updates.status && !updates.event_ids && !updates.name && !updates.url) {
+        console.log('✅ Toggle simples de status - atualizando estado local imediatamente')
+        setWebhooks(prev => prev.map(w => 
+          w.id === id 
+            ? { ...w, status: updates.status, is_active: updates.status === 'active' }
+            : w
+        ))
+      } else {
+        console.log('✅ Webhook atualizado via API, aguardando refresh para mudanças complexas...')
+      }
       
       return updatedWebhook
     } catch (error) {
@@ -479,8 +487,18 @@ export const useWebhookManager = () => {
           return webhookData
         }
         
-        console.log('✅ Webhook atualizado diretamente, aguardando refresh...')
-        // Não atualizar estado local - aguardar refresh completo
+        console.log('✅ Webhook atualizado diretamente')
+        
+        // CORREÇÃO INTELIGENTE: Atualizar estado local apenas para toggles simples de status
+        if (updates.status && !updates.event_ids && !updates.name && !updates.url) {
+          console.log('✅ Toggle simples de status - atualizando estado local imediatamente (fallback)')
+          setWebhooks(prev => prev.map(w => 
+            w.id === id 
+              ? { ...w, status: updates.status, is_active: updates.status === 'active' }
+              : w
+          ))
+        }
+        
         return fullWebhook
       } catch (directError) {
         console.error('Erro na atualização direta:', directError)
