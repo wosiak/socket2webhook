@@ -26,6 +26,10 @@ const socketInstances = new Map();
 const eventCache = new Map();
 const CACHE_TTL = 30000; // 30 segundos para considerar evento duplicado
 
+// Cache para webhooks ativos por empresa (evita consultas múltiplas)
+const activeWebhooksCache = new Map();
+const WEBHOOK_CACHE_TTL = 10000; // 10 segundos
+
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
 console.log('📅 Timestamp:', new Date().toISOString());
@@ -68,12 +72,15 @@ app.get('/status', (req, res) => {
 
 // Endpoint para limpar cache de eventos
 app.post('/clear-cache', (req, res) => {
-  const cacheSize = eventCache.size;
+  const eventCacheSize = eventCache.size;
+  const webhookCacheSize = activeWebhooksCache.size;
+  
   eventCache.clear();
+  activeWebhooksCache.clear();
   
   res.json({
     success: true,
-    message: `Cache limpo com sucesso. ${cacheSize} eventos removidos.`,
+    message: `Caches limpos com sucesso. ${eventCacheSize} eventos e ${webhookCacheSize} empresas removidos.`,
     timestamp: new Date().toISOString()
   });
 });
@@ -83,7 +90,10 @@ app.get('/cache-stats', (req, res) => {
   const now = Date.now();
   let validEvents = 0;
   let expiredEvents = 0;
+  let validWebhooks = 0;
+  let expiredWebhooks = 0;
   
+  // Estatísticas do cache de eventos
   for (const [key, value] of eventCache.entries()) {
     if (now - value.timestamp > CACHE_TTL) {
       expiredEvents++;
@@ -92,11 +102,28 @@ app.get('/cache-stats', (req, res) => {
     }
   }
   
+  // Estatísticas do cache de webhooks
+  for (const [key, value] of activeWebhooksCache.entries()) {
+    if (now - value.timestamp > WEBHOOK_CACHE_TTL) {
+      expiredWebhooks++;
+    } else {
+      validWebhooks++;
+    }
+  }
+  
   res.json({
-    total_events: eventCache.size,
-    valid_events: validEvents,
-    expired_events: expiredEvents,
-    cache_ttl_seconds: CACHE_TTL / 1000,
+    event_cache: {
+      total: eventCache.size,
+      valid: validEvents,
+      expired: expiredEvents,
+      ttl_seconds: CACHE_TTL / 1000
+    },
+    webhook_cache: {
+      total: activeWebhooksCache.size,
+      valid: validWebhooks,
+      expired: expiredWebhooks,
+      ttl_seconds: WEBHOOK_CACHE_TTL / 1000
+    },
     memory_usage: process.memoryUsage()
   });
 });
@@ -107,6 +134,9 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
   
   try {
     console.log(`🔍 Verificando status de webhooks para empresa: ${companyId}`);
+    
+    // Invalidar cache de webhooks para esta empresa (forçar atualização)
+    activeWebhooksCache.delete(companyId);
     
     // Verificar se deve reconectar (se tem webhooks ativos mas não está conectada)
     await checkAndReconnectIfHasActiveWebhooks(companyId);
@@ -120,6 +150,7 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
       success: true,
       message: `Verificação de webhooks concluída para empresa ${companyId}`,
       is_connected: isConnected,
+      cache_cleared: true,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
@@ -412,35 +443,75 @@ function markEventAsProcessed(eventKey) {
 
 function cleanupEventCache() {
   const now = Date.now();
+  let expiredEvents = 0;
+  let expiredWebhooks = 0;
+  
+  // Limpar cache de eventos expirados
   for (const [key, value] of eventCache.entries()) {
     if (now - value.timestamp > CACHE_TTL) {
       eventCache.delete(key);
+      expiredEvents++;
     }
   }
-  console.log(`🧹 Cache limpo: ${eventCache.size} eventos mantidos`);
+  
+  // Limpar cache de webhooks expirados
+  for (const [key, value] of activeWebhooksCache.entries()) {
+    if (now - value.timestamp > WEBHOOK_CACHE_TTL) {
+      activeWebhooksCache.delete(key);
+      expiredWebhooks++;
+    }
+  }
+  
+  if (expiredEvents > 0 || expiredWebhooks > 0) {
+    console.log(`🧹 Cache limpo: ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
+  }
+}
+
+// Buscar webhooks ativos com cache
+async function getActiveWebhooksForCompany(companyId) {
+  const now = Date.now();
+  const cached = activeWebhooksCache.get(companyId);
+  
+  // Se cache é válido, usar dados em cache
+  if (cached && (now - cached.timestamp) < WEBHOOK_CACHE_TTL) {
+    return cached.webhooks;
+  }
+  
+  // Buscar dados atualizados do banco
+  const { data: currentWebhooks, error: webhookError } = await supabase
+    .from('webhooks')
+    .select(`
+      id, url, status,
+      webhook_events(
+        event:events(name, display_name)
+      )
+    `)
+    .eq('company_id', companyId)
+    .eq('status', 'active'); // APENAS ATIVOS
+
+  if (webhookError) {
+    console.error('❌ Erro ao buscar webhooks atuais:', webhookError);
+    return [];
+  }
+
+  const webhooks = currentWebhooks || [];
+  
+  // Armazenar no cache
+  activeWebhooksCache.set(companyId, {
+    webhooks: webhooks,
+    timestamp: now
+  });
+  
+  return webhooks;
 }
 
 // Processar evento através dos webhooks
 async function processEventThroughWebhooks(companyId, eventName, eventData, webhooks) {
   try {
-    console.log(`🔄 Processando evento ${eventName} através de ${webhooks.length} webhooks totais`);
+    console.log(`🔄 Processando evento ${eventName} para empresa ${companyId}`);
 
-    // Buscar status atual dos webhooks no banco (dados mais atualizados)
-    const { data: currentWebhooks, error: webhookError } = await supabase
-      .from('webhooks')
-      .select(`
-        id, url, status,
-        webhook_events(
-          event:events(name, display_name)
-        )
-      `)
-      .eq('company_id', companyId)
-      .eq('status', 'active'); // APENAS ATIVOS
-
-    if (webhookError) {
-      console.error('❌ Erro ao buscar webhooks atuais:', webhookError);
-      return;
-    }
+    // Buscar webhooks ativos atualizados (com cache)
+    const currentWebhooks = await getActiveWebhooksForCompany(companyId);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
       console.log(`⚠️ Nenhum webhook ATIVO encontrado para empresa: ${companyId}`);
@@ -455,7 +526,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
       const eventTypes = webhook.webhook_events?.map(we => we.event?.name) || [];
       const isRelevant = eventTypes.includes(eventName);
       
-      console.log(`🔍 Webhook ${webhook.id}: status=${webhook.status}, eventos=[${eventTypes.join(', ')}], relevante=${isRelevant}`);
+      console.log(`🔍 Webhook ${webhook.id}: status=active, eventos=[${eventTypes.join(', ')}], relevante=${isRelevant}`);
       
       return isRelevant;
     });
@@ -467,7 +538,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 
     console.log(`📋 Encontrados ${relevantWebhooks.length} webhooks ATIVOS para evento: ${eventName}`);
 
-    // Buscar ID do evento no banco
+    // Buscar ID do evento no banco (com cache simples)
     const { data: eventRecord } = await supabase
       .from('events')
       .select('id')
@@ -810,3 +881,4 @@ process.on('SIGINT', async () => {
 
 // Iniciar servidor
 startServer();
+
