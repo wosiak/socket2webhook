@@ -22,6 +22,10 @@ const supabase = createClient(
 const activeConnections = new Map();
 const socketInstances = new Map();
 
+// Cache para deduplicação de eventos (evitar POSTs duplicados)
+const eventCache = new Map();
+const CACHE_TTL = 30000; // 30 segundos para considerar evento duplicado
+
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
 console.log('📅 Timestamp:', new Date().toISOString());
@@ -59,6 +63,41 @@ app.get('/status', (req, res) => {
     active_companies: activeConnections.size,
     total_sockets: socketInstances.size,
     connections: connections
+  });
+});
+
+// Endpoint para limpar cache de eventos
+app.post('/clear-cache', (req, res) => {
+  const cacheSize = eventCache.size;
+  eventCache.clear();
+  
+  res.json({
+    success: true,
+    message: `Cache limpo com sucesso. ${cacheSize} eventos removidos.`,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Endpoint para estatísticas do cache
+app.get('/cache-stats', (req, res) => {
+  const now = Date.now();
+  let validEvents = 0;
+  let expiredEvents = 0;
+  
+  for (const [key, value] of eventCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      expiredEvents++;
+    } else {
+      validEvents++;
+    }
+  }
+  
+  res.json({
+    total_events: eventCache.size,
+    valid_events: validEvents,
+    expired_events: expiredEvents,
+    cache_ttl_seconds: CACHE_TTL / 1000,
+    memory_usage: process.memoryUsage()
   });
 });
 
@@ -204,7 +243,19 @@ async function connect3CPlusSocket(company, webhooks) {
       // Escutar TODOS os eventos
       socket.onAny(async (eventName, eventData) => {
         try {
-          console.log(`📡 Evento recebido para ${company.name}: ${eventName}`);
+          // Criar chave única para deduplicação
+          const eventKey = createEventKey(company.id, eventName, eventData);
+          
+          // Verificar se evento já foi processado recentemente
+          if (isEventDuplicate(eventKey)) {
+            console.log(`🔄 Evento duplicado ignorado para ${company.name}: ${eventName} (chave: ${eventKey})`);
+            return;
+          }
+          
+          console.log(`📡 Evento recebido para ${company.name}: ${eventName} (chave: ${eventKey})`);
+          
+          // Marcar evento como processado
+          markEventAsProcessed(eventKey);
           
           // Atualizar última atividade
           const connection = activeConnections.get(company.id);
@@ -232,6 +283,56 @@ async function connect3CPlusSocket(company, webhooks) {
       reject(error);
     }
   });
+}
+
+// Funções para deduplicação de eventos
+function createEventKey(companyId, eventName, eventData) {
+  // Criar chave baseada em dados únicos da mensagem
+  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid;
+  const timestamp = eventData?.timestamp || eventData?.created_at;
+  const phone = eventData?.phone || eventData?.from || eventData?.number;
+  
+  // Se temos ID único da mensagem, usar ele
+  if (messageId) {
+    return `${companyId}:${eventName}:${messageId}`;
+  }
+  
+  // Senão, usar combinação de dados + timestamp truncado (para agrupar eventos próximos)
+  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 10000) : Math.floor(Date.now() / 10000);
+  return `${companyId}:${eventName}:${phone}:${truncatedTimestamp}`;
+}
+
+function isEventDuplicate(eventKey) {
+  const now = Date.now();
+  const cachedEvent = eventCache.get(eventKey);
+  
+  if (cachedEvent && (now - cachedEvent.timestamp) < CACHE_TTL) {
+    return true; // Evento duplicado dentro do TTL
+  }
+  
+  return false;
+}
+
+function markEventAsProcessed(eventKey) {
+  eventCache.set(eventKey, {
+    timestamp: Date.now(),
+    processed: true
+  });
+  
+  // Limpar cache antigo periodicamente
+  if (eventCache.size > 1000) {
+    cleanupEventCache();
+  }
+}
+
+function cleanupEventCache() {
+  const now = Date.now();
+  for (const [key, value] of eventCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL) {
+      eventCache.delete(key);
+    }
+  }
+  console.log(`🧹 Cache limpo: ${eventCache.size} eventos mantidos`);
 }
 
 // Processar evento através dos webhooks
@@ -434,11 +535,31 @@ function startConnectionMonitor() {
       const disconnected = connections.filter(c => c.status === 'disconnected').length;
       
       console.log(`📊 Status: ${connected} conectadas, ${disconnected} desconectadas`);
+      console.log(`🗄️ Cache de eventos: ${eventCache.size} entradas`);
       
     } catch (error) {
       console.error('❌ Erro no monitor de conexões:', error);
     }
   }, 60000); // A cada 60 segundos
+}
+
+// Limpeza automática do cache a cada 5 minutos
+function startCacheCleanup() {
+  console.log('🧹 Iniciando limpeza automática do cache...');
+  
+  setInterval(() => {
+    try {
+      const sizeBefore = eventCache.size;
+      cleanupEventCache();
+      const sizeAfter = eventCache.size;
+      
+      if (sizeBefore !== sizeAfter) {
+        console.log(`🧹 Cache limpo: ${sizeBefore - sizeAfter} eventos expirados removidos`);
+      }
+    } catch (error) {
+      console.error('❌ Erro na limpeza do cache:', error);
+    }
+  }, 300000); // A cada 5 minutos
 }
 
 // Inicialização do servidor
@@ -449,6 +570,9 @@ async function startServer() {
     
     // Iniciar monitor de conexões
     startConnectionMonitor();
+    
+    // Iniciar limpeza automática do cache
+    startCacheCleanup();
     
     // Iniciar servidor HTTP
     app.listen(PORT, () => {
