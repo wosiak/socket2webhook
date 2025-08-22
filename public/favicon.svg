@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1d4ed8;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="16" cy="16" r="15" fill="url(#grad1)" stroke="#1e40af" stroke-width="1"/>
+  
+  <!-- Socket Connection Icon -->
+  <g transform="translate(6, 6)">
+    <!-- Socket A -->
+    <circle cx="6" cy="6" r="3" fill="none" stroke="white" stroke-width="1.5"/>
+    <circle cx="6" cy="6" r="1.5" fill="white"/>
+    
+    <!-- Socket B -->
+    <circle cx="14" cy="14" r="3" fill="none" stroke="white" stroke-width="1.5"/>
+    <circle cx="14" cy="14" r="1.5" fill="white"/>
+    
+    <!-- Connection Line -->
+    <path d="M8.5 8.5 L11.5 11.5" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- Webhook Arrow -->
+    <path d="M18 4 L22 8 L18 12 M22 8 L14 8" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" transform="translate(-4, 6) scale(0.7)"/>
+  </g>
+  
+  <!-- 3C+ Text -->
+  <text x="16" y="26" font-family="Arial, sans-serif" font-size="6" font-weight="bold" text-anchor="middle" fill="white">3C+</text>
+</svg>
