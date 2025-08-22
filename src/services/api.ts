@@ -300,7 +300,17 @@ class ApiService {
     event_ids?: string[]
   }>) {
     try {
-      console.log('Updating webhook:', id, updates)
+      console.log('🔄 [DEBUG] Atualizando webhook:', id, updates)
+      
+      // DEBUG: Verificar dados ANTES da atualização
+      const { data: beforeUpdate, error: beforeError } = await supabase
+        .from('webhooks')
+        .select('id, name, status, company_id')
+        .eq('company_id', (await supabase.from('webhooks').select('company_id').eq('id', id).single()).data?.company_id)
+      
+      if (!beforeError) {
+        console.log('🔍 [DEBUG] Estado ANTES da atualização:', beforeUpdate);
+      }
       
       const { event_ids, ...webhookUpdates } = updates
       
@@ -327,6 +337,16 @@ class ApiService {
         .single()
       
       if (webhookError) throw webhookError
+      
+      // DEBUG: Verificar dados DEPOIS da atualização
+      const { data: afterUpdate, error: afterError } = await supabase
+        .from('webhooks')
+        .select('id, name, status, company_id')
+        .eq('company_id', webhookData.company_id)
+      
+      if (!afterError) {
+        console.log('🔍 [DEBUG] Estado DEPOIS da atualização:', afterUpdate);
+      }
       
       // Update events if provided
       console.log('🔍 EDIÇÃO - event_ids recebidos:', event_ids);
