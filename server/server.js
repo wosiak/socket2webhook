@@ -658,24 +658,23 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const status = response.ok ? 'success' : 'failed';
     const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
 
-    // Salvar execução no banco
+    // Salvar execução no banco  
     const { error: executionError } = await supabase
       .from('webhook_executions')
       .insert({
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-
         status: status,
         response_status: response.status,
         response_body: responseText.length > 1000 ? responseText.substring(0, 1000) + '...' : responseText,
-        error_message: errorMessage,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        error_message: errorMessage
       });
 
     if (executionError) {
       console.error('❌ Erro ao salvar execução do webhook:', executionError);
+    } else {
+      console.log(`💾 Execução salva com sucesso: webhook_id=${webhook.id}, status=${status}`);
     }
 
     console.log(`✅ Webhook ${webhook.id} executado: ${status} (${response.status})`);
@@ -697,11 +696,8 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-
         status: 'failed',
-        error_message: error.message,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        error_message: error.message
       });
 
     throw error;
