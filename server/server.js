@@ -663,7 +663,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-
         status: status,
         response_status: response.status,
         response_body: responseText.length > 1000 ? responseText.substring(0, 1000) + '...' : responseText,
@@ -674,6 +673,8 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 
     if (executionError) {
       console.error('❌ Erro ao salvar execução do webhook:', executionError);
+    } else {
+      console.log(`💾 Execução salva no banco: webhook_id=${webhook.id}, status=${status}, response_status=${response.status}`);
     }
 
     console.log(`✅ Webhook ${webhook.id} executado: ${status} (${response.status})`);
@@ -695,7 +696,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         webhook_id: webhook.id,
         company_id: companyId,
         event_id: eventId,
-
         status: 'failed',
         error_message: error.message,
         created_at: new Date().toISOString(),
