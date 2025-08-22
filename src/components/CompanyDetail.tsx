@@ -306,7 +306,14 @@ export function CompanyDetail({
       case 'success':
         return <Badge variant="default" className="text-xs text-white">Sucesso</Badge>;
       case 'failed':
-        return <Badge variant="destructive" className="text-xs text-white bg-red-600">Falha</Badge>;
+        return (
+          <Badge 
+            className="text-xs bg-red-600 border-red-600" 
+            style={{ color: '#ffffff !important', backgroundColor: '#dc2626' }}
+          >
+            Falha
+          </Badge>
+        );
       case 'pending':
         return <Badge variant="secondary" className="text-xs text-gray-800">Pendente</Badge>;
       default:
