@@ -101,6 +101,91 @@ app.get('/cache-stats', (req, res) => {
   });
 });
 
+// Endpoint para verificar status de webhooks e ajustar conexões
+app.post('/check-webhooks/:companyId', async (req, res) => {
+  const { companyId } = req.params;
+  
+  try {
+    console.log(`🔍 Verificando status de webhooks para empresa: ${companyId}`);
+    
+    // Verificar se deve reconectar (se tem webhooks ativos mas não está conectada)
+    await checkAndReconnectIfHasActiveWebhooks(companyId);
+    
+    // Verificar se deve desconectar (se não tem webhooks ativos mas está conectada)
+    await checkAndDisconnectIfNoActiveWebhooks(companyId);
+    
+    const isConnected = activeConnections.has(companyId);
+    
+    res.json({
+      success: true,
+      message: `Verificação de webhooks concluída para empresa ${companyId}`,
+      is_connected: isConnected,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error(`❌ Erro ao verificar webhooks da empresa ${companyId}:`, error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+// Endpoint para verificar todas as empresas
+app.post('/check-all-webhooks', async (req, res) => {
+  try {
+    console.log('🔍 Verificando status de webhooks para todas as empresas...');
+    
+    // Buscar todas as empresas
+    const { data: companies, error } = await supabase
+      .from('companies')
+      .select('id, name, status')
+      .eq('status', 'active');
+    
+    if (error) {
+      throw error;
+    }
+    
+    if (!companies || companies.length === 0) {
+      return res.json({
+        success: true,
+        message: 'Nenhuma empresa ativa encontrada',
+        checked: 0
+      });
+    }
+    
+    // Verificar cada empresa
+    const results = await Promise.allSettled(
+      companies.map(async (company) => {
+        await checkAndReconnectIfHasActiveWebhooks(company.id);
+        await checkAndDisconnectIfNoActiveWebhooks(company.id);
+        return { companyId: company.id, name: company.name };
+      })
+    );
+    
+    const successful = results.filter(r => r.status === 'fulfilled').length;
+    const failed = results.filter(r => r.status === 'rejected').length;
+    
+    res.json({
+      success: true,
+      message: 'Verificação de webhooks concluída para todas as empresas',
+      total_companies: companies.length,
+      successful_checks: successful,
+      failed_checks: failed,
+      currently_connected: activeConnections.size,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erro ao verificar webhooks de todas as empresas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Endpoint para forçar reconexão de uma empresa
 app.post('/reconnect/:companyId', async (req, res) => {
   const { companyId } = req.params;
@@ -338,20 +423,49 @@ function cleanupEventCache() {
 // Processar evento através dos webhooks
 async function processEventThroughWebhooks(companyId, eventName, eventData, webhooks) {
   try {
-    console.log(`🔄 Processando evento ${eventName} através de ${webhooks.length} webhooks`);
+    console.log(`🔄 Processando evento ${eventName} através de ${webhooks.length} webhooks totais`);
 
-    // Filtrar webhooks que escutam este evento
-    const relevantWebhooks = webhooks.filter(webhook => {
-      const eventTypes = webhook.webhook_events?.map(we => we.event?.name) || [];
-      return eventTypes.includes(eventName);
-    });
+    // Buscar status atual dos webhooks no banco (dados mais atualizados)
+    const { data: currentWebhooks, error: webhookError } = await supabase
+      .from('webhooks')
+      .select(`
+        id, url, status,
+        webhook_events(
+          event:events(name, display_name)
+        )
+      `)
+      .eq('company_id', companyId)
+      .eq('status', 'active'); // APENAS ATIVOS
 
-    if (relevantWebhooks.length === 0) {
-      console.log(`⚠️ Nenhum webhook configurado para evento: ${eventName}`);
+    if (webhookError) {
+      console.error('❌ Erro ao buscar webhooks atuais:', webhookError);
       return;
     }
 
-    console.log(`📋 Encontrados ${relevantWebhooks.length} webhooks para evento: ${eventName}`);
+    if (!currentWebhooks || currentWebhooks.length === 0) {
+      console.log(`⚠️ Nenhum webhook ATIVO encontrado para empresa: ${companyId}`);
+      
+      // Se não há webhooks ativos, considerar desconectar a empresa
+      await checkAndDisconnectIfNoActiveWebhooks(companyId);
+      return;
+    }
+
+    // Filtrar webhooks ATIVOS que escutam este evento
+    const relevantWebhooks = currentWebhooks.filter(webhook => {
+      const eventTypes = webhook.webhook_events?.map(we => we.event?.name) || [];
+      const isRelevant = eventTypes.includes(eventName);
+      
+      console.log(`🔍 Webhook ${webhook.id}: status=${webhook.status}, eventos=[${eventTypes.join(', ')}], relevante=${isRelevant}`);
+      
+      return isRelevant;
+    });
+
+    if (relevantWebhooks.length === 0) {
+      console.log(`⚠️ Nenhum webhook ATIVO configurado para evento: ${eventName}`);
+      return;
+    }
+
+    console.log(`📋 Encontrados ${relevantWebhooks.length} webhooks ATIVOS para evento: ${eventName}`);
 
     // Buscar ID do evento no banco
     const { data: eventRecord } = await supabase
@@ -360,7 +474,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
       .eq('name', eventName)
       .single();
 
-    // Processar cada webhook relevante
+    // Processar cada webhook relevante ATIVO
     const results = await Promise.allSettled(
       relevantWebhooks.map(webhook => 
         processWebhookExecution(webhook, eventData, eventRecord?.id, companyId, eventName)
@@ -370,7 +484,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
 
-    console.log(`✅ Evento ${eventName} processado: ${successful} sucessos, ${failed} falhas`);
+    console.log(`✅ Evento ${eventName} processado: ${successful} sucessos, ${failed} falhas (${relevantWebhooks.length} webhooks ATIVOS)`);
 
   } catch (error) {
     console.error(`❌ Erro ao processar evento ${eventName}:`, error);
@@ -457,6 +571,68 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
   }
 }
 
+// Verificar se empresa deve ser desconectada (sem webhooks ativos)
+async function checkAndDisconnectIfNoActiveWebhooks(companyId) {
+  try {
+    console.log(`🔍 Verificando se empresa ${companyId} deve ser desconectada...`);
+    
+    // Buscar webhooks ativos
+    const { data: activeWebhooks, error } = await supabase
+      .from('webhooks')
+      .select('id, status')
+      .eq('company_id', companyId)
+      .eq('status', 'active');
+    
+    if (error) {
+      console.error('❌ Erro ao verificar webhooks ativos:', error);
+      return;
+    }
+    
+    if (!activeWebhooks || activeWebhooks.length === 0) {
+      console.log(`🔌 Empresa ${companyId} não tem webhooks ativos - desconectando socket`);
+      await disconnectCompany(companyId);
+    } else {
+      console.log(`✅ Empresa ${companyId} tem ${activeWebhooks.length} webhooks ativos - mantendo conexão`);
+    }
+  } catch (error) {
+    console.error(`❌ Erro ao verificar webhooks ativos para empresa ${companyId}:`, error);
+  }
+}
+
+// Reconectar empresa se ela tem webhooks ativos mas não está conectada
+async function checkAndReconnectIfHasActiveWebhooks(companyId) {
+  try {
+    console.log(`🔍 Verificando se empresa ${companyId} deve ser reconectada...`);
+    
+    // Verificar se já está conectada
+    if (activeConnections.has(companyId)) {
+      console.log(`✅ Empresa ${companyId} já está conectada`);
+      return;
+    }
+    
+    // Buscar webhooks ativos
+    const { data: activeWebhooks, error } = await supabase
+      .from('webhooks')
+      .select('id, status')
+      .eq('company_id', companyId)
+      .eq('status', 'active');
+    
+    if (error) {
+      console.error('❌ Erro ao verificar webhooks ativos:', error);
+      return;
+    }
+    
+    if (activeWebhooks && activeWebhooks.length > 0) {
+      console.log(`🔌 Empresa ${companyId} tem ${activeWebhooks.length} webhooks ativos - conectando socket`);
+      await connectCompany(companyId);
+    } else {
+      console.log(`⚠️ Empresa ${companyId} não tem webhooks ativos - não conectando`);
+    }
+  } catch (error) {
+    console.error(`❌ Erro ao verificar reconexão para empresa ${companyId}:`, error);
+  }
+}
+
 // Desconectar empresa
 async function disconnectCompany(companyId) {
   try {
@@ -526,10 +702,31 @@ function startConnectionMonitor() {
     try {
       console.log(`🔍 Monitor: Verificando ${activeConnections.size} conexões...`);
       
-      // Verificar se há novas empresas para conectar
-      await connectAllActiveCompanies();
+      // 1. Verificar empresas conectadas - se ainda têm webhooks ativos
+      for (const [companyId] of activeConnections) {
+        await checkAndDisconnectIfNoActiveWebhooks(companyId);
+      }
       
-      // Log de status
+      // 2. Verificar empresas desconectadas - se agora têm webhooks ativos
+      const { data: companiesWithActiveWebhooks, error } = await supabase
+        .from('companies')
+        .select(`
+          id, name,
+          webhooks!inner(status)
+        `)
+        .eq('status', 'active')
+        .eq('webhooks.status', 'active');
+      
+      if (!error && companiesWithActiveWebhooks) {
+        for (const company of companiesWithActiveWebhooks) {
+          if (!activeConnections.has(company.id)) {
+            console.log(`🔌 Empresa ${company.name} tem webhooks ativos mas não está conectada - conectando...`);
+            await checkAndReconnectIfHasActiveWebhooks(company.id);
+          }
+        }
+      }
+      
+      // 3. Log de status
       const connections = Array.from(activeConnections.values());
       const connected = connections.filter(c => c.status === 'connected').length;
       const disconnected = connections.filter(c => c.status === 'disconnected').length;
