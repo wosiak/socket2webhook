@@ -333,6 +333,7 @@ async function connect3CPlusSocket(company, webhooks) {
 
       socket.on('connect', () => {
         console.log(`✅ Socket 3C Plus conectado para empresa: ${company.name}`);
+        console.log(`🔗 [DEBUG] Socket conectado com token: ${company.api_token?.substring(0, 10)}...`);
         
         // Atualizar status da conexão
         const connection = activeConnections.get(company.id);
@@ -363,6 +364,7 @@ async function connect3CPlusSocket(company, webhooks) {
       // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
       socket.onAny(async (eventName, eventData) => {
         try {
+          console.log(`🎯 [SOCKET] Evento recebido: ${eventName} para empresa ${company.name}`);
           // Adicionar evento à fila de processamento sequencial
           addEventToQueue(company.id, eventName, eventData, company.name);
           
