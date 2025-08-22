@@ -160,7 +160,7 @@ export default function App() {
                 <h1 className="text-xl font-bold text-gray-900">
                   {currentView === 'company-detail' && currentCompany 
                     ? `${currentCompany.name}`
-                    : 'Socket2Webhook | 3C +'
+                    : 'Socket2Webhook | 3C + [DEV]'
                   }
                 </h1>
                 <p className="text-sm text-gray-600">
