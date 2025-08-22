@@ -687,7 +687,17 @@ export function CompanyDetail({
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {companyExecutions.slice(0, 10).map((execution) => (
+                  {companyExecutions.slice(0, 10).map((execution) => {
+                    // Debug: verificar status das execuções
+                    console.log('🔍 [DEBUG] Execution data:', {
+                      id: execution?.id,
+                      status: execution?.status,
+                      event_type: execution?.event_type,
+                      attempts: execution?.attempts,
+                      max_attempts: execution?.max_attempts
+                    });
+                    
+                    return (
                     <TableRow key={execution?.id || Math.random()} className="hover:bg-gray-50">
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -701,10 +711,11 @@ export function CompanyDetail({
                         {getStatusBadge(execution?.status || 'pending')}
                       </TableCell>
                       <TableCell className="text-sm text-gray-600">
-                        {execution?.attempts || 0} / {execution?.max_attempts || 3}
+                        {execution?.attempts || 1} / {execution?.max_attempts || 3}
                       </TableCell>
                     </TableRow>
-                  ))}
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
