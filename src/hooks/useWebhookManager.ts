@@ -398,7 +398,11 @@ export const useWebhookManager = () => {
       console.log('Tentando atualizar webhook via API...')
       const response = await apiService.updateWebhook(id, updates)
       const updatedWebhook = response.data
-      setWebhooks(prev => prev.map(w => w.id === id ? updatedWebhook : w))
+      
+      // CORREÇÃO: Não atualizar estado local imediatamente - aguardar refresh completo
+      // setWebhooks(prev => prev.map(w => w.id === id ? updatedWebhook : w))
+      console.log('✅ Webhook atualizado via API, aguardando refresh...')
+      
       return updatedWebhook
     } catch (error) {
       console.error('Erro na API, tentando atualizar webhook diretamente:', error)
@@ -475,8 +479,8 @@ export const useWebhookManager = () => {
           return webhookData
         }
         
-        console.log('Webhook atualizado com sucesso')
-        setWebhooks(prev => prev.map(w => w.id === id ? fullWebhook : w))
+        console.log('✅ Webhook atualizado diretamente, aguardando refresh...')
+        // Não atualizar estado local - aguardar refresh completo
         return fullWebhook
       } catch (directError) {
         console.error('Erro na atualização direta:', directError)
