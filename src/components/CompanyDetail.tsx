@@ -95,111 +95,20 @@ export function CompanyDetail({
     return webhook?.status === 'active';
   });
 
-  // Conectar automaticamente quando há webhooks ativos
-  useEffect(() => {
-    const shouldAutoConnect = () => {
-      const webhooksReallyActive = activeWebhooks.every(webhook => 
-        webhook.status === 'active'
-      );
-      
-      return (
-        activeWebhooks.length > 0 &&
-        company?.api_token &&
-        !isSocketConnected &&
-        company?.status === 'active' &&
-        !manuallyDisconnected &&
-        webhooksReallyActive
-      );
-    };
+  // FRONTEND SOCKET DESABILITADO - Backend Render 24/7 handles all connections
+  // Não há mais conexão automática no frontend
 
-    if (shouldAutoConnect()) {
-      const timer = setTimeout(() => {
-        handleConnect();
-      }, 2000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [activeWebhooks.length, company?.api_token, isSocketConnected, company?.status, manuallyDisconnected]);
+  // FRONTEND STATUS DESABILITADO - Backend Render sempre conectado 24/7
+  // Status visual será sempre baseado no backend, não no frontend
 
-  // Verificar status da conexão
-  const checkConnectionStatus = () => {
-    const connectionInfo = webhookSocketService.getConnectionInfo();
-    const isConnected = connectionInfo.isConnected && connectionInfo.companyId === company?.id;
-    setIsSocketConnected(isConnected);
-  };
-
-  // Verificar status da conexão periodicamente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      checkConnectionStatus();
-    }, 2000); // Verifica a cada 2 segundos
-
-    return () => clearInterval(interval);
-  }, [company?.id]);
-
-  // Conectar ao socket
+  // FRONTEND CONNECT/DISCONNECT DESABILITADO
+  // Backend Render gerencia todas as conexões automaticamente
   const handleConnect = async () => {
-    if (!company?.api_token) {
-      console.error('❌ Token da API não configurado para esta empresa');
-      alert('Configure o token da API da empresa antes de conectar');
-      return;
-    }
-
-    // Recarregar webhooks ativos antes de tentar conectar
-    const currentActiveWebhooks = companyWebhooks.filter(webhook => {
-      return webhook?.status === 'active';
-    });
-
-    console.log(`🔍 Verificando webhooks ativos para empresa ${company.id}:`, {
-      totalWebhooks: companyWebhooks.length,
-      activeWebhooks: currentActiveWebhooks.length,
-      webhookStatuses: companyWebhooks.map(w => ({ id: w.id, name: w.name, status: w.status }))
-    });
-
-    if (currentActiveWebhooks.length === 0) {
-      console.log('ℹ️ Nenhum webhook ativo encontrado - aguardando dados atualizarem...');
-      return;
-    }
-
-    setIsConnecting(true);
-    try {
-      // Converter webhooks para o formato esperado pelo serviço
-      const webhookConfigs = currentActiveWebhooks.map(webhook => ({
-        id: webhook.id,
-        company_id: webhook.company_id,
-        url: webhook.url,
-        is_active: webhook.status === 'active',
-        status: webhook.status,
-        event_types: webhook.event_types || []
-      }));
-
-      console.log(`🔌 Tentando conectar com ${webhookConfigs.length} webhooks ativos`);
-
-      await webhookSocketService.connectToSocket(
-        company.id,
-        company.api_token,
-        webhookConfigs
-      );
-
-      setIsSocketConnected(true);
-      setManuallyDisconnected(false);
-    } catch (error) {
-      console.error('❌ Erro ao conectar:', error);
-      alert(`Erro ao conectar: ${error.message}`);
-    } finally {
-      setIsConnecting(false);
-    }
+    console.log('ℹ️ Conexão gerenciada pelo backend Render 24/7 - não é necessário conectar manualmente');
   };
 
-  // Desconectar do socket
   const handleDisconnect = async () => {
-    try {
-      await webhookSocketService.disconnectFromSocket();
-      setIsSocketConnected(false);
-      setManuallyDisconnected(true);
-    } catch (error) {
-      console.error('❌ Erro ao desconectar:', error);
-    }
+    console.log('ℹ️ Conexão gerenciada pelo backend Render 24/7 - não é necessário desconectar manualmente');
   };
 
   // Reativar webhooks
@@ -235,7 +144,7 @@ export function CompanyDetail({
     }
   };
 
-  // Toggle webhook status
+  // Toggle webhook status - SIMPLES E DIRETO
   const handleToggleWebhook = async (webhook: Webhook) => {
     if (!webhook?.id) return;
     
@@ -249,37 +158,24 @@ export function CompanyDetail({
         status: newStatus
       });
       
-      // Recarregar dados para garantir que o frontend tenha os dados mais recentes
-      if (onRefreshData) {
-        console.log('🔄 Recarregando dados após atualização do webhook...');
-        await onRefreshData();
+      console.log(`✅ Webhook ${newStatus === 'active' ? 'ativado' : 'desativado'} - Notificando backend Render`);
+      
+      // Notificar backend Render sobre mudança de webhook
+      try {
+        const response = await fetch(`https://socket2webhook.onrender.com/check-webhooks/${company.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+          console.log('✅ Backend Render notificado sobre mudança do webhook');
+        } else {
+          console.log('⚠️ Não foi possível notificar backend Render, mas ele detectará automaticamente');
+        }
+      } catch (error) {
+        console.log('⚠️ Erro ao notificar backend Render, mas ele detectará automaticamente:', error.message);
       }
       
-      // Se ativamos um webhook, forçar reconexão após 1 segundo (sem reload duplo)
-      if (newStatus === 'active') {
-        console.log('✅ Webhook ativado - reconectando em 1 segundo...');
-        setTimeout(async () => {
-          if (company?.api_token && company?.status === 'active') {
-            console.log('🔄 Forçando reconexão devido à ativação do webhook...');
-            // Não recarregar dados novamente - usar estado já atualizado
-            handleConnect();
-          }
-        }, 1000);
-      }
-      
-      // Se desativamos um webhook, desconectar se necessário
-      if (newStatus === 'inactive') {
-        console.log('❌ Webhook desativado - verificando se deve desconectar...');
-        setTimeout(() => {
-          const remainingActiveWebhooks = companyWebhooks.filter(w => 
-            w.id !== webhook.id && w.status === 'active'
-          );
-          if (remainingActiveWebhooks.length === 0) {
-            console.log('🔌 Nenhum webhook ativo restante - desconectando...');
-            handleDisconnect();
-          }
-        }, 500);
-      }
     } catch (error) {
       console.error('❌ Erro ao alternar webhook:', error);
     }
@@ -546,16 +442,15 @@ export function CompanyDetail({
               </CardDescription>
             </div>
             
-            {/* Status da Conexão */}
+            {/* Status da Conexão - Backend 24/7 */}
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
-                {isSocketConnected ? (
-                  <Wifi className="h-4 w-4 text-green-600" />
-                ) : (
-                  <WifiOff className="h-4 w-4 text-gray-400" />
-                )}
-                <span className={`text-sm ${isSocketConnected ? 'text-green-600' : 'text-gray-500'}`}>
-                  {isSocketConnected ? 'Conectado' : 'Desconectado'}
+                <Wifi className="h-4 w-4 text-blue-600" />
+                <span className="text-sm text-blue-600 font-medium">
+                  Backend 24/7 Ativo
+                </span>
+                <span className="text-xs text-gray-500 bg-blue-50 px-2 py-1 rounded">
+                  Render
                 </span>
               </div>
               
