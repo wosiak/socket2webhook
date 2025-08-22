@@ -404,18 +404,33 @@ async function connect3CPlusSocket(company, webhooks) {
 // Funções para deduplicação de eventos
 function createEventKey(companyId, eventName, eventData) {
   // Criar chave baseada em dados únicos da mensagem
-  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid;
-  const timestamp = eventData?.timestamp || eventData?.created_at;
-  const phone = eventData?.phone || eventData?.from || eventData?.number;
+  const messageId = eventData?.id || eventData?.message_id || eventData?.uuid || eventData?.messageId;
+  const timestamp = eventData?.timestamp || eventData?.created_at || eventData?.createdAt;
+  const phone = eventData?.phone || eventData?.from || eventData?.number || eventData?.contact;
+  
+  // Log para debug da chave de deduplicação
+  console.log(`🔑 Criando chave de deduplicação:`, {
+    companyId,
+    eventName,
+    messageId,
+    timestamp,
+    phone,
+    eventDataKeys: Object.keys(eventData || {})
+  });
   
   // Se temos ID único da mensagem, usar ele
   if (messageId) {
-    return `${companyId}:${eventName}:${messageId}`;
+    const key = `${companyId}:${eventName}:${messageId}`;
+    console.log(`🔑 Chave baseada em messageId: ${key}`);
+    return key;
   }
   
-  // Senão, usar combinação de dados + timestamp truncado (para agrupar eventos próximos)
-  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 10000) : Math.floor(Date.now() / 10000);
-  return `${companyId}:${eventName}:${phone}:${truncatedTimestamp}`;
+  // Senão, usar combinação de dados + timestamp mais agressivo (5 segundos)
+  const truncatedTimestamp = timestamp ? Math.floor(new Date(timestamp).getTime() / 5000) : Math.floor(Date.now() / 5000);
+  const key = `${companyId}:${eventName}:${phone}:${truncatedTimestamp}`;
+  console.log(`🔑 Chave baseada em phone+timestamp: ${key}`);
+  
+  return key;
 }
 
 function isEventDuplicate(eventKey) {
@@ -423,9 +438,12 @@ function isEventDuplicate(eventKey) {
   const cachedEvent = eventCache.get(eventKey);
   
   if (cachedEvent && (now - cachedEvent.timestamp) < CACHE_TTL) {
+    const secondsAgo = Math.floor((now - cachedEvent.timestamp) / 1000);
+    console.log(`🔄 Evento DUPLICADO detectado: ${eventKey} (processado ${secondsAgo}s atrás)`);
     return true; // Evento duplicado dentro do TTL
   }
   
+  console.log(`✅ Evento NOVO: ${eventKey}`);
   return false;
 }
 
