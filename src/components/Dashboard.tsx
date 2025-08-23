@@ -37,6 +37,7 @@ interface MostUsedEvent {
 interface Execution {
   id: string;
   company_id: string;
+  company_name: string;
   event_type: string;
   status: 'pending' | 'success' | 'failed';
   webhook_url: string;
@@ -303,11 +304,18 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
                   <div key={execution.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center gap-4">
                       {getStatusIcon(execution.status)}
-                      <div>
-                        <h4 className="font-medium text-gray-900">{execution.event_type}</h4>
-                        <p className="text-sm text-gray-600">
-                          {execution.webhook_name || 'Webhook'}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="min-w-[120px]">
+                          <h4 className="font-medium text-gray-900">{execution.company_name}</h4>
+                          <p className="text-xs text-gray-500">Empresa</p>
+                        </div>
+                        <div className="border-l border-gray-300 h-8"></div>
+                        <div>
+                          <h4 className="font-medium text-gray-900">{execution.event_type}</h4>
+                          <p className="text-sm text-gray-600">
+                            {execution.webhook_name || 'Webhook'}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

@@ -203,6 +203,7 @@ export const useWebhookManager = () => {
         const transformedExecutions = executionsData.map((execution: any) => ({
           id: execution.id,
           company_id: execution.company_id,
+          company_name: execution.company?.name || 'Empresa desconhecida',
           event_type: execution.event?.name || execution.event_id || 'Evento',
           status: execution.status,
           webhook_url: execution.webhook?.url || 'N/A',
