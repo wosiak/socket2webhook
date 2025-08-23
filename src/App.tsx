@@ -186,9 +186,6 @@ export default function App() {
       <main className="max-w-7xl mx-auto p-6">
         {currentView === 'company-detail' && currentCompany ? (
           <>
-            {/* Debug: verificar eventos no App */}
-            {console.log('App - Events antes de passar para CompanyDetail:', events)}
-            {console.log('App - Events length:', events?.length)}
             <CompanyDetail
               company={currentCompany}
               webhooks={companyWebhooks}
@@ -230,7 +227,7 @@ export default function App() {
                   <h2 className="text-2xl font-bold text-gray-900">Empresas</h2>
                   <p className="text-gray-600">Gerencie as empresas conectadas ao sistema</p>
                 </div>
-                <Button onClick={() => setIsCompanyModalOpen(true)} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => setIsCompanyModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white">
                   <Building className="h-4 w-4 mr-2" />
                   Nova Empresa
                 </Button>

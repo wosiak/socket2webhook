@@ -91,7 +91,7 @@ export function CompanyManager({
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="text-white">
               <Plus className="mr-2 h-4 w-4" />
               Nova Empresa
             </Button>

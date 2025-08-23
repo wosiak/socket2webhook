@@ -246,7 +246,7 @@ export function CompanyFormModal({ isOpen, onClose, onSubmit }: CompanyFormModal
           <Button 
             onClick={handleSubmit} 
             disabled={isSubmitting}
-            className="bg-blue-600 hover:bg-blue-700"
+            className="bg-blue-600 hover:bg-blue-700 text-white"
           >
             {isSubmitting ? (
               <>

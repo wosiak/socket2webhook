@@ -182,10 +182,6 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Debug */}
-            <div className="text-xs text-gray-500 p-2 bg-gray-100 rounded mb-4">
-              Debug Dashboard: {mostUsedEvents.length} eventos mais utilizados | Primeiro: {mostUsedEvents[0]?.name || mostUsedEvents[0]?.event_name}
-            </div>
             
             {mostUsedEvents.length === 0 ? (
               <div className="text-center py-12">
