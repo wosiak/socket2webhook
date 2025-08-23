@@ -4,13 +4,15 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Alert, AlertDescription } from "./components/ui/alert";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
+import { Input } from "./components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./components/ui/select";
 import { Dashboard } from "./components/Dashboard";
 import { CompanyList } from "./components/CompanyList";
 import { CompanyDetail } from "./components/CompanyDetail";
 import { CompanyFormModal } from "./components/CompanyFormModal";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
-import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft } from "lucide-react";
+import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft, Search, Filter } from "lucide-react";
 
 export default function App() {
   const {
@@ -41,11 +43,23 @@ export default function App() {
   const { currentView, currentCompanyId, navigateTo, navigateBack } = useRouter();
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [searchTerm, setSearchTerm] = useState('');
   // Edge Functions são agora inicializadas automaticamente pelo useWebhookManager
 
   const currentCompany = companies.find(c => c.id === currentCompanyId);
   const companyWebhooks = webhooks.filter(w => w.company_id === currentCompanyId);
   const companyExecutions = executions.filter(e => e.company_id === currentCompanyId);
+
+  // Filtrar empresas baseado no status e termo de pesquisa
+  const filteredCompanies = companies.filter(company => {
+    const matchesStatus = statusFilter === 'all' || company.status === statusFilter;
+    const matchesSearch = !searchTerm || 
+      company.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      company.company_3c_id.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesStatus && matchesSearch;
+  });
 
   const handleAddCompany = async (companyData: any) => {
     try {
@@ -232,9 +246,66 @@ export default function App() {
                   Nova Empresa
                 </Button>
               </div>
+
+              {/* Filtros */}
+              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-4 border border-white/20">
+                <div className="flex flex-col md:flex-row gap-4">
+                  {/* Barra de pesquisa */}
+                  <div className="flex-1">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Pesquisar por nome ou ID da empresa..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="pl-10 bg-white/80 backdrop-blur-sm border-gray-200"
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Filtro por status */}
+                  <div className="w-full md:w-48">
+                    <Select value={statusFilter} onValueChange={(value: 'all' | 'active' | 'inactive') => setStatusFilter(value)}>
+                      <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-200">
+                        <Filter className="h-4 w-4 mr-2" />
+                        <SelectValue placeholder="Filtrar por status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Todas as empresas</SelectItem>
+                        <SelectItem value="active">Apenas ativas</SelectItem>
+                        <SelectItem value="inactive">Apenas inativas</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Botão limpar filtros */}
+                  <div className="w-full md:w-auto">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setStatusFilter('all');
+                      }}
+                      className="w-full md:w-auto bg-white/80 backdrop-blur-sm border-gray-200"
+                    >
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                </div>
+                
+                {/* Contador de resultados */}
+                <div className="mt-3 text-sm text-gray-600">
+                  {filteredCompanies.length} de {companies.length} empresa(s) encontrada(s)
+                  {(searchTerm || statusFilter !== 'all') && (
+                    <span className="ml-2 text-blue-600">
+                      • Filtros ativos
+                    </span>
+                  )}
+                </div>
+              </div>
               
               <CompanyList
-                companies={companies}
+                companies={filteredCompanies}
                 onViewCompany={(company) => navigateTo('company-detail', company.id)}
                 onUpdateCompany={handleUpdateCompany}
                 onDeleteCompany={handleDeleteCompany}
