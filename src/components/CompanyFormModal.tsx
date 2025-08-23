@@ -215,18 +215,16 @@ export function CompanyFormModal({ isOpen, onClose, onSubmit }: CompanyFormModal
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
-                <Switch
-                  id="status"
-                  checked={formData.status === 'active'}
-                  onCheckedChange={(checked) => 
-                    setFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
-                  }
-                  className={`${
-                    formData.status === 'active' 
-                      ? 'data-[state=checked]:bg-green-500' 
-                      : 'data-[state=unchecked]:bg-red-500'
-                  }`}
-                />
+                                          <Switch
+                            id="status"
+                            checked={formData.status === 'active'}
+                            onCheckedChange={(checked) => 
+                              setFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
+                            }
+                            style={{
+                              backgroundColor: formData.status === 'active' ? '#10b981' : '#ef4444'
+                            }}
+                          />
                 <div>
                   <Label htmlFor="status" className="text-sm font-medium text-gray-700">
                     Status da Empresa

@@ -147,11 +147,9 @@ export function CompanyManager({
                       onCheckedChange={(checked) => 
                         setFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
                       }
-                      className={`${
-                        formData.status === 'active' 
-                          ? 'data-[state=checked]:bg-green-500' 
-                          : 'data-[state=unchecked]:bg-red-500'
-                      }`}
+                      style={{
+                        backgroundColor: formData.status === 'active' ? '#10b981' : '#ef4444'
+                      }}
                     />
                     <div>
                       <Label htmlFor="status" className="text-sm font-medium text-gray-700">

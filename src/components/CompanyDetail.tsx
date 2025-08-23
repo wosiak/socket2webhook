@@ -393,11 +393,9 @@ export function CompanyDetail({
                             onCheckedChange={(checked: boolean) => 
                               setCompanyFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
                             }
-                            className={`${
-                              companyFormData.status === 'active' 
-                                ? 'data-[state=checked]:bg-green-500' 
-                                : 'data-[state=unchecked]:bg-red-500'
-                            }`}
+                            style={{
+                              backgroundColor: companyFormData.status === 'active' ? '#10b981' : '#ef4444'
+                            }}
                           />
                           <div>
                             <Label htmlFor="status" className="text-sm font-medium text-gray-700">
