@@ -167,6 +167,29 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
   }
 });
 
+// Endpoint para verificar empresas inativas
+app.post('/check-inactive-companies', async (req, res) => {
+  try {
+    console.log('🔍 Verificando empresas inativas via endpoint...');
+    
+    await checkAndDisconnectInactiveCompanies();
+    
+    res.json({
+      success: true,
+      message: 'Verificação de empresas inativas concluída',
+      active_connections: activeConnections.size,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erro ao verificar empresas inativas:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
 // Endpoint para verificar todas as empresas
 app.post('/check-all-webhooks', async (req, res) => {
   try {
@@ -827,6 +850,40 @@ async function connectAllActiveCompanies() {
   }
 }
 
+// Verificar e desconectar empresas inativas
+async function checkAndDisconnectInactiveCompanies() {
+  try {
+    console.log('🔍 Verificando empresas inativas...');
+    
+    // Para cada empresa conectada, verificar se ainda está ativa
+    for (const [companyId] of activeConnections) {
+      const { data: company, error } = await supabase
+        .from('companies')
+        .select('id, name, status')
+        .eq('id', companyId)
+        .single();
+      
+      if (error) {
+        console.error(`❌ Erro ao verificar status da empresa ${companyId}:`, error);
+        continue;
+      }
+      
+      if (!company) {
+        console.log(`⚠️ Empresa ${companyId} não encontrada - desconectando`);
+        await disconnectCompany(companyId);
+        continue;
+      }
+      
+      if (company.status === 'inactive') {
+        console.log(`🔌 Empresa ${company.name} (${companyId}) foi desativada - desconectando socket`);
+        await disconnectCompany(companyId);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro ao verificar empresas inativas:', error);
+  }
+}
+
 // Monitorar conexões a cada 60 segundos
 function startConnectionMonitor() {
   console.log('🔍 Iniciando monitor de conexões...');
@@ -835,7 +892,10 @@ function startConnectionMonitor() {
     try {
       console.log(`🔍 Monitor: Verificando ${activeConnections.size} conexões...`);
       
-      // 1. Verificar empresas conectadas - se ainda têm webhooks ativos
+      // 1. Verificar empresas inativas e desconectá-las
+      await checkAndDisconnectInactiveCompanies();
+      
+      // 2. Verificar empresas conectadas - se ainda têm webhooks ativos
       for (const [companyId] of activeConnections) {
         await checkAndDisconnectIfNoActiveWebhooks(companyId);
       }

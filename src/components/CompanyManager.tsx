@@ -49,11 +49,31 @@ export function CompanyManager({
     setEditingCompany(null);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.company_3c_id || !formData.name || !formData.api_token) return;
 
     if (editingCompany) {
-      onUpdateCompany(editingCompany.id, formData);
+      await onUpdateCompany(editingCompany.id, formData);
+      
+      // Se a empresa foi desativada, notificar o backend para desconectar
+      if (formData.status === 'inactive') {
+        console.log('🔌 Empresa desativada - notificando backend para desconectar socket');
+        
+        try {
+          const response = await fetch('https://socket2webhook-dev.onrender.com/check-inactive-companies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (response.ok) {
+            console.log('✅ Backend notificado sobre empresa inativa');
+          } else {
+            console.log('⚠️ Não foi possível notificar backend, mas ele detectará automaticamente');
+          }
+        } catch (error) {
+          console.log('⚠️ Erro ao notificar backend, mas ele detectará automaticamente:', error.message);
+        }
+      }
     } else {
       onAddCompany(formData);
     }

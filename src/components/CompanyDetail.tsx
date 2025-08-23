@@ -197,6 +197,26 @@ export function CompanyDetail({
     try {
       await onUpdateCompany(company.id, companyFormData);
       setIsCompanyDialogOpen(false);
+      
+      // Se a empresa foi desativada, notificar o backend para desconectar
+      if (companyFormData.status === 'inactive') {
+        console.log('🔌 Empresa desativada - notificando backend para desconectar socket');
+        
+        try {
+          const response = await fetch('https://socket2webhook-dev.onrender.com/check-inactive-companies', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+          
+          if (response.ok) {
+            console.log('✅ Backend notificado sobre empresa inativa');
+          } else {
+            console.log('⚠️ Não foi possível notificar backend, mas ele detectará automaticamente');
+          }
+        } catch (error) {
+          console.log('⚠️ Erro ao notificar backend, mas ele detectará automaticamente:', error.message);
+        }
+      }
     } catch (error) {
       console.error('❌ Erro ao atualizar empresa:', error);
     }
