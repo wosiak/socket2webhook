@@ -138,15 +138,43 @@ export function CompanyManager({
                 />
               </div>
               
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="status"
-                  checked={formData.status === 'active'}
-                  onCheckedChange={(checked) => 
-                    setFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
-                  }
-                />
-                <Label htmlFor="status">Empresa ativa</Label>
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <Switch
+                      id="status"
+                      checked={formData.status === 'active'}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, status: checked ? 'active' : 'inactive' }))
+                      }
+                      className={`${
+                        formData.status === 'active' 
+                          ? 'data-[state=checked]:bg-green-500' 
+                          : 'data-[state=unchecked]:bg-red-500'
+                      }`}
+                    />
+                    <div>
+                      <Label htmlFor="status" className="text-sm font-medium text-gray-700">
+                        Status da Empresa
+                      </Label>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {formData.status === 'active' 
+                          ? 'Empresa ativa e funcionando normalmente' 
+                          : 'Empresa inativa - não receberá eventos'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Badge 
+                    className={`${
+                      formData.status === 'active'
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : 'bg-red-100 text-red-800 border-red-200'
+                    }`}
+                  >
+                    {formData.status === 'active' ? 'Ativa' : 'Inativa'}
+                  </Badge>
+                </div>
               </div>
             </div>
             
