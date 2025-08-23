@@ -54,11 +54,11 @@ export function ExecutionHistory({ companies = [], executions = [] }: ExecutionH
   const getStatusBadge = (status: ExecutionHistoryType['status']) => {
     switch (status) {
       case 'success':
-        return <Badge variant="default" className="bg-green-100 text-green-800">Sucesso</Badge>;
+        return <Badge className="bg-green-500 text-white border-green-500 hover:bg-green-600">Sucesso</Badge>;
       case 'failed':
         return <Badge variant="destructive">Falha</Badge>;
       case 'retrying':
-        return <Badge variant="secondary" className="bg-yellow-100 text-yellow-800">Tentando</Badge>;
+        return <Badge className="bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600">Tentando</Badge>;
       default:
         return <Badge variant="outline">Pendente</Badge>;
     }

@@ -304,18 +304,11 @@ export function CompanyDetail({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'success':
-        return <Badge variant="default" className="text-xs text-white">Sucesso</Badge>;
+        return <Badge className="text-xs bg-green-500 text-white border-green-500 hover:bg-green-600">Sucesso</Badge>;
       case 'failed':
-        return (
-          <Badge 
-            className="text-xs bg-red-600 border-red-600" 
-            style={{ color: '#ffffff !important', backgroundColor: '#dc2626' }}
-          >
-            Falha
-          </Badge>
-        );
+        return <Badge className="text-xs bg-red-500 text-white border-red-500 hover:bg-red-600">Falha</Badge>;
       case 'pending':
-        return <Badge variant="secondary" className="text-xs text-gray-800">Pendente</Badge>;
+        return <Badge className="text-xs bg-yellow-500 text-white border-yellow-500 hover:bg-yellow-600">Pendente</Badge>;
       default:
         return <Badge variant="outline" className="text-xs text-gray-800">Desconhecido</Badge>;
     }
