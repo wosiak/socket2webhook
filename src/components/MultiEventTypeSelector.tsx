@@ -31,19 +31,13 @@ export function MultiEventTypeSelector({
   console.log('MultiEventTypeSelector - SafeEvents length:', safeEvents.length);
 
   const handleToggleEvent = (eventId: string) => {
-    console.log('🔄 Toggle event:', eventId);
-    console.log('📋 Current selected:', safeSelectedEventIds);
-    
     let newSelection;
     if (safeSelectedEventIds.includes(eventId)) {
       newSelection = safeSelectedEventIds.filter(id => id !== eventId);
-      console.log('➖ Removendo evento:', eventId);
     } else {
       newSelection = [...safeSelectedEventIds, eventId];
-      console.log('➕ Adicionando evento:', eventId);
     }
     
-    console.log('📤 Nova seleção:', newSelection);
     onSelectionChange(newSelection);
   };
 
@@ -107,42 +101,36 @@ export function MultiEventTypeSelector({
         {open && (
           <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
             <div className="p-2">
-              <div className="text-sm text-gray-500 mb-2">
-                Debug: {safeEvents.length} eventos encontrados
-              </div>
               {safeEvents.length === 0 ? (
                 <div className="text-gray-500 p-4 text-center">Nenhum evento encontrado</div>
               ) : (
                 <div className="space-y-1">
-                  {safeEvents.map((event, index) => {
-                    console.log('Renderizando evento:', event);
-                    return (
-                      <div
-                        key={`${event.id}-${index}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          handleToggleEvent(event.id);
-                        }}
-                        className="flex items-center space-x-2 p-2 hover:bg-gray-50 cursor-pointer rounded"
-                      >
-                        <Checkbox
-                          checked={safeSelectedEventIds.includes(event.id)}
-                          onChange={() => {}} // Evita propagação dupla
-                          className="text-blue-600"
-                        />
-                        <div className="flex-1">
-                          <div className="text-gray-700 font-medium">{event.display_name || event.name}</div>
-                          {event.display_name && event.display_name !== event.name && (
-                            <div className="text-gray-500 text-sm font-mono">{event.name}</div>
-                          )}
-                        </div>
-                        {safeSelectedEventIds.includes(event.id) && (
-                          <Check className="ml-auto h-4 w-4 text-blue-600" />
+                  {safeEvents.map((event, index) => (
+                    <div
+                      key={`${event.id}-${index}`}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleToggleEvent(event.id);
+                      }}
+                      className="flex items-center space-x-2 p-2 hover:bg-gray-50 cursor-pointer rounded"
+                    >
+                      <Checkbox
+                        checked={safeSelectedEventIds.includes(event.id)}
+                        onChange={() => {}} // Evita propagação dupla
+                        className="text-blue-600"
+                      />
+                      <div className="flex-1">
+                        <div className="text-gray-700 font-medium">{event.display_name || event.name}</div>
+                        {event.display_name && event.display_name !== event.name && (
+                          <div className="text-gray-500 text-sm font-mono">{event.name}</div>
                         )}
                       </div>
-                    );
-                  })}
+                      {safeSelectedEventIds.includes(event.id) && (
+                        <Check className="ml-auto h-4 w-4 text-blue-600" />
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
