@@ -3,7 +3,8 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Input } from "./ui/input";
+import { Check, ChevronDown, X, Search } from "lucide-react";
 import { Event } from "../types";
 
 interface MultiEventTypeSelectorProps {
@@ -20,6 +21,7 @@ export function MultiEventTypeSelector({
   placeholder = "Selecione tipos de eventos"
 }: MultiEventTypeSelectorProps) {
   const [open, setOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Garantir que temos arrays seguros
   const safeEvents = Array.isArray(events) ? events : [];
@@ -58,6 +60,15 @@ export function MultiEventTypeSelector({
 
   const selectedEventNames = getSelectedEventNames();
 
+  // Filtrar eventos baseado no termo de pesquisa
+  const filteredEvents = safeEvents.filter(event => {
+    const searchLower = searchTerm.toLowerCase();
+    const eventName = event.name?.toLowerCase() || '';
+    const displayName = event.display_name?.toLowerCase() || '';
+    
+    return eventName.includes(searchLower) || displayName.includes(searchLower);
+  });
+
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Fechar dropdown quando clicar fora
@@ -65,6 +76,7 @@ export function MultiEventTypeSelector({
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setOpen(false);
+        setSearchTerm(''); // Limpar pesquisa quando fechar
       }
     };
 
@@ -101,11 +113,33 @@ export function MultiEventTypeSelector({
         {open && (
           <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-y-auto">
             <div className="p-2">
+              {/* Campo de pesquisa */}
+              <div className="mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    placeholder="Pesquisar eventos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 bg-white/80 backdrop-blur-sm border-gray-200 text-sm"
+                  />
+                </div>
+                {searchTerm && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    {filteredEvents.length} de {safeEvents.length} evento(s) encontrado(s)
+                  </div>
+                )}
+              </div>
+              
               {safeEvents.length === 0 ? (
                 <div className="text-gray-500 p-4 text-center">Nenhum evento encontrado</div>
+              ) : filteredEvents.length === 0 ? (
+                <div className="text-gray-500 p-4 text-center">
+                  Nenhum evento encontrado para "{searchTerm}"
+                </div>
               ) : (
                 <div className="space-y-1">
-                  {safeEvents.map((event, index) => (
+                  {filteredEvents.map((event, index) => (
                     <div
                       key={`${event.id}-${index}`}
                       onClick={(e) => {
