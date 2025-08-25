@@ -166,6 +166,7 @@ class ApiService {
             filters
           )
         `)
+        .eq('deleted', false)
         .order('created_at', { ascending: false })
       
       if (companyId) {
@@ -295,6 +296,7 @@ class ApiService {
           )
         `)
         .eq('id', id)
+        .eq('deleted', false)
         .single()
       
       if (error) throw error
@@ -413,23 +415,24 @@ class ApiService {
 
   async deleteWebhook(id: string) {
     try {
-      // Delete webhook_events first (foreign key constraint)
-      const { error: eventsError } = await supabase
-        .from('webhook_events')
-        .delete()
-        .eq('webhook_id', id)
+      console.log('🗑️ Fazendo soft delete do webhook:', id)
       
-      if (eventsError) throw eventsError
-      
-      // Delete webhook
+      // Soft delete: apenas marcar como deletado
+      // NÃO deletamos webhook_events para preservar métricas
       const { error: webhookError } = await supabase
         .from('webhooks')
-        .delete()
+        .update({
+          deleted: true,
+          status: 'inactive', // Também marcar como inativo
+          updated_at: new Date().toISOString()
+        })
         .eq('id', id)
       
       if (webhookError) throw webhookError
       
-      return { success: true, message: 'Webhook deleted successfully' }
+      console.log('✅ Webhook marcado como deletado (soft delete) - métricas preservadas')
+      
+      return { success: true, message: 'Webhook deleted successfully (soft delete)' }
     } catch (error) {
       console.error('API Request Failed: deleteWebhook', error)
       throw error
@@ -587,11 +590,12 @@ class ApiService {
       console.log('📊 Execuções falharam (count):', failedExecutions);
       console.log('📊 Taxa de sucesso:', successRate.toFixed(2) + '%');
       
-      // Get active webhooks
+      // Get active webhooks (não deletados)
       const { count: activeWebhooksCount } = await supabase
         .from('webhooks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active')
+        .eq('deleted', false)
       
       const metrics = {
         totalCompanies: companiesCount || 0,

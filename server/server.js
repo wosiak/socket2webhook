@@ -199,7 +199,8 @@ app.post('/check-all-webhooks', async (req, res) => {
     const { data: companies, error } = await supabase
       .from('companies')
       .select('id, name, status')
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('deleted', false);
     
     if (error) {
       throw error;
@@ -326,7 +327,8 @@ async function connectCompany(companyId) {
         )
       `)
       .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('deleted', false);
     
     if (webhooksError) {
       throw webhooksError;
@@ -600,7 +602,8 @@ async function getActiveWebhooksForCompany(companyId) {
       )
     `)
     .eq('company_id', companyId)
-    .eq('status', 'active'); // APENAS ATIVOS
+    .eq('status', 'active') // APENAS ATIVOS
+    .eq('deleted', false); // E NÃO DELETADOS
 
   if (webhookError) {
     console.error('❌ Erro ao buscar webhooks atuais:', webhookError);
@@ -865,7 +868,8 @@ async function checkAndDisconnectIfNoActiveWebhooks(companyId) {
       .from('webhooks')
       .select('id, status')
       .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('deleted', false);
     
     if (error) {
       console.error('❌ Erro ao verificar webhooks ativos:', error);
@@ -899,7 +903,8 @@ async function checkAndReconnectIfHasActiveWebhooks(companyId) {
       .from('webhooks')
       .select('id, status')
       .eq('company_id', companyId)
-      .eq('status', 'active');
+      .eq('status', 'active')
+      .eq('deleted', false);
     
     if (error) {
       console.error('❌ Erro ao verificar webhooks ativos:', error);
