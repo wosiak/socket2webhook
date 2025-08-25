@@ -200,7 +200,7 @@ export function UserManagement() {
             className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-gray-50"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Voltar ao Dashboard
+            Voltar
           </Button>
           <div>
             <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">

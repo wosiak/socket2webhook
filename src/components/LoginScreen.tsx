@@ -179,20 +179,6 @@ export function LoginScreen() {
             🧪 Ambiente de Desenvolvimento
           </div>
         </div>
-        
-        {/* Demo Credentials */}
-        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-xs text-blue-800 font-medium mb-2">
-            📝 Credenciais de teste:
-          </div>
-          <div className="text-xs text-blue-700 space-y-1">
-            <div><strong>Email:</strong> admin@3cplus.com</div>
-            <div><strong>Senha:</strong> admin123</div>
-            <div className="text-blue-600 mt-2">
-              <strong>Role:</strong> Super Administrador (acesso total)
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
