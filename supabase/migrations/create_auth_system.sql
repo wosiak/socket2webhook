@@ -110,9 +110,9 @@ CREATE POLICY "Users can only access their own sessions" ON user_sessions
   FOR ALL USING (user_id::text = auth.uid()::text);
 
 -- 8. Inserir usuário super admin padrão
--- SENHA: admin123 (hash bcrypt)
+-- SENHA: admin123 (hash SHA256 base64)
 INSERT INTO users (email, name, password_hash, role, is_active) VALUES 
-('admin@3cplus.com', 'Super Administrador', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewdBPl0NhJEt3VGC', 'super_admin', true)
+('admin@3cplus.com', 'Super Administrador', encode(digest('admin123', 'sha256'), 'base64'), 'super_admin', true)
 ON CONFLICT (email) DO NOTHING;
 
 -- 9. Criar função para verificar permissões
@@ -158,7 +158,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- 11. Criar função para login de usuário
-CREATE OR REPLACE FUNCTION authenticate_user(user_email TEXT, user_password TEXT)
+CREATE OR REPLACE FUNCTION authenticate_user(input_email TEXT, input_password TEXT)
 RETURNS TABLE(
   user_id UUID,
   user_name TEXT,
@@ -175,11 +175,11 @@ DECLARE
 BEGIN
   -- Buscar usuário ativo com email
   SELECT * INTO found_user FROM users 
-  WHERE email = user_email AND is_active = true;
+  WHERE email = input_email AND is_active = true;
   
   -- Verificar se usuário existe e senha está correta
-  -- NOTA: Em produção, usar uma biblioteca de hash segura
-  IF found_user.id IS NOT NULL AND found_user.password_hash = crypt(user_password, found_user.password_hash) THEN
+  -- NOTA: Hash simples para desenvolvimento, usar bcrypt em produção
+  IF found_user.id IS NOT NULL AND found_user.password_hash = encode(digest(input_password, 'sha256'), 'base64') THEN
     -- Gerar token de sessão
     new_token := encode(gen_random_bytes(32), 'base64');
     new_expires := NOW() + INTERVAL '7 days';

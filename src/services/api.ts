@@ -725,8 +725,8 @@ class ApiService {
       console.log('🔐 Tentando fazer login:', credentials.email)
       
       const { data, error } = await supabase.rpc('authenticate_user', {
-        user_email: credentials.email,
-        user_password: credentials.password
+        input_email: credentials.email,
+        input_password: credentials.password
       })
       
       if (error) {
@@ -849,8 +849,12 @@ class ApiService {
     try {
       console.log('👤 Criando usuário:', userData.email)
       
-      // Hash password (em produção, use bcrypt no backend)
-      const passwordHash = btoa(userData.password) // Temporary simple hash
+      // Hash password (SHA256 + Base64 para compatibilidade com o banco)
+      const encoder = new TextEncoder();
+      const data = encoder.encode(userData.password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const passwordHash = btoa(String.fromCharCode.apply(null, hashArray));
       
       const { data, error } = await supabase
         .from('users')
