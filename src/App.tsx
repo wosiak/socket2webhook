@@ -178,10 +178,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-indigo-100">
-      {/* Development Environment Banner */}
-      <div className="bg-orange-500 text-white text-center py-2 text-sm font-semibold">
-        🧪 AMBIENTE DE DESENVOLVIMENTO - Testes e novas funcionalidades
-      </div>
       
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-sm border-b border-white/20 sticky top-0 z-50">
