@@ -1,4 +1,4 @@
-# 3C Plus Webhook Proxy
+# W2W: WebSocket to Webhook | 3C Plus
 
 Sistema completo de gerenciamento de webhooks para integração com a plataforma 3C Plus.
 
