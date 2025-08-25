@@ -297,7 +297,7 @@ export function InteractiveEventFilter({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-[98vw] w-[98vw] bg-white max-h-[95vh]">
+      <DialogContent className="max-w-[90vw] w-[90vw] bg-white max-h-[95vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -308,8 +308,8 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-8 max-h-[85vh]">
-          {/* Coluna 1: Estrutura do Evento */}
+        <div className="space-y-6 max-h-[85vh]">
+          {/* Estrutura do Evento - Layout amplo */}
           <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
@@ -323,7 +323,7 @@ export function InteractiveEventFilter({
                 </p>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[75vh] w-full">
+                <ScrollArea className="h-[50vh] w-full">
                   <pre className="text-sm leading-relaxed font-mono">
                     {renderInteractiveJson(SAMPLE_EVENT_BODY)}
                   </pre>
@@ -332,8 +332,8 @@ export function InteractiveEventFilter({
             </Card>
           </div>
 
-          {/* Coluna 2: Configuração de Filtros */}
-          <div className="space-y-4">
+          {/* Configuração de Filtros - Abaixo do evento para dar mais espaço */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Filtros existentes */}
             {filters.length > 0 && (
               <Card>
