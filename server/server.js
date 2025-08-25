@@ -597,34 +597,52 @@ async function getActiveWebhooksForCompany(companyId) {
 
 // Função para aplicar filtros de eventos
 function applyEventFilters(eventData, filters) {
+  console.log(`🔍 applyEventFilters - eventData:`, typeof eventData, !!eventData);
+  console.log(`🔍 applyEventFilters - filters:`, filters);
+  
   if (!filters || filters.length === 0) {
+    console.log(`🔍 Sem filtros configurados - evento aprovado`);
     return true; // Sem filtros, passa todos os eventos
   }
 
   // Todos os filtros devem passar para o evento ser enviado
-  return filters.every(filter => {
+  return filters.every((filter, index) => {
     try {
+      console.log(`🔍 Aplicando filtro ${index + 1}/${filters.length}:`, filter);
+      
       // Extrair valor do campo usando o path (ex: "callHistory.status")
       const fieldValue = getNestedValue(eventData, filter.field_path);
+      console.log(`🔍 Valor extraído de ${filter.field_path}:`, fieldValue, typeof fieldValue);
+      
+      let result = false;
       
       // Aplicar operador
       switch (filter.operator) {
         case 'equals':
-          return fieldValue == filter.value; // Usar == para comparação flexível
+          result = fieldValue == filter.value; // Usar == para comparação flexível
+          break;
         case 'not_equals':
-          return fieldValue != filter.value;
+          result = fieldValue != filter.value;
+          break;
         case 'greater_than':
-          return Number(fieldValue) > Number(filter.value);
+          result = Number(fieldValue) > Number(filter.value);
+          break;
         case 'less_than':
-          return Number(fieldValue) < Number(filter.value);
+          result = Number(fieldValue) < Number(filter.value);
+          break;
         case 'contains':
-          return String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          result = String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          break;
         case 'not_contains':
-          return !String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          result = !String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          break;
         default:
           console.warn(`🔍 Operador desconhecido: ${filter.operator}`);
-          return true; // Em caso de operador desconhecido, passa o evento
+          result = true; // Em caso de operador desconhecido, passa o evento
       }
+      
+      console.log(`🔍 Filtro ${filter.field_path} ${filter.operator} ${filter.value}: ${fieldValue} -> ${result ? 'PASSOU' : 'NÃO PASSOU'}`);
+      return result;
     } catch (error) {
       console.warn(`🔍 Erro ao aplicar filtro ${filter.field_path}:`, error);
       return true; // Em caso de erro, passa o evento
@@ -705,7 +723,12 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const webhookEvent = webhook.webhook_events?.find(we => we.event?.name === eventName);
     const eventFilters = webhookEvent?.filters || [];
     
+    console.log(`🔍 Webhook ${webhook.id} - evento encontrado:`, webhookEvent);
+    console.log(`🔍 Filtros encontrados para ${eventName}:`, eventFilters);
     console.log(`🔍 Aplicando ${eventFilters.length} filtros para evento ${eventName}`);
+    
+    // Log do payload recebido para debug
+    console.log(`🔍 Payload do evento para filtros:`, JSON.stringify(eventData, null, 2));
     
     // Aplicar filtros - se não passar, não enviar o webhook
     if (!applyEventFilters(eventData, eventFilters)) {

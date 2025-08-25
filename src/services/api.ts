@@ -185,6 +185,7 @@ class ApiService {
         const webhookStatus = webhook.status || 'inactive';
         
         console.log(`🔍 Webhook do banco: ${webhook.name} - Status: ${webhookStatus}`);
+        console.log(`🔍 Webhook events com filtros:`, JSON.stringify(webhook.webhook_events, null, 2));
         
         return {
           id: webhook.id,
@@ -243,25 +244,31 @@ class ApiService {
           // Buscar filtros para este evento específico
           const eventFilters = webhook.event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
           
-          return {
+          console.log(`🔍 Para evento ${eventId}:`, { eventFilters, type: typeof eventFilters, isArray: Array.isArray(eventFilters) });
+          
+          const webhookEvent = {
             webhook_id: webhookData.id,
             event_id: eventId,
             filters: eventFilters, // Adicionar filtros como JSONB
             created_at: new Date().toISOString()
           };
+          
+          console.log(`🔍 Webhook event montado:`, webhookEvent);
+          return webhookEvent;
         });
         
-        console.log('🔍 Webhook events para inserir:', webhookEvents);
+        console.log('🔍 Webhook events para inserir:', JSON.stringify(webhookEvents, null, 2));
         
-        const { error: eventsError } = await supabase
+        const { data: insertedEvents, error: eventsError } = await supabase
           .from('webhook_events')
           .insert(webhookEvents)
+          .select()
         
         if (eventsError) {
           console.error('❌ Erro ao criar webhook_events:', eventsError);
           throw eventsError;
         } else {
-          console.log('✅ Webhook events criados com sucesso');
+          console.log('✅ Webhook events criados com sucesso:', insertedEvents);
         }
       } else {
         console.log('⚠️ Nenhum evento selecionado para o webhook');

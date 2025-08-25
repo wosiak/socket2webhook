@@ -297,7 +297,7 @@ export function InteractiveEventFilter({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-[95vw] w-[95vw] bg-white max-h-[90vh]">
+      <DialogContent className="max-w-[98vw] w-[98vw] bg-white max-h-[95vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -308,7 +308,7 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-6 max-h-[75vh]">
+        <div className="grid grid-cols-3 gap-6 max-h-[85vh]">
           {/* Coluna 1 e 2: Estrutura do Evento */}
           <div className="col-span-2 space-y-4">
             <Card>
@@ -323,7 +323,7 @@ export function InteractiveEventFilter({
                 </p>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[60vh] w-full">
+                <ScrollArea className="h-[75vh] w-full">
                   <pre className="text-sm leading-relaxed font-mono">
                     {renderInteractiveJson(SAMPLE_EVENT_BODY)}
                   </pre>
