@@ -205,7 +205,7 @@ export function UserManagement() {
               Novo Usuário
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-md bg-white">
             <DialogHeader>
               <DialogTitle>Criar Novo Usuário</DialogTitle>
               <DialogDescription>
@@ -221,6 +221,7 @@ export function UserManagement() {
                   value={createForm.name}
                   onChange={(e) => setCreateForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Digite o nome completo"
+                  className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
               
@@ -232,6 +233,7 @@ export function UserManagement() {
                   value={createForm.email}
                   onChange={(e) => setCreateForm(prev => ({ ...prev, email: e.target.value }))}
                   placeholder="usuario@email.com"
+                  className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
               
@@ -243,6 +245,7 @@ export function UserManagement() {
                   value={createForm.password}
                   onChange={(e) => setCreateForm(prev => ({ ...prev, password: e.target.value }))}
                   placeholder="Digite uma senha segura"
+                  className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
               
@@ -252,10 +255,10 @@ export function UserManagement() {
                   value={createForm.role}
                   onValueChange={(value: UserRole) => setCreateForm(prev => ({ ...prev, role: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500">
                     <SelectValue placeholder="Selecione o tipo de acesso" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border-gray-200">
                     <SelectItem value="admin">
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4" />
@@ -314,7 +317,7 @@ export function UserManagement() {
       {/* Users Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {users.map((user) => (
-          <Card key={user.id} className="bg-white/80 backdrop-blur-sm border-white/20">
+          <Card key={user.id} className="bg-white border-gray-200 shadow-sm hover:shadow-md transition-shadow">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -390,7 +393,7 @@ export function UserManagement() {
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
             <DialogTitle>Editar Usuário</DialogTitle>
             <DialogDescription>
@@ -407,6 +410,7 @@ export function UserManagement() {
                   value={editForm.name || ''}
                   onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                   placeholder="Digite o nome completo"
+                  className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
               
@@ -416,10 +420,10 @@ export function UserManagement() {
                   value={editForm.role || selectedUser.role}
                   onValueChange={(value: UserRole) => setEditForm(prev => ({ ...prev, role: value }))}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="bg-white border-gray-200 focus:border-blue-500 focus:ring-blue-500">
                     <SelectValue placeholder="Selecione o tipo de acesso" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white border-gray-200">
                     <SelectItem value="admin">
                       <div className="flex items-center gap-2">
                         <Shield className="w-4 h-4" />
@@ -436,7 +440,7 @@ export function UserManagement() {
                 </Select>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
                 <div>
                   <Label className="text-sm font-medium">Status do Usuário</Label>
                   <p className="text-xs text-gray-600">Ativar ou desativar acesso</p>
@@ -475,7 +479,7 @@ export function UserManagement() {
 
       {/* Delete Confirmation Modal */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
             <DialogTitle className="text-red-600">Confirmar Exclusão</DialogTitle>
             <DialogDescription>
