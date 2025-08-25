@@ -63,7 +63,7 @@ export default function App() {
   };
   
   // Disponibilizar globalmente para debug
-  React.useEffect(() => {
+  useEffect(() => {
     (window as any).forceAppRefresh = forceRefresh;
   }, []);
 
