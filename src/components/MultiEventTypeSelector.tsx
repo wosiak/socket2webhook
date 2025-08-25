@@ -6,6 +6,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Check, ChevronDown, X, Search } from "lucide-react";
 import { EventFilterConfig } from "./EventFilterConfig";
+import { InteractiveEventFilter } from "./InteractiveEventFilter";
 import { Event, EventFilter } from "../types";
 
 interface EventWithFilters {
@@ -239,12 +240,21 @@ export function MultiEventTypeSelector({
                   
                   <div className="flex items-center gap-1">
                     {event && (
-                      <EventFilterConfig
-                        eventName={event.name}
-                        eventDisplayName={event.display_name || event.name}
-                        filters={filters}
-                        onFiltersChange={(newFilters) => handleFiltersChange(eventId, newFilters)}
-                      />
+                      event.name === 'call-history-was-created' ? (
+                        <InteractiveEventFilter
+                          eventName={event.name}
+                          eventDisplayName={event.display_name || event.name}
+                          filters={filters}
+                          onFiltersChange={(newFilters) => handleFiltersChange(eventId, newFilters)}
+                        />
+                      ) : (
+                        <EventFilterConfig
+                          eventName={event.name}
+                          eventDisplayName={event.display_name || event.name}
+                          filters={filters}
+                          onFiltersChange={(newFilters) => handleFiltersChange(eventId, newFilters)}
+                        />
+                      )
                     )}
                     <Button
                       variant="ghost"

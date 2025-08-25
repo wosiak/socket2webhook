@@ -562,7 +562,8 @@ export function CompanyDetail({
                         console.log('🔥 CompanyDetail - eventIds selecionados:', eventIds);
                         setWebhookFormData(prev => {
                           // Remover filtros de eventos não selecionados
-                          const filteredEventFilters = prev.event_filters.filter(ef => 
+                          const safeEventFilters = Array.isArray(prev.event_filters) ? prev.event_filters : [];
+                          const filteredEventFilters = safeEventFilters.filter(ef => 
                             eventIds.includes(ef.eventId)
                           );
                           const newData = { 
