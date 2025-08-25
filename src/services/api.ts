@@ -725,10 +725,10 @@ class ApiService {
       console.log('🔐 [NOVO MÉTODO] Tentando fazer login:', credentials.email)
       console.log('🔐 [DEBUG] Senha recebida:', credentials.password)
       
-      // Query user directly from database WITHOUT PASSWORD CHECK (for testing)
+      // Query user directly from database WITH PASSWORD CHECK
       const { data: userData, error: userError } = await supabase
         .from('users')
-        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login')
+        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login, password_hash')
         .eq('email', credentials.email)
         .eq('is_active', true)
         .single()
@@ -740,9 +740,10 @@ class ApiService {
         return { success: false, error: 'Email não encontrado ou usuário inativo' }
       }
       
-      // For now, accept any password for testing
-      if (credentials.password !== 'admin123') {
+      // Check password against stored password_hash (plain text for development)
+      if (credentials.password !== userData.password_hash) {
         console.log('❌ Senha incorreta')
+        console.log('🔐 [DEBUG] Senha esperada:', userData.password_hash)
         return { success: false, error: 'Senha incorreta' }
       }
       
