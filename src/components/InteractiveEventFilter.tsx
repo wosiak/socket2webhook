@@ -339,6 +339,677 @@ const SAMPLE_EVENT_BODIES = {
       "company_id": null
     },
     "bootTime": "2025-08-25T20:02:38.971833+00:00"
+  },
+  "call-was-connected": {
+    "agent": {
+      "id": 01,
+      "name": "Nome do Agente",
+      "email": "email@aqui.com",
+      "active": true,
+      "telephony_id": "abc123",
+      "api_token": "TokendoOperador",
+      "confirmed": true,
+      "confirmation_code": null,
+      "company_id": 01,
+      "created_at": "2023-05-02T12:24:43.000000Z",
+      "updated_at": "2025-08-25T12:20:16.000000Z",
+      "extension_password": "abc123",
+      "extension_id": 01,
+      "user_document": "12345678910",
+      "last_login": "2025-08-25 12:20:16",
+      "frontend": "new",
+      "frontend_updated_at": "2023-05-02 10:42:02",
+      "last_active_at": null,
+      "password_updated_at": "2025-07-16 13:14:43",
+      "two_factor_secret": null,
+      "extension_number": 01,
+      "type": "agent",
+      "webphone": false,
+      "extension": {
+        "id": 01,
+        "extension_number": 01,
+        "type": "user",
+        "company_id": 01,
+        "created_at": "2023-05-02T12:24:43.000000Z",
+        "updated_at": "2023-05-02T12:24:43.000000Z"
+      },
+      "receptive_queues": [],
+      "ring_groups": [],
+      "agent_status": {
+        "id": 01,
+        "status": 2,
+        "call": "abc123",
+        "logged_campaign": 01,
+        "start_idleness": 1756155018,
+        "status_start_time": 1756155048,
+        "manual_call_status": null,
+        "manual_call_id": "",
+        "user_id": 01,
+        "start_manual": 1756155048,
+        "start_manual_acw": 1756155048,
+        "webphone": false,
+        "work_break_interval_id": null,
+        "call_mode": "dialer",
+        "connected_time": 1756155048,
+        "schedule_interval_id": null,
+        "consult_status": null,
+        "consult_call_id": null,
+        "work_break_exit_pending": false,
+        "logged_group": null
+      },
+      "user_extension_status": null,
+      "roles": [
+        {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28T14:58:40.000000Z",
+          "updated_at": "2018-06-28T14:58:40.000000Z",
+          "pivot": {
+            "user_id": 01,
+            "role_id": 3
+          }
+        }
+      ]
+    },
+    "agentStatus": 2,
+    "call": {
+      "mailing_id": "abc123",
+      "phone": "5542999998888",
+      "identifier": "01",
+      "campaign_id": 01,
+      "company_id": 01,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:01:01:abc123",
+      "telephony_id": "abc123",
+      "filter_calls": "1",
+      "route_id": "01",
+      "status": "3",
+      "dialed_time": "1756155029",
+      "answered_time": "1756155046",
+      "connected_time": "1756155048",
+      "agent": "60098",
+      "agent_idleness": "30",
+      "sid": "2025082517504860098"
+    },
+    "campaign": {
+      "id": 01,
+      "queue_id": null,
+      "name": "Nome da Campanha",
+      "start_time": "11:00:00",
+      "end_time": "21:30:00",
+      "paused": false,
+      "company_id": 01,
+      "extension_id": null,
+      "deleted_at": null,
+      "created_at": "2025-07-16T17:42:28.000000Z",
+      "updated_at": "2025-08-25T20:50:07.000000Z",
+      "check_amd": true,
+      "route_landline_id": 6618,
+      "route_mobile_id": 6618,
+      "acw_timeout": 120,
+      "caller_id": "1000000000",
+      "asr": "0.044463519313305",
+      "limit_call_per_agent": "30",
+      "work_break_group_id": 3090,
+      "allows_manual": true,
+      "active_list_notify": false,
+      "ura_limit": 0,
+      "is_predictive": true,
+      "avg_calling_time": null,
+      "avg_speaking_time": null,
+      "avg_acw_time": null,
+      "recording_enabled": true,
+      "limit_call_time": 454545,
+      "copy_identifier": false,
+      "exit_manual_mode": 4545454,
+      "ivr_after_call_id": null,
+      "should_complete_failed_call": true,
+      "filter_calls": true,
+      "route_limit_exceeded": false,
+      "route_group_landline_id": null,
+      "route_group_mobile_id": null,
+      "progress_amd_enabled": true,
+      "update_mailing_data": false,
+      "ivr_after_call_status": false,
+      "behavior": "",
+      "horizontal_dial": true,
+      "min_idle_time": 0,
+      "check_blacklist": true,
+      "check_dnd": true,
+      "check_ddd": false,
+      "agent_dashboard": false,
+      "ai_setting_id": null,
+      "international_route_id": null,
+      "international_route_group_id": null,
+      "distribution_type": "teams_and_agents",
+      "hide_phone": false,
+      "is_on_active_time": true,
+      "dialer": {
+        "id": 01,
+        "campaign_id": 01,
+        "url": "",
+        "wait_time": 20,
+        "call_time": 25,
+        "recalls": 3,
+        "acw_time": 0,
+        "call_mode": 1,
+        "created_at": "2025-07-16T17:42:28.000000Z",
+        "updated_at": "2025-07-16T17:42:53.000000Z",
+        "qualification_list_id": 4081,
+        "criterion_list_id": 2081,
+        "limit_calls_per_identifier": false,
+        "quantity_calls_per_identifier": 10,
+        "recalls_pro": 15,
+        "qualification_list": {
+          "id": 01,
+          "name": "Padrão",
+          "company_id": 3286,
+          "created_at": "2022-12-08T20:38:32.000000Z",
+          "updated_at": "2025-01-16T17:41:28.000000Z",
+          "type": 1,
+          "deleted_at": null,
+          "behavior_overwriten_call": 3,
+          "behavior_not_qualified": 3,
+          "behavior_voice_message": 1,
+          "behavior_mute_call": 3,
+          "behavior_acw_timeout": 3,
+          "qualifications": []
+        }
+      }
+    },
+    "campaignId": 01,
+    "campaignGroupId": 0,
+    "mailing": {
+      "_id": "abc123",
+      "identifier": "01",
+      "campaign_id": 01,
+      "company_id": 01,
+      "list_id": 01,
+      "uf": null,
+      "phone": "5542999998888",
+      "dialed_phone": 1,
+      "dialed_identifier": 1,
+      "on_calling": 0,
+      "column_position": 7,
+      "row_position": 463,
+      "data": {},
+      "dialed_identifier_today": {
+        "count": 1,
+        "last_day": 1756090800
+      },
+      "type": "dialer"
+    },
+    "qualification": {
+      "qualifications": [],
+      "url": ""
+    },
+    "queues": [],
+    "ringGroups": [],
+    "schedule": null,
+    "userExtensionStatus": null,
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-25T20:50:48.641417+00:00"
+  },
+  "new-agent-message-whatsapp": {
+    "chat": {
+      "id": 01,
+      "name": null,
+      "protocol_number": null,
+      "contact": {
+        "id": 01,
+        "name": "Nome do Contato",
+        "name_alias": null,
+        "image": null,
+        "is_blocked": false,
+        "company_id": 01,
+        "number": "5542999998888"
+      },
+      "instance_id": "abc123",
+      "instance": {
+        "id": "abc123",
+        "name": "Grupo de Canal",
+        "team_id": 01,
+        "company_id": 01,
+        "group_channel_id": 01,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542900000000"
+      },
+      "number": "5542999998888",
+      "team_id": 01,
+      "last_message": "Última mensagem",
+      "last_message_data": {
+        "body": "Última mensagem",
+        "type": "chat",
+        "date": 1756154712,
+        "send_by_me": true
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Nome do Agente",
+        "message": "Conversa aceita por: Nome do Agente"
+      },
+      "company_id": 01,
+      "agent_id": 01,
+      "agent": {
+        "id": 01,
+        "name": "Nome do Agente",
+        "extension": {
+          "id": 01,
+          "extension_number": 01,
+          "type": "user",
+          "company_id": 01,
+          "created_at": "2024-08-29 13:20:32",
+          "updated_at": "2024-08-29 13:20:32"
+        },
+        "role": {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 01,
+            "role_id": 3
+          }
+        },
+        "teams": [
+          {
+            "id": 01,
+            "name": "Equipe 1",
+            "color": "#111111",
+            "company_id": 01,
+            "created_at": "2024-08-29 13:23:30",
+            "updated_at": "2024-08-29 13:41:27",
+            "whatsapp": true,
+            "qualification_list_id": 01,
+            "whatsapp_quick_message_list_id": null,
+            "pivot": {
+              "user_id": 01,
+              "team_id": 01
+            }
+          }
+        ]
+      },
+      "unread": 0,
+      "quantity_of_messages": 1,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1756154712,
+      "is_group": false,
+      "most_older_unanswered_message": 1756154712,
+      "most_older_received_message": 1756154713,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": null
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": false,
+        "message_received": false,
+        "end_message_cycle": null
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2025-08-25T20:45:12.000000Z",
+      "created_at": "2025-06-25T12:18:33.000000Z",
+      "end_snooze": 1756154713,
+      "in_snooze": false,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#111111",
+      "mood": null,
+      "by_active_ivr": false,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    },
+    "message": {
+      "id": "3EB004DDC77FC568253409",
+      "internal_id": "true_5542998256599@c_3777_1756154712_65b5d4e8-81f4-11f0-992d-de2f8e2714f4",
+      "message_from": "Nome do Agente",
+      "number": "5542999998888",
+      "type": "chat",
+      "body": "Mensagem aqui",
+      "instance_id": "abc123",
+      "instance": {
+        "id": "abc123",
+        "name": "Nome do Grupo de Canal",
+        "team_id": 01,
+        "company_id": 01,
+        "group_channel_id": 01,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542900000000"
+      },
+      "chat_id": 01,
+      "agent_id": 01,
+      "agent": {
+        "id": 01,
+        "name": "Nome do Agente",
+        "extension": {
+          "id": 01,
+          "extension_number": 01,
+          "type": "user",
+          "company_id": 01,
+          "created_at": "2024-08-29 13:20:32",
+          "updated_at": "2024-08-29 13:20:32"
+        },
+        "role": {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 01,
+            "role_id": 3
+          }
+        },
+        "teams": [
+          {
+            "id": 01,
+            "name": "Equipe 1",
+            "color": "#111111",
+            "company_id": 01,
+            "created_at": "2024-08-29 13:23:30",
+            "updated_at": "2024-08-29 13:41:27",
+            "whatsapp": true,
+            "qualification_list_id": 14850,
+            "whatsapp_quick_message_list_id": null,
+            "pivot": {
+              "user_id": 01,
+              "team_id": 01
+            }
+          }
+        ]
+      },
+      "time_whatsapp": 1756154712,
+      "time": 1756154712,
+      "audio_transcription": null,
+      "from": "5542900000000",
+      "to": "5542999998888",
+      "author": "Nome do Agente",
+      "ack": null,
+      "media": null,
+      "media_name": null,
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": true,
+      "self": false,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": false,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": null,
+      "from_chatbot": false,
+      "waba_template_data": null,
+      "inter_message_data": null,
+      "internal": false,
+      "index_order": 8,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": [],
+      "buttons": []
+    }
+  },
+  "new-whatsapp-internal-message": {
+    "chat": {
+      "id": 01,
+      "name": null,
+      "protocol_number": null,
+      "contact": {
+        "id": 123,
+        "name": "Nome do Contato",
+        "name_alias": null,
+        "image": null,
+        "is_blocked": false,
+        "company_id": 01,
+        "number": "5542999889988"
+      },
+      "instance_id": "abc123",
+      "instance": {
+        "id": "abc123",
+        "name": "Nome da Instância",
+        "team_id": 01,
+        "company_id": 01,
+        "group_channel_id": 01,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542900000000"
+      },
+      "number": "5542999889988",
+      "team_id": 01,
+      "last_message": null,
+      "last_message_data": {
+        "body": null,
+        "type": null,
+        "date": 1756154216,
+        "send_by_me": false
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Nome do Agente",
+        "message": "Conversa aceita por: Nome do Agente"
+      },
+      "company_id": 01,
+      "agent_id": 01,
+      "agent": {
+        "id": 01,
+        "name": "Nome do Agente",
+        "extension": {
+          "id": 01,
+          "extension_number": 01,
+          "type": "user",
+          "company_id": 01,
+          "created_at": "2024-08-29 13:20:32",
+          "updated_at": "2024-08-29 13:20:32"
+        },
+        "role": {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 01,
+            "role_id": 3
+          }
+        },
+        "teams": [
+          {
+            "id": 01,
+            "name": "Equipe 1",
+            "color": "#111111",
+            "company_id": 01,
+            "created_at": "2024-08-29 13:23:30",
+            "updated_at": "2024-08-29 13:41:27",
+            "whatsapp": true,
+            "qualification_list_id": 01,
+            "whatsapp_quick_message_list_id": null,
+            "pivot": {
+              "user_id": 01,
+              "team_id": 01
+            }
+          }
+        ]
+      },
+      "unread": 0,
+      "quantity_of_messages": null,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1756154216,
+      "is_group": false,
+      "most_older_unanswered_message": 1756154216,
+      "most_older_received_message": 1756154216,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": 0
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": false,
+        "message_received": false,
+        "end_message_cycle": null
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2025-08-25T20:36:56.000000Z",
+      "created_at": "2025-06-25T12:18:33.000000Z",
+      "end_snooze": 1756154216,
+      "in_snooze": false,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#111111",
+      "mood": null,
+      "by_active_ivr": false,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    },
+    "message": {
+      "id": "internal_protocol-message_3069146_1756154216_3e02f7b0-81f3-11f0-95ca-ea414a0f0a71",
+      "internal_id": "internal_protocol-message_3069146_1756154216_3e02f7b0-81f3-11f0-95ca-ea414a0f0a71",
+      "message_from": null,
+      "number": "5542999889988",
+      "type": "protocol-message",
+      "body": "Protocolo do Atendimento: 01",
+      "instance_id": "abc123",
+      "instance": {
+        "id": "abc123",
+        "name": "Nome da Instância",
+        "team_id": 01,
+        "company_id": 01,
+        "group_channel_id": 01,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542999889988"
+      },
+      "chat_id": "01",
+      "agent_id": 01,
+      "agent": {
+        "id": 01,
+        "name": "Nome do Agente",
+        "extension": {
+          "id": 01,
+          "extension_number": 01,
+          "type": "user",
+          "company_id": 01,
+          "created_at": "2024-08-29 13:20:32",
+          "updated_at": "2024-08-29 13:20:32"
+        },
+        "role": {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 01,
+            "role_id": 3
+          }
+        },
+        "teams": [
+          {
+            "id": 01,
+            "name": "Equipe 1",
+            "color": "#111111",
+            "company_id": 01,
+            "created_at": "2024-08-29 13:23:30",
+            "updated_at": "2024-08-29 13:41:27",
+            "whatsapp": true,
+            "qualification_list_id": 01,
+            "whatsapp_quick_message_list_id": null,
+            "pivot": {
+              "user_id": 01,
+              "team_id": 01
+            }
+          }
+        ]
+      },
+      "time_whatsapp": 1756154216,
+      "time": 1756154216,
+      "audio_transcription": null,
+      "from": "5542900000000",
+      "to": "5542999889988",
+      "author": null,
+      "ack": null,
+      "media": null,
+      "media_name": null,
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": false,
+      "self": false,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": false,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": null,
+      "from_chatbot": false,
+      "waba_template_data": null,
+      "inter_message_data": null,
+      "internal": null,
+      "index_order": 7,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": [],
+      "buttons": []
+    }
   }
 };
 
@@ -462,6 +1133,12 @@ export function InteractiveEventFilter({
       finalPath = path.replace('call-is-trying.', '');
     } else if (path.includes('call-was-abandoned.')) {
       finalPath = path.replace('call-was-abandoned.', '');
+    } else if (path.includes('call-was-connected.')) {
+      finalPath = path.replace('call-was-connected.', '');
+    } else if (path.includes('new-agent-message-whatsapp.')) {
+      finalPath = path.replace('new-agent-message-whatsapp.', '');
+    } else if (path.includes('new-whatsapp-internal-message.')) {
+      finalPath = path.replace('new-whatsapp-internal-message.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);

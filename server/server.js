@@ -784,13 +784,28 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.log(`🔍 TESTE - eventData.message:`, eventData.message);
       console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
       console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
-    } else if (['call-was-created', 'call-is-trying', 'call-was-abandoned'].includes(eventName) && eventData) {
+    } else if (['call-was-created', 'call-is-trying', 'call-was-abandoned', 'call-was-connected'].includes(eventName) && eventData) {
       console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
       console.log(`🔍 TESTE - eventData.call:`, eventData.call);
       console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
       console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
       console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
       console.log(`🔍 TESTE - eventData.call?.call_mode:`, eventData.call?.call_mode);
+      if (eventName === 'call-was-connected' && eventData.agent) {
+        console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+        console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+        console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+        console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
+      }
+    } else if (['new-agent-message-whatsapp', 'new-whatsapp-internal-message'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
+      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
+      console.log(`🔍 TESTE - eventData.chat?.agent_id:`, eventData.chat?.agent_id);
+      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
+      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
+      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
+      console.log(`🔍 TESTE - eventData.message?.message_from:`, eventData.message?.message_from);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook
