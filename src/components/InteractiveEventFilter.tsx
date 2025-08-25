@@ -112,9 +112,14 @@ export function InteractiveEventFilter({
     if (typeof obj === 'string') {
       return (
         <span 
-          className="text-green-600 cursor-pointer hover:bg-green-100 px-1 rounded"
-          onClick={() => handleFieldClick(path, obj)}
-          title={`Clique para filtrar por: ${path}`}
+          className="text-green-600 cursor-pointer hover:bg-green-200 px-1 py-0.5 rounded transition-colors border border-transparent hover:border-green-300"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔍 Clicou em string:', path, obj);
+            handleFieldClick(path, obj);
+          }}
+          title={`Clique para filtrar por: ${path} = "${obj}"`}
         >
           "{obj}"
         </span>
@@ -124,9 +129,14 @@ export function InteractiveEventFilter({
     if (typeof obj === 'number') {
       return (
         <span 
-          className="text-blue-600 cursor-pointer hover:bg-blue-100 px-1 rounded font-medium"
-          onClick={() => handleFieldClick(path, obj)}
-          title={`Clique para filtrar por: ${path}`}
+          className="text-blue-600 cursor-pointer hover:bg-blue-200 px-1 py-0.5 rounded font-medium transition-colors border border-transparent hover:border-blue-300"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔍 Clicou em number:', path, obj);
+            handleFieldClick(path, obj);
+          }}
+          title={`Clique para filtrar por: ${path} = ${obj}`}
         >
           {obj}
         </span>
@@ -136,9 +146,14 @@ export function InteractiveEventFilter({
     if (typeof obj === 'boolean') {
       return (
         <span 
-          className="text-purple-600 cursor-pointer hover:bg-purple-100 px-1 rounded"
-          onClick={() => handleFieldClick(path, obj)}
-          title={`Clique para filtrar por: ${path}`}
+          className="text-purple-600 cursor-pointer hover:bg-purple-200 px-1 py-0.5 rounded transition-colors border border-transparent hover:border-purple-300"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log('🔍 Clicou em boolean:', path, obj);
+            handleFieldClick(path, obj);
+          }}
+          title={`Clique para filtrar por: ${path} = ${obj}`}
         >
           {obj.toString()}
         </span>
@@ -180,8 +195,18 @@ export function InteractiveEventFilter({
   };
 
   const handleFieldClick = (path: string, value: any) => {
-    // Converter path para formato call-history-was-created
-    const fullPath = path.startsWith('call-history-was-created.') ? path : `call-history-was-created.${path}`;
+    console.log('🎯 handleFieldClick chamado:', { path, value, type: typeof value });
+    
+    // Converter path para formato correto para o servidor
+    // Se o path já começa com call-history-was-created, usar como está
+    // Senão, adicionar o prefixo correto
+    let fullPath = path;
+    if (!path.startsWith('call-history-was-created.')) {
+      fullPath = `callHistory.${path}`;
+    }
+    
+    console.log('🎯 Path gerado:', fullPath);
+    
     setSelectedPath(fullPath);
     setSelectedValue(value);
     
@@ -190,6 +215,8 @@ export function InteractiveEventFilter({
                            typeof value === 'boolean' ? 'equals' : 
                            'contains';
     setOperator(defaultOperator);
+    
+    console.log('🎯 Filtro configurado:', { path: fullPath, value, operator: defaultOperator });
   };
 
   const addFilter = () => {
@@ -269,7 +296,7 @@ export function InteractiveEventFilter({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-6xl bg-white max-h-[90vh]">
+      <DialogContent className="max-w-[95vw] w-[95vw] bg-white max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -280,9 +307,9 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-6 max-h-[70vh]">
-          {/* Coluna 1: Estrutura do Evento */}
-          <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-6 max-h-[75vh]">
+          {/* Coluna 1 e 2: Estrutura do Evento */}
+          <div className="col-span-2 space-y-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -295,8 +322,8 @@ export function InteractiveEventFilter({
                 </p>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-96 w-full">
-                  <pre className="text-xs leading-relaxed">
+                <ScrollArea className="h-[60vh] w-full">
+                  <pre className="text-sm leading-relaxed font-mono">
                     {renderInteractiveJson(SAMPLE_EVENT_BODY)}
                   </pre>
                 </ScrollArea>
@@ -304,7 +331,7 @@ export function InteractiveEventFilter({
             </Card>
           </div>
 
-          {/* Coluna 2: Configuração de Filtros */}
+          {/* Coluna 3: Configuração de Filtros */}
           <div className="space-y-4">
             {/* Filtros existentes */}
             {filters.length > 0 && (
