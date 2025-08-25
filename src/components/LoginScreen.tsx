@@ -172,13 +172,7 @@ export function LoginScreen() {
             </div>
           </CardContent>
         </Card>
-        
-        {/* Development Notice */}
-        <div className="mt-6 text-center">
-          <div className="inline-flex items-center px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-xs font-medium border border-orange-200">
-            🧪 Ambiente de Desenvolvimento
-          </div>
-        </div>
+
       </div>
     </div>
   );
