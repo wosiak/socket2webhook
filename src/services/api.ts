@@ -719,41 +719,72 @@ class ApiService {
   // AUTHENTICATION & USER MANAGEMENT
   // =============================================
 
-  // Login user
+  // Login user - Alternative implementation using direct database query
   async login(credentials: LoginCredentials): Promise<{ success: boolean; data?: AuthSession; error?: string }> {
     try {
       console.log('🔐 Tentando fazer login:', credentials.email)
       
-      const { data, error } = await supabase.rpc('authenticate_user', {
-        input_email: credentials.email,
-        input_password: credentials.password
-      })
+      // Hash the password using the same method as in database
+      const encoder = new TextEncoder();
+      const passwordData = encoder.encode(credentials.password);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', passwordData);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const passwordHash = btoa(String.fromCharCode.apply(null, hashArray));
       
-      if (error) {
-        console.error('❌ Erro na autenticação:', error)
-        throw error
-      }
+      // Query user directly from database
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login')
+        .eq('email', credentials.email)
+        .eq('password_hash', passwordHash)
+        .eq('is_active', true)
+        .single()
       
-      if (!data || data.length === 0) {
+      if (userError || !userData) {
         console.log('❌ Credenciais inválidas')
         return { success: false, error: 'Email ou senha incorretos' }
       }
       
-      const userData = data[0]
+      // Generate session token
+      const tokenArray = new Uint8Array(32);
+      crypto.getRandomValues(tokenArray);
+      const sessionToken = btoa(String.fromCharCode.apply(null, tokenArray));
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(); // 7 days
+      
+      // Create session in database
+      const { error: sessionError } = await supabase
+        .from('user_sessions')
+        .insert({
+          user_id: userData.id,
+          token: sessionToken,
+          expires_at: expiresAt
+        })
+      
+      if (sessionError) {
+        console.error('❌ Erro ao criar sessão:', sessionError)
+        return { success: false, error: 'Erro ao criar sessão' }
+      }
+      
+      // Update last login
+      await supabase
+        .from('users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('id', userData.id)
+      
       const session: AuthSession = {
         user: {
-          id: userData.user_id,
-          email: userData.user_email,
-          name: userData.user_name,
-          role: userData.user_role as UserRole,
+          id: userData.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role as UserRole,
           avatar_url: userData.avatar_url || undefined,
-          is_active: true,
-          created_at: '',
-          updated_at: '',
+          is_active: userData.is_active,
+          created_at: userData.created_at,
+          updated_at: userData.updated_at,
           last_login: new Date().toISOString()
         },
-        token: userData.session_token,
-        expires_at: userData.expires_at
+        token: sessionToken,
+        expires_at: expiresAt
       }
       
       console.log('✅ Login bem-sucedido:', session.user.email)
