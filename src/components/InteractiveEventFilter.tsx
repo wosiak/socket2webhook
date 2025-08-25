@@ -263,6 +263,82 @@ const SAMPLE_EVENT_BODIES = {
       "button_response": null,
       "buttons": []
     }
+  },
+  "call-was-created": {
+    "call": {
+      "mailing_id": "68a8b25631e6530aff78f249",
+      "phone": "5581982420136",
+      "identifier": "GEOVANIA GOMES DE LIMA",
+      "campaign_id": 165857,
+      "company_id": 9744,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:9744:165857:BBOEu8FHY1",
+      "telephony_id": "BBOEu8FHY1",
+      "filter_calls": 1,
+      "route_id": 14147,
+      "status": 1,
+      "dialed_time": 1756152158
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-25T20:02:38.604780+00:00"
+  },
+  "call-is-trying": {
+    "call": {
+      "mailing_id": "68a89e2feb342d6fa22536b1",
+      "phone": "5575981338600",
+      "identifier": "LUCAS ADAO SANTOS SOUZA",
+      "campaign_id": 165861,
+      "company_id": 9744,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:9744:165861:65rEX9o6E3",
+      "telephony_id": "65rEX9o6E3",
+      "filter_calls": 1,
+      "route_id": 14147,
+      "status": 1,
+      "dialed_time": 1756152158
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-25T20:02:38.596113+00:00"
+  },
+  "call-was-abandoned": {
+    "call": {
+      "mailing_id": "68aca9a7f7d92839b66346f5",
+      "phone": "5534991451024",
+      "identifier": "ANGELICA DE CASSIA EURIPA PEREIRA",
+      "campaign_id": 186864,
+      "company_id": 9744,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:9744:186864:QtU0vCG6YD",
+      "telephony_id": "QtU0vCG6YD",
+      "filter_calls": "1",
+      "route_id": "14147",
+      "status": "6",
+      "dialed_time": "1756152132",
+      "answered_time": "1756152149",
+      "amd_status": "0",
+      "amd_time": "1756152152",
+      "hangup_cause": "16",
+      "hangup_cause_txt": "Normal clearing",
+      "hangup_cause_color": "#5CB85C",
+      "hangup_time": "1756152158"
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-25T20:02:38.971833+00:00"
   }
 };
 
@@ -380,6 +456,12 @@ export function InteractiveEventFilter({
       finalPath = path.replace('call-history-was-created.', '');
     } else if (path.includes('new-message-whatsapp.')) {
       finalPath = path.replace('new-message-whatsapp.', '');
+    } else if (path.includes('call-was-created.')) {
+      finalPath = path.replace('call-was-created.', '');
+    } else if (path.includes('call-is-trying.')) {
+      finalPath = path.replace('call-is-trying.', '');
+    } else if (path.includes('call-was-abandoned.')) {
+      finalPath = path.replace('call-was-abandoned.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);

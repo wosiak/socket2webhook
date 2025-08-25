@@ -49,6 +49,9 @@ export default function App() {
   } = useWebhookManager();
 
   const { currentView, currentCompanyId, navigateTo, navigateBack } = useRouter();
+  
+  // Debug do currentView
+  console.log('🔍 App.tsx - currentView:', currentView);
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');

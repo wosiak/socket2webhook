@@ -784,6 +784,13 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.log(`🔍 TESTE - eventData.message:`, eventData.message);
       console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
       console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
+    } else if (['call-was-created', 'call-is-trying', 'call-was-abandoned'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
+      console.log(`🔍 TESTE - eventData.call?.call_mode:`, eventData.call?.call_mode);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook

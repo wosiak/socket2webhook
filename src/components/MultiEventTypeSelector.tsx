@@ -240,7 +240,7 @@ export function MultiEventTypeSelector({
                   
                   <div className="flex items-center gap-1">
                     {event && (
-                      (event.name === 'call-history-was-created' || event.name === 'new-message-whatsapp') ? (
+                      (['call-history-was-created', 'new-message-whatsapp', 'call-was-created', 'call-is-trying', 'call-was-abandoned'].includes(event.name)) ? (
                         <InteractiveEventFilter
                           eventName={event.name}
                           eventDisplayName={event.display_name || event.name}
