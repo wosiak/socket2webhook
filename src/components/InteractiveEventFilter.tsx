@@ -308,9 +308,9 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-3 gap-6 max-h-[85vh]">
-          {/* Coluna 1 e 2: Estrutura do Evento */}
-          <div className="col-span-2 space-y-4">
+        <div className="grid grid-cols-2 gap-8 max-h-[85vh]">
+          {/* Coluna 1: Estrutura do Evento */}
+          <div className="space-y-4">
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm flex items-center gap-2">
@@ -332,7 +332,7 @@ export function InteractiveEventFilter({
             </Card>
           </div>
 
-          {/* Coluna 3: Configuração de Filtros */}
+          {/* Coluna 2: Configuração de Filtros */}
           <div className="space-y-4">
             {/* Filtros existentes */}
             {filters.length > 0 && (

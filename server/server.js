@@ -730,6 +730,15 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // Log do payload recebido para debug
     console.log(`🔍 Payload do evento para filtros:`, JSON.stringify(eventData, null, 2));
     
+    // Teste específico para call-history-was-created
+    if (eventName === 'call-history-was-created' && eventData) {
+      console.log(`🔍 TESTE ESPECÍFICO - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.callHistory:`, eventData.callHistory);
+      console.log(`🔍 TESTE - eventData.callHistory?.status:`, eventData.callHistory?.status);
+      console.log(`🔍 TESTE - eventData.data?.callHistory:`, eventData.data?.callHistory);
+      console.log(`🔍 TESTE - eventData.data?.callHistory?.status:`, eventData.data?.callHistory?.status);
+    }
+    
     // Aplicar filtros - se não passar, não enviar o webhook
     if (!applyEventFilters(eventData, eventFilters)) {
       console.log(`🔍 Evento ${eventName} NÃO passou nos filtros do webhook ${webhook.id}. Webhook NÃO será executado.`);
