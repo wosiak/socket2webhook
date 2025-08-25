@@ -20,14 +20,17 @@ import {
   Clock,
   User,
   Mail,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { useUserManager } from '../hooks/useUserManager';
 import { useAuth } from '../contexts/AuthContext';
+import { useRouter } from '../hooks/useRouter';
 import type { User, CreateUserPayload, UpdateUserPayload, UserRole } from '../types';
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
+  const { navigateTo } = useRouter();
   const {
     users,
     loading,
@@ -190,17 +193,27 @@ export function UserManagement() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Users className="w-6 h-6" />
-            Gerenciamento de Usuários
-          </h2>
-          <p className="text-gray-600">Gerencie os usuários com acesso à plataforma</p>
+        <div className="flex items-center gap-4">
+          <Button
+            variant="outline"
+            onClick={() => navigateTo('dashboard')}
+            className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-gray-50"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Voltar ao Dashboard
+          </Button>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <Users className="w-6 h-6" />
+              Gerenciamento de Usuários
+            </h2>
+            <p className="text-gray-600">Gerencie os usuários com acesso à plataforma</p>
+          </div>
         </div>
         
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+            <Button className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200">
               <UserPlus className="w-4 h-4 mr-2" />
               Novo Usuário
             </Button>
@@ -286,6 +299,7 @@ export function UserManagement() {
               <Button
                 onClick={handleCreateUser}
                 disabled={loading || !createForm.email || !createForm.name || !createForm.password}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
               >
                 {loading ? (
                   <>
@@ -344,11 +358,21 @@ export function UserManagement() {
               
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Status:</span>
-                <Switch
-                  checked={user.is_active}
-                  onCheckedChange={() => handleToggleStatus(user)}
-                  disabled={loading || user.id === currentUser?.id}
-                />
+                <div className="flex items-center gap-2">
+                  <Switch
+                    checked={user.is_active}
+                    onCheckedChange={() => handleToggleStatus(user)}
+                    disabled={loading || user.id === currentUser?.id}
+                    style={{
+                      backgroundColor: user.is_active ? '#10b981' : '#ef4444'
+                    }}
+                  />
+                  <span className="text-xs font-medium" style={{ 
+                    color: user.is_active ? '#10b981' : '#ef4444' 
+                  }}>
+                    {user.is_active ? 'Ativo' : 'Inativo'}
+                  </span>
+                </div>
               </div>
               
               {user.last_login && (
@@ -363,7 +387,7 @@ export function UserManagement() {
                   size="sm"
                   onClick={() => openEditModal(user)}
                   disabled={!canEditUser(user) || loading}
-                  className="flex-1"
+                  className="flex-1 bg-white border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300"
                 >
                   <Edit3 className="w-3 h-3 mr-1" />
                   Editar
@@ -373,6 +397,7 @@ export function UserManagement() {
                   size="sm"
                   onClick={() => openDeleteModal(user)}
                   disabled={!canDeleteUser(user) || loading}
+                  className="bg-red-500 hover:bg-red-600 text-white"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -440,15 +465,29 @@ export function UserManagement() {
                 </Select>
               </div>
               
-              <div className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+              <div className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                 <div>
                   <Label className="text-sm font-medium">Status do Usuário</Label>
                   <p className="text-xs text-gray-600">Ativar ou desativar acesso</p>
                 </div>
-                <Switch
-                  checked={editForm.is_active ?? selectedUser.is_active}
-                  onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, is_active: checked }))}
-                />
+                <div className="flex items-center gap-3">
+                  <Switch
+                    checked={editForm.is_active ?? selectedUser.is_active}
+                    onCheckedChange={(checked) => setEditForm(prev => ({ ...prev, is_active: checked }))}
+                    style={{
+                      backgroundColor: (editForm.is_active ?? selectedUser.is_active) ? '#10b981' : '#ef4444'
+                    }}
+                  />
+                  <Badge 
+                    className={`${
+                      (editForm.is_active ?? selectedUser.is_active)
+                        ? 'bg-green-100 text-green-800 border-green-200'
+                        : 'bg-red-100 text-red-800 border-red-200'
+                    }`}
+                  >
+                    {(editForm.is_active ?? selectedUser.is_active) ? 'Ativo' : 'Inativo'}
+                  </Badge>
+                </div>
               </div>
             </div>
           )}
@@ -463,6 +502,7 @@ export function UserManagement() {
             <Button
               onClick={handleEditUser}
               disabled={loading}
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all duration-200"
             >
               {loading ? (
                 <>
