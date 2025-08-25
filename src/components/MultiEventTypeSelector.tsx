@@ -32,7 +32,7 @@ export function MultiEventTypeSelector({
 }: MultiEventTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [eventsWithFilters, setEventsWithFilters] = useState<EventWithFilters[]>(selectedEventsWithFilters);
+  const [eventsWithFilters, setEventsWithFilters] = useState<EventWithFilters[]>(selectedEventsWithFilters || []);
 
   // Garantir que temos arrays seguros
   const safeEvents = Array.isArray(events) ? events : [];
@@ -57,13 +57,15 @@ export function MultiEventTypeSelector({
   const handleRemoveEvent = (eventId: string) => {
     onSelectionChange(safeSelectedEventIds.filter(id => id !== eventId));
     // Remover filtros também
-    const updatedFilters = eventsWithFilters.filter(ewf => ewf.eventId !== eventId);
+    const safeEventsWithFilters = Array.isArray(eventsWithFilters) ? eventsWithFilters : [];
+    const updatedFilters = safeEventsWithFilters.filter(ewf => ewf.eventId !== eventId);
     setEventsWithFilters(updatedFilters);
     onFiltersChange?.(updatedFilters);
   };
 
   const handleFiltersChange = (eventId: string, filters: EventFilter[]) => {
-    const updatedFilters = eventsWithFilters.filter(ewf => ewf.eventId !== eventId);
+    const safeEventsWithFilters = Array.isArray(eventsWithFilters) ? eventsWithFilters : [];
+    const updatedFilters = safeEventsWithFilters.filter(ewf => ewf.eventId !== eventId);
     if (filters.length > 0) {
       updatedFilters.push({ eventId, filters });
     }
@@ -72,7 +74,8 @@ export function MultiEventTypeSelector({
   };
 
   const getFiltersForEvent = (eventId: string): EventFilter[] => {
-    const eventWithFilters = eventsWithFilters.find(ewf => ewf.eventId === eventId);
+    const safeEventsWithFilters = Array.isArray(eventsWithFilters) ? eventsWithFilters : [];
+    const eventWithFilters = safeEventsWithFilters.find(ewf => ewf.eventId === eventId);
     return eventWithFilters?.filters || [];
   };
 
