@@ -3,7 +3,8 @@ import { useState } from 'react';
 export type Route = 
   | { type: 'dashboard' }
   | { type: 'companies' }
-  | { type: 'company'; companyId: string };
+  | { type: 'company'; companyId: string }
+  | { type: 'user-management' };
 
 export function useRouter() {
   const [currentRoute, setCurrentRoute] = useState<Route>({ type: 'dashboard' });
@@ -27,6 +28,8 @@ export function useRouter() {
       navigate({ type: 'dashboard' });
     } else if (view === 'companies') {
       navigate({ type: 'companies' });
+    } else if (view === 'user-management') {
+      navigate({ type: 'user-management' });
     }
   };
 

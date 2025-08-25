@@ -131,3 +131,69 @@ export const AVAILABLE_EVENT_TYPES = [
 ] as const;
 
 export type EventType = typeof AVAILABLE_EVENT_TYPES[number];
+
+// Authentication & User Management Types
+export enum UserRole {
+  SUPER_ADMIN = 'super_admin',
+  ADMIN = 'admin'
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  avatar_url?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login?: string;
+}
+
+export interface AuthSession {
+  user: User;
+  token: string;
+  expires_at: string;
+}
+
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface CreateUserPayload {
+  email: string;
+  name: string;
+  password: string;
+  role: UserRole;
+}
+
+export interface UpdateUserPayload {
+  name?: string;
+  role?: UserRole;
+  is_active?: boolean;
+  avatar_url?: string;
+}
+
+// Permission checking types
+export type Permission = 
+  | 'manage_companies'
+  | 'manage_webhooks'
+  | 'view_dashboard'
+  | 'manage_users'
+  | 'change_user_roles';
+
+export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
+  [UserRole.SUPER_ADMIN]: [
+    'manage_companies',
+    'manage_webhooks', 
+    'view_dashboard',
+    'manage_users',
+    'change_user_roles'
+  ],
+  [UserRole.ADMIN]: [
+    'manage_companies',
+    'manage_webhooks',
+    'view_dashboard'
+  ]
+};

@@ -10,11 +10,19 @@ import { Dashboard } from "./components/Dashboard";
 import { CompanyList } from "./components/CompanyList";
 import { CompanyDetail } from "./components/CompanyDetail";
 import { CompanyFormModal } from "./components/CompanyFormModal";
+import { LoginScreen } from "./components/LoginScreen";
+import { UserManagement } from "./components/UserManagement";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
-import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft, Search, Filter } from "lucide-react";
+import { useAuth, usePermissions } from "./contexts/AuthContext";
+import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft, Search, Filter, LogOut, User, Users } from "lucide-react";
 
 export default function App() {
+  // Authentication
+  const { isAuthenticated, isLoading: authLoading, user, logout } = useAuth();
+  const permissions = usePermissions();
+
+  // Webhook management
   const {
     companies,
     events,
@@ -118,6 +126,23 @@ export default function App() {
     }
   };
 
+  // Show loading during authentication check
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-indigo-100 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-blue-600" />
+          <p className="text-gray-600">Verificando autenticação...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginScreen />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-indigo-100 flex items-center justify-center">
@@ -191,6 +216,45 @@ export default function App() {
               </div>
             </div>
             
+            {/* User Menu */}
+            <div className="flex items-center gap-4">
+              {/* User Info */}
+              <div className="hidden md:flex items-center gap-3">
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-600">
+                    {permissions.isSuperAdmin ? 'Super Admin' : 'Administrador'}
+                  </p>
+                </div>
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
+                  <User className="w-4 h-4 text-white" />
+                </div>
+              </div>
+              
+              {/* User Management Button (Super Admin only) */}
+              {permissions.canManageUsers && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateTo('user-management')}
+                  className="hidden md:inline-flex items-center gap-2 bg-white/80 backdrop-blur-sm border-gray-200"
+                >
+                  <Users className="w-4 h-4" />
+                  Usuários
+                </Button>
+              )}
+              
+              {/* Logout Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={logout}
+                className="bg-white/80 backdrop-blur-sm border-gray-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden md:inline ml-2">Sair</span>
+              </Button>
+            </div>
 
           </div>
         </div>
@@ -198,7 +262,9 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto p-6">
-        {currentView === 'company-detail' && currentCompany ? (
+        {currentView === 'user-management' ? (
+          <UserManagement />
+        ) : currentView === 'company-detail' && currentCompany ? (
           <>
             <CompanyDetail
               company={currentCompany}

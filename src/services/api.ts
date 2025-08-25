@@ -1,4 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
+import type { 
+  User, 
+  AuthSession, 
+  LoginCredentials, 
+  CreateUserPayload, 
+  UpdateUserPayload,
+  UserRole
+} from '../types'
 
 // Use environment variables for API configuration
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
@@ -704,6 +712,243 @@ class ApiService {
       console.error('❌ Erro ao carregar eventos mais usados:', error)
       // Return empty array instead of throwing error
       return { success: true, data: [] }
+    }
+  }
+
+  // =============================================
+  // AUTHENTICATION & USER MANAGEMENT
+  // =============================================
+
+  // Login user
+  async login(credentials: LoginCredentials): Promise<{ success: boolean; data?: AuthSession; error?: string }> {
+    try {
+      console.log('🔐 Tentando fazer login:', credentials.email)
+      
+      const { data, error } = await supabase.rpc('authenticate_user', {
+        user_email: credentials.email,
+        user_password: credentials.password
+      })
+      
+      if (error) {
+        console.error('❌ Erro na autenticação:', error)
+        throw error
+      }
+      
+      if (!data || data.length === 0) {
+        console.log('❌ Credenciais inválidas')
+        return { success: false, error: 'Email ou senha incorretos' }
+      }
+      
+      const userData = data[0]
+      const session: AuthSession = {
+        user: {
+          id: userData.user_id,
+          email: userData.user_email,
+          name: userData.user_name,
+          role: userData.user_role as UserRole,
+          avatar_url: userData.avatar_url || undefined,
+          is_active: true,
+          created_at: '',
+          updated_at: '',
+          last_login: new Date().toISOString()
+        },
+        token: userData.session_token,
+        expires_at: userData.expires_at
+      }
+      
+      console.log('✅ Login bem-sucedido:', session.user.email)
+      return { success: true, data: session }
+    } catch (error) {
+      console.error('❌ Erro ao fazer login:', error)
+      return { success: false, error: 'Erro interno do servidor' }
+    }
+  }
+
+  // Logout user
+  async logout(token: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🚪 Fazendo logout...')
+      
+      const { error } = await supabase
+        .from('user_sessions')
+        .delete()
+        .eq('token', token)
+      
+      if (error) throw error
+      
+      console.log('✅ Logout realizado com sucesso')
+      return { success: true }
+    } catch (error) {
+      console.error('❌ Erro ao fazer logout:', error)
+      return { success: false, error: 'Erro ao fazer logout' }
+    }
+  }
+
+  // Validate session token
+  async validateSession(token: string): Promise<{ success: boolean; data?: User; error?: string }> {
+    try {
+      const { data, error } = await supabase
+        .from('user_sessions')
+        .select(`
+          expires_at,
+          user:users(
+            id,
+            email,
+            name,
+            role,
+            avatar_url,
+            is_active,
+            created_at,
+            updated_at,
+            last_login
+          )
+        `)
+        .eq('token', token)
+        .gte('expires_at', new Date().toISOString())
+        .single()
+      
+      if (error || !data) {
+        return { success: false, error: 'Sessão inválida ou expirada' }
+      }
+      
+      // Update last used
+      await supabase
+        .from('user_sessions')
+        .update({ last_used_at: new Date().toISOString() })
+        .eq('token', token)
+      
+      return { success: true, data: data.user as User }
+    } catch (error) {
+      console.error('❌ Erro ao validar sessão:', error)
+      return { success: false, error: 'Erro ao validar sessão' }
+    }
+  }
+
+  // Get all users (Super Admin only)
+  async getUsers(): Promise<{ success: boolean; data?: User[]; error?: string }> {
+    try {
+      console.log('👥 Buscando usuários...')
+      
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login')
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      
+      console.log('✅ Usuários carregados:', data?.length || 0)
+      return { success: true, data: data || [] }
+    } catch (error) {
+      console.error('❌ Erro ao buscar usuários:', error)
+      return { success: false, error: 'Erro ao carregar usuários' }
+    }
+  }
+
+  // Create user (Super Admin only)
+  async createUser(userData: CreateUserPayload): Promise<{ success: boolean; data?: User; error?: string }> {
+    try {
+      console.log('👤 Criando usuário:', userData.email)
+      
+      // Hash password (em produção, use bcrypt no backend)
+      const passwordHash = btoa(userData.password) // Temporary simple hash
+      
+      const { data, error } = await supabase
+        .from('users')
+        .insert({
+          email: userData.email,
+          name: userData.name,
+          password_hash: passwordHash,
+          role: userData.role
+        })
+        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at')
+        .single()
+      
+      if (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          return { success: false, error: 'Email já está em uso' }
+        }
+        throw error
+      }
+      
+      console.log('✅ Usuário criado:', data.email)
+      return { success: true, data: data as User }
+    } catch (error) {
+      console.error('❌ Erro ao criar usuário:', error)
+      return { success: false, error: 'Erro ao criar usuário' }
+    }
+  }
+
+  // Update user
+  async updateUser(userId: string, updates: UpdateUserPayload): Promise<{ success: boolean; data?: User; error?: string }> {
+    try {
+      console.log('📝 Atualizando usuário:', userId)
+      
+      const { data, error } = await supabase
+        .from('users')
+        .update(updates)
+        .eq('id', userId)
+        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login')
+        .single()
+      
+      if (error) throw error
+      
+      console.log('✅ Usuário atualizado:', data.email)
+      return { success: true, data: data as User }
+    } catch (error) {
+      console.error('❌ Erro ao atualizar usuário:', error)
+      return { success: false, error: 'Erro ao atualizar usuário' }
+    }
+  }
+
+  // Delete user (Super Admin only)
+  async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🗑️ Deletando usuário:', userId)
+      
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', userId)
+      
+      if (error) throw error
+      
+      console.log('✅ Usuário deletado com sucesso')
+      return { success: true }
+    } catch (error) {
+      console.error('❌ Erro ao deletar usuário:', error)
+      return { success: false, error: 'Erro ao deletar usuário' }
+    }
+  }
+
+  // Check user permission
+  async checkPermission(userId: string, permission: string): Promise<{ success: boolean; data?: boolean; error?: string }> {
+    try {
+      const { data, error } = await supabase.rpc('check_user_permission', {
+        user_uuid: userId,
+        permission_name: permission
+      })
+      
+      if (error) throw error
+      
+      return { success: true, data: data || false }
+    } catch (error) {
+      console.error('❌ Erro ao verificar permissão:', error)
+      return { success: false, error: 'Erro ao verificar permissão' }
+    }
+  }
+
+  // Cleanup expired sessions
+  async cleanupExpiredSessions(): Promise<{ success: boolean; data?: number; error?: string }> {
+    try {
+      const { data, error } = await supabase.rpc('cleanup_expired_sessions')
+      
+      if (error) throw error
+      
+      console.log('🧹 Sessões expiradas removidas:', data)
+      return { success: true, data: data || 0 }
+    } catch (error) {
+      console.error('❌ Erro ao limpar sessões:', error)
+      return { success: false, error: 'Erro ao limpar sessões' }
     }
   }
 }
