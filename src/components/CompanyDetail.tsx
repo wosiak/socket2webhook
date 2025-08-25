@@ -253,9 +253,23 @@ export function CompanyDetail({
 
     // SEMPRE extrair event_ids dos webhook_events (IDs reais, não nomes)
     let eventIds: string[] = [];
+    let eventFilters: EventWithFilters[] = [];
+    
     if (webhook.webhook_events && webhook.webhook_events.length > 0) {
       eventIds = webhook.webhook_events.map(we => we.event?.id).filter(Boolean) as string[];
       console.log('🔍 EDIÇÃO - Event IDs extraídos de webhook_events:', eventIds);
+      
+      // Extrair filtros dos webhook_events
+      webhook.webhook_events.forEach(we => {
+        if (we.filters && Array.isArray(we.filters) && we.filters.length > 0) {
+          eventFilters.push({
+            eventId: we.event?.id || '',
+            filters: we.filters
+          });
+        }
+      });
+      
+      console.log('🔍 EDIÇÃO - Filtros extraídos:', eventFilters);
     } else {
       console.log('⚠️ EDIÇÃO - Nenhum webhook_events encontrado');
     }
@@ -263,6 +277,7 @@ export function CompanyDetail({
     setWebhookFormData({
       name: webhook.name || '',
       event_ids: eventIds,
+      event_filters: eventFilters,
       url: webhook.url || '',
       is_active: webhook.status === 'active'
     });

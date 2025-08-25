@@ -197,17 +197,18 @@ export function InteractiveEventFilter({
   const handleFieldClick = (path: string, value: any) => {
     console.log('🎯 handleFieldClick chamado:', { path, value, type: typeof value });
     
-    // Converter path para formato correto para o servidor
-    // Se o path já começa com call-history-was-created, usar como está
-    // Senão, adicionar o prefixo correto
-    let fullPath = path;
-    if (!path.startsWith('call-history-was-created.')) {
-      fullPath = `callHistory.${path}`;
+    // O path deve ser exatamente como chega do servidor, ex: callHistory.status
+    // Não precisamos adicionar prefixos
+    let finalPath = path;
+    
+    // Se o path for algo como "call-history-was-created.callHistory.status", extrair só "callHistory.status"
+    if (path.includes('call-history-was-created.')) {
+      finalPath = path.replace('call-history-was-created.', '');
     }
     
-    console.log('🎯 Path gerado:', fullPath);
+    console.log('🎯 Path final gerado:', finalPath);
     
-    setSelectedPath(fullPath);
+    setSelectedPath(finalPath);
     setSelectedValue(value);
     
     // Determinar operador padrão baseado no tipo
@@ -216,7 +217,7 @@ export function InteractiveEventFilter({
                            'contains';
     setOperator(defaultOperator);
     
-    console.log('🎯 Filtro configurado:', { path: fullPath, value, operator: defaultOperator });
+    console.log('🎯 Filtro configurado:', { path: finalPath, value, operator: defaultOperator });
   };
 
   const addFilter = () => {
