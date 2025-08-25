@@ -168,6 +168,25 @@ async function forceReconnectActiveWebhooks() {
   try {
     console.log('🔄 Force reconnecting active webhooks...')
     
+    // Call the Node.js server force-reconnect endpoint
+    const serverUrl = 'https://socket2webhook.onrender.com/force-reconnect'
+    console.log(`📡 Calling Node.js server: ${serverUrl}`)
+    
+    const serverResponse = await fetch(serverUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+
+    if (serverResponse.ok) {
+      const serverResult = await serverResponse.json()
+      console.log('✅ Node.js server force reconnect completed:', serverResult)
+    } else {
+      console.log(`⚠️ Node.js server response: ${serverResponse.status} - ${await serverResponse.text()}`)
+    }
+    
+    // Also call the webhook monitor Edge Function
     const response = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/webhook-monitor`,
       {
@@ -184,9 +203,9 @@ async function forceReconnectActiveWebhooks() {
 
     if (response.ok) {
       const result = await response.json()
-      console.log('✅ Force reconnect completed:', result.message)
+      console.log('✅ Edge Function force reconnect completed:', result.message)
     } else {
-      console.error('❌ Force reconnect failed:', await response.text())
+      console.error('❌ Edge Function force reconnect failed:', await response.text())
     }
 
   } catch (error) {

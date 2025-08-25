@@ -272,6 +272,29 @@ app.post('/reconnect/:companyId', async (req, res) => {
   }
 });
 
+// Endpoint para forçar reconexão completa (usado pelo keepalive)
+app.post('/force-reconnect', async (req, res) => {
+  try {
+    console.log(`🔄 Forçando reconexão completa de todas as empresas ativas...`);
+    
+    // Reconectar todas as empresas com webhooks ativos
+    await connectAllActiveCompanies();
+    
+    const connectedCompanies = Array.from(activeConnections.keys());
+    
+    res.json({ 
+      success: true, 
+      message: 'Reconexão completa realizada',
+      connectedCompanies,
+      totalConnections: connectedCompanies.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('❌ Erro ao forçar reconexão:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Conectar empresa específica
 async function connectCompany(companyId) {
   try {
@@ -1071,13 +1094,14 @@ async function startServer() {
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('🛑 Recebido SIGTERM, desconectando empresas...');
+  console.log('🛑 Recebido SIGTERM (shutdown automático do Render), desconectando empresas...');
+  console.log('📋 Empresas ativas:', Array.from(activeConnections.keys()));
   
   for (const [companyId] of activeConnections) {
     await disconnectCompany(companyId);
   }
   
-  console.log('✅ Shutdown concluído');
+  console.log('✅ Shutdown concluído - Sistema será reativado no próximo evento');
   process.exit(0);
 });
 
