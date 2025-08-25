@@ -643,21 +643,35 @@ function applyEventFilters(eventData, filters) {
       switch (filter.operator) {
         case 'equals':
           result = fieldValue == filter.value; // Usar == para comparação flexível
+          console.log(`🔍 EQUALS: ${fieldValue} == ${filter.value} → ${result}`);
           break;
         case 'not_equals':
           result = fieldValue != filter.value;
+          console.log(`🔍 NOT_EQUALS: ${fieldValue} != ${filter.value} → ${result}`);
           break;
         case 'greater_than':
-          result = Number(fieldValue) > Number(filter.value);
+          const numFieldValue = Number(fieldValue);
+          const numFilterValue = Number(filter.value);
+          result = !isNaN(numFieldValue) && !isNaN(numFilterValue) && numFieldValue > numFilterValue;
+          console.log(`🔍 GREATER_THAN: ${fieldValue} (${numFieldValue}) > ${filter.value} (${numFilterValue}) → ${result}`);
           break;
         case 'less_than':
-          result = Number(fieldValue) < Number(filter.value);
+          const numFieldValueLT = Number(fieldValue);
+          const numFilterValueLT = Number(filter.value);
+          result = !isNaN(numFieldValueLT) && !isNaN(numFilterValueLT) && numFieldValueLT < numFilterValueLT;
+          console.log(`🔍 LESS_THAN: ${fieldValue} (${numFieldValueLT}) < ${filter.value} (${numFilterValueLT}) → ${result}`);
           break;
         case 'contains':
-          result = String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          const strFieldValue = String(fieldValue || '').toLowerCase();
+          const strFilterValue = String(filter.value || '').toLowerCase();
+          result = strFieldValue.includes(strFilterValue);
+          console.log(`🔍 CONTAINS: "${fieldValue}" contains "${filter.value}" → ${result}`);
           break;
         case 'not_contains':
-          result = !String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+          const strFieldValueNC = String(fieldValue || '').toLowerCase();
+          const strFilterValueNC = String(filter.value || '').toLowerCase();
+          result = !strFieldValueNC.includes(strFilterValueNC);
+          console.log(`🔍 NOT_CONTAINS: "${fieldValue}" not contains "${filter.value}" → ${result}`);
           break;
         default:
           console.warn(`🔍 Operador desconhecido: ${filter.operator}`);

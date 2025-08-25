@@ -263,17 +263,34 @@ export function InteractiveEventFilter({
       );
     }
 
+    // Determinar se deve ser number baseado no operador também
+    const isNumericOperation = ['greater_than', 'less_than'].includes(operator);
+    const shouldBeNumber = fieldType === 'number' || isNumericOperation;
+    
     return (
       <Input
-        type={fieldType === 'number' ? 'number' : 'text'}
+        type={shouldBeNumber ? 'number' : 'text'}
         value={selectedValue?.toString() || ''}
         onChange={(e) => {
-          const value = fieldType === 'number' ? 
-            (e.target.value ? Number(e.target.value) : '') : 
-            e.target.value;
-          setSelectedValue(value);
+          let value = e.target.value;
+          
+          // Para operações numéricas, converter para número
+          if (shouldBeNumber && value !== '') {
+            const numValue = Number(value);
+            setSelectedValue(isNaN(numValue) ? value : numValue);
+          } else {
+            setSelectedValue(value);
+          }
         }}
-        placeholder={`Valor atual: ${selectedValue}`}
+        placeholder={
+          shouldBeNumber ? 
+            'Digite um número (ex: 10)...' : 
+            fieldType === 'string' ? 
+              'Digite o texto...' : 
+              'Digite o valor...'
+        }
+        className="h-8 text-xs"
+        step={shouldBeNumber ? "any" : undefined}
       />
     );
   };
@@ -297,7 +314,7 @@ export function InteractiveEventFilter({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-[90vw] w-[90vw] bg-white max-h-[95vh]">
+      <DialogContent className="max-w-[95vw] w-[95vw] bg-white max-h-[95vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -308,7 +325,7 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 max-h-[85vh]">
+        <div className="space-y-4 max-h-[85vh] overflow-y-auto">
           {/* Estrutura do Evento - Layout amplo */}
           <div className="space-y-4">
             <Card>
@@ -323,7 +340,7 @@ export function InteractiveEventFilter({
                 </p>
               </CardHeader>
               <CardContent>
-                <ScrollArea className="h-[50vh] w-full">
+                <ScrollArea className="h-[40vh] w-full">
                   <pre className="text-sm leading-relaxed font-mono">
                     {renderInteractiveJson(SAMPLE_EVENT_BODY)}
                   </pre>
@@ -332,8 +349,8 @@ export function InteractiveEventFilter({
             </Card>
           </div>
 
-          {/* Configuração de Filtros - Abaixo do evento para dar mais espaço */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Configuração de Filtros - Layout responsivo */}
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
             {/* Filtros existentes */}
             {filters.length > 0 && (
               <Card>
@@ -396,12 +413,12 @@ export function InteractiveEventFilter({
                         value={operator}
                         onValueChange={setOperator}
                       >
-                        <SelectTrigger className="h-8">
+                        <SelectTrigger className="h-8 text-xs">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="z-[9999] max-h-[200px] overflow-y-auto">
                           {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
+                            <SelectItem key={value} value={value} className="text-xs">
                               {label}
                             </SelectItem>
                           ))}
