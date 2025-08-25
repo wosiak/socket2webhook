@@ -52,6 +52,20 @@ export default function App() {
   
   // Debug do currentView
   console.log('🔍 App.tsx - currentView:', currentView);
+  
+  // Force re-render quando necessário
+  const [forceRenderKey, setForceRenderKey] = useState(0);
+  
+  // Função para forçar re-render (pode ser chamada via window global)
+  const forceRefresh = () => {
+    setForceRenderKey(prev => prev + 1);
+    console.log('🔄 Forçando re-render do App.tsx');
+  };
+  
+  // Disponibilizar globalmente para debug
+  React.useEffect(() => {
+    (window as any).forceAppRefresh = forceRefresh;
+  }, []);
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
