@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Company, Webhook, ExecutionHistory, Event } from '../types';
 import { MultiEventTypeSelector } from './MultiEventTypeSelector';
+import type { EventFilter } from '../types';
 import { webhookSocketService } from '../services/webhookSocketService';
 
 interface CompanyDetailProps {
@@ -37,9 +38,15 @@ interface CompanyDetailProps {
   onRefreshData?: () => Promise<void>; // Função para recarregar dados
 }
 
+interface EventWithFilters {
+  eventId: string;
+  filters: EventFilter[];
+}
+
 interface WebhookFormData {
   name: string;
   event_ids: string[];
+  event_filters: EventWithFilters[];
   url: string;
   is_active: boolean;
 }
@@ -78,6 +85,7 @@ export function CompanyDetail({
   const [webhookFormData, setWebhookFormData] = useState<WebhookFormData>({
     name: '',
     event_ids: [],
+    event_filters: [],
     url: '',
     is_active: true
   });
@@ -271,6 +279,7 @@ export function CompanyDetail({
         isEditing: !!editingWebhook,
         name: webhookFormData.name,
         event_ids: webhookFormData.event_ids,
+        event_filters: webhookFormData.event_filters,
         url: webhookFormData.url
       });
 
@@ -288,7 +297,8 @@ export function CompanyDetail({
           url: webhookFormData.url,
           is_active: webhookFormData.is_active,
           status: webhookFormData.is_active ? 'active' : 'inactive',
-          event_ids: webhookFormData.event_ids
+          event_ids: webhookFormData.event_ids,
+          event_filters: webhookFormData.event_filters
         });
       }
       
@@ -547,14 +557,29 @@ export function CompanyDetail({
                     <MultiEventTypeSelector
                       events={safeEvents}
                       selectedEventIds={webhookFormData.event_ids}
+                      selectedEventsWithFilters={webhookFormData.event_filters}
                       onSelectionChange={(eventIds) => {
                         console.log('🔥 CompanyDetail - eventIds selecionados:', eventIds);
-                        console.log('🔥 CompanyDetail - webhookFormData atual:', webhookFormData);
                         setWebhookFormData(prev => {
-                          const newData = { ...prev, event_ids: eventIds };
+                          // Remover filtros de eventos não selecionados
+                          const filteredEventFilters = prev.event_filters.filter(ef => 
+                            eventIds.includes(ef.eventId)
+                          );
+                          const newData = { 
+                            ...prev, 
+                            event_ids: eventIds, 
+                            event_filters: filteredEventFilters 
+                          };
                           console.log('🔥 CompanyDetail - novo webhookFormData:', newData);
                           return newData;
                         });
+                      }}
+                      onFiltersChange={(eventsWithFilters) => {
+                        console.log('🔍 CompanyDetail - filtros atualizados:', eventsWithFilters);
+                        setWebhookFormData(prev => ({
+                          ...prev,
+                          event_filters: eventsWithFilters
+                        }));
                       }}
                       placeholder="Selecione um ou mais tipos de eventos"
                     />

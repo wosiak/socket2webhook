@@ -162,7 +162,8 @@ class ApiService {
           *,
           company:companies(name),
           webhook_events(
-            event:events(id, name, display_name)
+            event:events(id, name, display_name),
+            filters
           )
         `)
         .order('created_at', { ascending: false })
@@ -212,6 +213,7 @@ class ApiService {
     url: string
     is_active?: boolean
     event_ids?: string[]
+    event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }) {
     try {
       console.log('Creating webhook with data:', webhook)
@@ -234,12 +236,20 @@ class ApiService {
       
       // Create webhook_events relationships
       console.log('🔍 Criando relacionamentos de eventos:', webhook.event_ids);
+      console.log('🔍 Filtros de eventos:', webhook.event_filters);
+      
       if (webhook.event_ids && webhook.event_ids.length > 0) {
-        const webhookEvents = webhook.event_ids.map(eventId => ({
-          webhook_id: webhookData.id,
-          event_id: eventId,
-          created_at: new Date().toISOString()
-        }))
+        const webhookEvents = webhook.event_ids.map(eventId => {
+          // Buscar filtros para este evento específico
+          const eventFilters = webhook.event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
+          
+          return {
+            webhook_id: webhookData.id,
+            event_id: eventId,
+            filters: eventFilters, // Adicionar filtros como JSONB
+            created_at: new Date().toISOString()
+          };
+        });
         
         console.log('🔍 Webhook events para inserir:', webhookEvents);
         

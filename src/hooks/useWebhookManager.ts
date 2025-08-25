@@ -321,6 +321,7 @@ export const useWebhookManager = () => {
     url: string
     is_active?: boolean
     event_ids: string[]
+    event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }) => {
     try {
       console.log('Tentando criar webhook via API...')

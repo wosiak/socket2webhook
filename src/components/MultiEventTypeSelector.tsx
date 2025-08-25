@@ -5,23 +5,34 @@ import { Label } from "./ui/label";
 import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Check, ChevronDown, X, Search } from "lucide-react";
-import { Event } from "../types";
+import { EventFilterConfig } from "./EventFilterConfig";
+import { Event, EventFilter } from "../types";
+
+interface EventWithFilters {
+  eventId: string;
+  filters: EventFilter[];
+}
 
 interface MultiEventTypeSelectorProps {
   events: Event[];
   selectedEventIds: string[];
+  selectedEventsWithFilters?: EventWithFilters[]; // Para manter filtros configurados
   onSelectionChange: (eventIds: string[]) => void;
+  onFiltersChange?: (eventsWithFilters: EventWithFilters[]) => void;
   placeholder?: string;
 }
 
 export function MultiEventTypeSelector({
   events = [],
   selectedEventIds = [],
+  selectedEventsWithFilters = [],
   onSelectionChange,
+  onFiltersChange,
   placeholder = "Selecione tipos de eventos"
 }: MultiEventTypeSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [eventsWithFilters, setEventsWithFilters] = useState<EventWithFilters[]>(selectedEventsWithFilters);
 
   // Garantir que temos arrays seguros
   const safeEvents = Array.isArray(events) ? events : [];
@@ -45,6 +56,24 @@ export function MultiEventTypeSelector({
 
   const handleRemoveEvent = (eventId: string) => {
     onSelectionChange(safeSelectedEventIds.filter(id => id !== eventId));
+    // Remover filtros também
+    const updatedFilters = eventsWithFilters.filter(ewf => ewf.eventId !== eventId);
+    setEventsWithFilters(updatedFilters);
+    onFiltersChange?.(updatedFilters);
+  };
+
+  const handleFiltersChange = (eventId: string, filters: EventFilter[]) => {
+    const updatedFilters = eventsWithFilters.filter(ewf => ewf.eventId !== eventId);
+    if (filters.length > 0) {
+      updatedFilters.push({ eventId, filters });
+    }
+    setEventsWithFilters(updatedFilters);
+    onFiltersChange?.(updatedFilters);
+  };
+
+  const getFiltersForEvent = (eventId: string): EventFilter[] => {
+    const eventWithFilters = eventsWithFilters.find(ewf => ewf.eventId === eventId);
+    return eventWithFilters?.filters || [];
   };
 
   const clearSelection = () => {
@@ -172,32 +201,70 @@ export function MultiEventTypeSelector({
         )}
       </div>
 
-      {/* Tags dos tipos selecionados */}
+      {/* Tags dos tipos selecionados com filtros */}
       {safeSelectedEventIds.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          {safeSelectedEventIds.map((eventId) => {
-            const event = safeEvents.find(e => e.id === eventId);
-            return (
-              <Badge key={eventId} variant="secondary" className="text-xs bg-blue-100 text-blue-800 border-blue-200">
-                {event?.display_name || event?.name || eventId}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="ml-1 h-auto p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-200"
-                  onClick={() => handleRemoveEvent(eventId)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </Badge>
-            );
-          })}
+        <div className="space-y-3">
+          <Label className="text-sm font-medium">Eventos Selecionados:</Label>
+          <div className="space-y-2">
+            {safeSelectedEventIds.map((eventId) => {
+              const event = safeEvents.find(e => e.id === eventId);
+              const filters = getFiltersForEvent(eventId);
+              
+              return (
+                <div key={eventId} className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-200">
+                        {event?.display_name || event?.name || eventId}
+                      </Badge>
+                      {filters.length > 0 && (
+                        <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                          {filters.length} filtro{filters.length > 1 ? 's' : ''}
+                        </Badge>
+                      )}
+                    </div>
+                    {filters.length > 0 && (
+                      <div className="mt-1 text-xs text-gray-600">
+                        {filters.map((filter, index) => (
+                          <span key={index} className="mr-2">
+                            {filter.field_path} = {filter.value?.toString()}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center gap-1">
+                    {event && (
+                      <EventFilterConfig
+                        eventName={event.name}
+                        eventDisplayName={event.display_name || event.name}
+                        filters={filters}
+                        onFiltersChange={(newFilters) => handleFiltersChange(eventId, newFilters)}
+                      />
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-100"
+                      onClick={() => handleRemoveEvent(eventId)}
+                      title="Remover evento"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          
           <Button
             variant="ghost"
             size="sm"
-            className="h-auto p-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100"
             onClick={clearSelection}
           >
-            Limpar todos
+            Limpar todos os eventos
           </Button>
         </div>
       )}

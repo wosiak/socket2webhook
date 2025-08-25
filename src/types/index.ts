@@ -40,10 +40,18 @@ export interface Webhook {
   }>;
 }
 
+export interface EventFilter {
+  field_path: string;  // Ex: "callHistory.status", "campaign.id"
+  operator: 'equals' | 'not_equals' | 'greater_than' | 'less_than' | 'contains' | 'not_contains';
+  value: string | number | boolean;
+  description?: string; // Descrição amigável do filtro
+}
+
 export interface WebhookEvent {
   id: string;
   webhook_id: string;
   event_id: string;
+  filters?: EventFilter[]; // Filtros opcionais para este evento específico
   created_at: string;
 }
 

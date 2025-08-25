@@ -572,7 +572,8 @@ async function getActiveWebhooksForCompany(companyId) {
     .select(`
       id, url, status,
       webhook_events(
-        event:events(name, display_name)
+        event:events(name, display_name),
+        filters
       )
     `)
     .eq('company_id', companyId)
@@ -592,6 +593,50 @@ async function getActiveWebhooksForCompany(companyId) {
   });
   
   return webhooks;
+}
+
+// Função para aplicar filtros de eventos
+function applyEventFilters(eventData, filters) {
+  if (!filters || filters.length === 0) {
+    return true; // Sem filtros, passa todos os eventos
+  }
+
+  // Todos os filtros devem passar para o evento ser enviado
+  return filters.every(filter => {
+    try {
+      // Extrair valor do campo usando o path (ex: "callHistory.status")
+      const fieldValue = getNestedValue(eventData, filter.field_path);
+      
+      // Aplicar operador
+      switch (filter.operator) {
+        case 'equals':
+          return fieldValue == filter.value; // Usar == para comparação flexível
+        case 'not_equals':
+          return fieldValue != filter.value;
+        case 'greater_than':
+          return Number(fieldValue) > Number(filter.value);
+        case 'less_than':
+          return Number(fieldValue) < Number(filter.value);
+        case 'contains':
+          return String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+        case 'not_contains':
+          return !String(fieldValue).toLowerCase().includes(String(filter.value).toLowerCase());
+        default:
+          console.warn(`🔍 Operador desconhecido: ${filter.operator}`);
+          return true; // Em caso de operador desconhecido, passa o evento
+      }
+    } catch (error) {
+      console.warn(`🔍 Erro ao aplicar filtro ${filter.field_path}:`, error);
+      return true; // Em caso de erro, passa o evento
+    }
+  });
+}
+
+// Função helper para extrair valores aninhados (ex: "callHistory.status")
+function getNestedValue(obj, path) {
+  return path.split('.').reduce((current, key) => {
+    return current && current[key] !== undefined ? current[key] : undefined;
+  }, obj);
 }
 
 // Processar evento através dos webhooks
@@ -655,6 +700,20 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 async function processWebhookExecution(webhook, eventData, eventId, companyId, eventName) {
   try {
     console.log(`🔄 Executando webhook: ${webhook.id} -> ${webhook.url}`);
+    
+    // Buscar filtros para este evento específico neste webhook
+    const webhookEvent = webhook.webhook_events?.find(we => we.event?.name === eventName);
+    const eventFilters = webhookEvent?.filters || [];
+    
+    console.log(`🔍 Aplicando ${eventFilters.length} filtros para evento ${eventName}`);
+    
+    // Aplicar filtros - se não passar, não enviar o webhook
+    if (!applyEventFilters(eventData, eventFilters)) {
+      console.log(`🔍 Evento ${eventName} NÃO passou nos filtros do webhook ${webhook.id}. Webhook NÃO será executado.`);
+      return { success: false, reason: 'Event filtered out' };
+    }
+    
+    console.log(`✅ Evento ${eventName} passou nos filtros do webhook ${webhook.id}. Executando webhook...`);
     
     // Preparar payload do webhook
     const webhookPayload = {
