@@ -33,8 +33,8 @@ const OPERATOR_LABELS = {
   not_contains: 'Não contém'
 };
 
-// Estrutura de exemplo do evento call-history-was-created
-const SAMPLE_EVENT_BODY = {
+// Estruturas de exemplo dos eventos
+const SAMPLE_EVENT_BODIES = {
   "call-history-was-created": {
     "callHistory": {
       "_id": "1",
@@ -88,6 +88,180 @@ const SAMPLE_EVENT_BODY = {
       "calling_time": 27,
       "waiting_time": 0,
       "speaking_time": 0
+    }
+  },
+  "new-message-whatsapp": {
+    "chat": {
+      "id": 3044525,
+      "name": "Wosiak | Corporativo | Integrações",
+      "protocol_number": null,
+      "contact": {
+        "id": 2889649,
+        "name": "554299958417",
+        "name_alias": null,
+        "image": "null",
+        "is_blocked": false,
+        "company_id": 8673,
+        "number": "5542999958417"
+      },
+      "instance_id": "3d36bf80421332c8d09b0c6fd574cce4",
+      "instance": {
+        "id": "3d36bf80421332c8d09b0c6fd574cce4",
+        "name": "Automação / Integração",
+        "team_id": 7649,
+        "company_id": 8673,
+        "group_channel_id": 3777,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "554299958417"
+      },
+      "number": "5542999958417",
+      "team_id": 7649,
+      "last_message": "teste",
+      "last_message_data": {
+        "body": "teste",
+        "type": "chat",
+        "date": 1756151722,
+        "send_by_me": true
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Eduardo Wosiak",
+        "message": "Conversa aceita por: Eduardo Wosiak"
+      },
+      "company_id": 8673,
+      "agent_id": 114880,
+      "agent": {
+        "id": 114880,
+        "name": "Eduardo Wosiak",
+        "extension": {
+          "id": 158893,
+          "extension_number": 1001,
+          "type": "user",
+          "company_id": 8673,
+          "created_at": "2024-08-29 13:10:20",
+          "updated_at": "2024-08-29 13:10:20"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 114880,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "unread": 0,
+      "quantity_of_messages": 1,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1755869444,
+      "is_group": false,
+      "most_older_unanswered_message": 1755869444,
+      "most_older_received_message": 1756151722,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": null
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": false,
+        "message_received": false,
+        "end_message_cycle": null
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2025-08-25T19:55:22.000000Z",
+      "created_at": "2025-06-23T12:04:29.000000Z",
+      "end_snooze": 1756151722,
+      "in_snooze": false,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#111111",
+      "mood": null,
+      "by_active_ivr": false,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    },
+    "message": {
+      "id": "3EB0AB81F51873B8F78329",
+      "internal_id": "3EB0AB81F51873B8F78329",
+      "message_from": "554299958417",
+      "number": "5542999958417",
+      "type": "chat",
+      "body": "teste",
+      "instance_id": "3d36bf80421332c8d09b0c6fd574cce4",
+      "instance": {
+        "id": "3d36bf80421332c8d09b0c6fd574cce4",
+        "name": "Automação / Integração",
+        "team_id": 7649,
+        "company_id": 8673,
+        "group_channel_id": 3777,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "554299958417"
+      },
+      "chat_id": "3044525",
+      "agent_id": null,
+      "agent": [],
+      "time_whatsapp": 1756151722,
+      "time": 1756151722,
+      "audio_transcription": null,
+      "from": "554299958417",
+      "to": "554299958417",
+      "author": "Eduardo Wosiak",
+      "ack": "device",
+      "media": null,
+      "media_name": "",
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": true,
+      "self": true,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": true,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": "3EB0AB81F51873B8F78329",
+      "from_chatbot": false,
+      "waba_template_data": null,
+      "inter_message_data": null,
+      "internal": null,
+      "index_order": 118,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": null,
+      "buttons": []
     }
   }
 };
@@ -201,9 +375,11 @@ export function InteractiveEventFilter({
     // Não precisamos adicionar prefixos
     let finalPath = path;
     
-    // Se o path for algo como "call-history-was-created.callHistory.status", extrair só "callHistory.status"
+    // Se o path contiver o prefixo do evento, remover
     if (path.includes('call-history-was-created.')) {
       finalPath = path.replace('call-history-was-created.', '');
+    } else if (path.includes('new-message-whatsapp.')) {
+      finalPath = path.replace('new-message-whatsapp.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);
@@ -342,7 +518,7 @@ export function InteractiveEventFilter({
               <CardContent>
                 <ScrollArea className="h-[40vh] w-full">
                   <pre className="text-sm leading-relaxed font-mono">
-                    {renderInteractiveJson(SAMPLE_EVENT_BODY)}
+                    {renderInteractiveJson(SAMPLE_EVENT_BODIES[eventName as keyof typeof SAMPLE_EVENT_BODIES] || SAMPLE_EVENT_BODIES["call-history-was-created"])}
                   </pre>
                 </ScrollArea>
               </CardContent>

@@ -196,7 +196,10 @@ export function UserManagement() {
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => {
+              console.log('🔄 Navegando para dashboard...');
+              navigateTo('dashboard');
+            }}
             className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-gray-50"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

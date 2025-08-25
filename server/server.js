@@ -770,13 +770,20 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // Log do payload recebido para debug
     console.log(`🔍 Payload do evento para filtros:`, JSON.stringify(eventData, null, 2));
     
-    // Teste específico para call-history-was-created
+    // Teste específico para eventos principais
     if (eventName === 'call-history-was-created' && eventData) {
-      console.log(`🔍 TESTE ESPECÍFICO - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE call-history-was-created - eventData:`, typeof eventData);
       console.log(`🔍 TESTE - eventData.callHistory:`, eventData.callHistory);
       console.log(`🔍 TESTE - eventData.callHistory?.status:`, eventData.callHistory?.status);
       console.log(`🔍 TESTE - eventData.data?.callHistory:`, eventData.data?.callHistory);
       console.log(`🔍 TESTE - eventData.data?.callHistory?.status:`, eventData.data?.callHistory?.status);
+    } else if (eventName === 'new-message-whatsapp' && eventData) {
+      console.log(`🔍 TESTE new-message-whatsapp - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
+      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
+      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
+      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
+      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook
