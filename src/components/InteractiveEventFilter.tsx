@@ -54,7 +54,7 @@ const SAMPLE_EVENT_BODIES = {
         "company_id": 1,
         "list_id": 2653600,
         "uf": "RJ",
-        "phone": "5521969890518",
+        "phone": "5542999998888",
         "cpf": "12632498000"
       },
       "phone_type": "mobile",
@@ -1192,6 +1192,633 @@ const SAMPLE_EVENT_BODIES = {
       "company_id": null
     },
     "bootTime": "2025-08-26T19:08:29.825775+00:00"
+  },
+  "start-snooze-chat-whatsapp": {
+    "chat": {
+      "id": 1,
+      "name": null,
+      "protocol_number": null,
+      "contact": {
+        "id": 2839924,
+        "name": "Eduardo Wosiak",
+        "name_alias": null,
+        "image": "https://pps.whatsapp.net/v/t61.24694-24/491867791_686211294351958_8713257708430176031_n.jpg?ccb=11-4&oh=01_Q5Aa1wFkx_cdViCpsh0rIbqf9ZXVB_XlvgJcL4qRsTnucaYSMQ&oe=686BD59C&_nc_sid=5e03e0&_nc_cat=106",
+        "is_blocked": false,
+        "company_id": 1,
+        "number": "5542999998888"
+      },
+      "instance_id": "abc123",
+      "instance": {
+        "id": "abc123",
+        "name": "Nome do Grupo de Canal",
+        "team_id": 7649,
+        "company_id": 1,
+        "group_channel_id": 3777,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542988889999"
+      },
+      "number": "5542999998888",
+      "team_id": 7649,
+      "last_message": "Última mensagem",
+      "last_message_data": {
+        "body": "Última mensagem",
+        "type": "chat",
+        "date": 1756230834,
+        "send_by_me": true
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Nome do Operador",
+        "message": "Conversa aceita por: Nome do Operador"
+      },
+      "company_id": 1,
+      "agent_id": 114885,
+      "agent": {
+        "id": 114885,
+        "name": "Nome do Operador",
+        "extension": {
+          "id": 158898,
+          "extension_number": 11,
+          "type": "user",
+          "company_id": 1,
+          "created_at": "2024-08-29 13:20:32",
+          "updated_at": "2024-08-29 13:20:32"
+        },
+        "role": {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 114885,
+            "role_id": 3
+          }
+        },
+        "teams": [
+          {
+            "id": 7649,
+            "name": "Equipe 1",
+            "color": "#111111",
+            "company_id": 1,
+            "created_at": "2024-08-29 13:23:30",
+            "updated_at": "2024-08-29 13:41:27",
+            "whatsapp": true,
+            "qualification_list_id": 14850,
+            "whatsapp_quick_message_list_id": null,
+            "pivot": {
+              "user_id": 114885,
+              "team_id": 7649
+            }
+          }
+        ]
+      },
+      "unread": 8,
+      "quantity_of_messages": 1,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1756237646,
+      "is_group": false,
+      "most_older_unanswered_message": 1756237646,
+      "most_older_received_message": 1756237646,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": 0
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": false,
+        "message_received": false,
+        "end_message_cycle": null
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2025-08-26T19:47:26.000000Z",
+      "created_at": "2025-06-11T20:33:31.000000Z",
+      "end_snooze": 1756248420,
+      "in_snooze": true,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#111111",
+      "mood": null,
+      "by_active_ivr": false,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    }
+  },
+  "finish-chat": {
+    "chat": {
+      "id": 2980117,
+      "agent_id": 114885,
+      "contact_id": 2839924,
+      "team_id": 7649,
+      "company_id": 1,
+      "chatbot_id": null,
+      "created_at": "2025-06-11 17:33:31",
+      "updated_at": "2025-08-26 16:50:31",
+      "deleted_at": null,
+      "group_channel_id": 3777,
+      "oldest_unanswered_message_date": null,
+      "unread": 8,
+      "type": "chat",
+      "number": "5542999998888",
+      "from_me": true,
+      "is_group": false,
+      "quantity_of_messages": 1,
+      "finished": true,
+      "most_older_unanswered_message": null,
+      "last_message_body": "(11) 93932-0521",
+      "last_message_date": "2025-08-26 14:53:54",
+      "last_message_send_by_me": true,
+      "most_older_received_message": null,
+      "in_snooze": false,
+      "end_snooze": null,
+      "lag_to_response_is_late": false,
+      "lag_to_response_late_since": null,
+      "lag_to_response_max_time_to_be_answer": 0,
+      "queue_response_is_late": false,
+      "queue_response_late_since": null,
+      "queue_response_max_time_to_be_answer": 0,
+      "internal_message_client_initiated_chat": false,
+      "internal_message_agent_name": "Wosiak - 1",
+      "internal_message_body": "Conversa aceita por: Wosiak - 1",
+      "transferred": false,
+      "protocol_number": null,
+      "sid": null,
+      "response_is_late": false,
+      "waba_message_received": false,
+      "waba_message_received_sended_message_template": false,
+      "waba_message_received_end_message_cycle": null,
+      "message_from": null,
+      "check_ack_job_scheduled": false,
+      "group_owner": null,
+      "name": null,
+      "group_updated_at": null,
+      "is_read_only": false,
+      "allow_all_agents": false,
+      "quantity_of_messages_to_evaluate": 13,
+      "mood": null,
+      "by_active_ivr": false,
+      "agent_first_answer": "1753104990",
+      "last_message_type": "chat",
+      "last_instance_id": "3d36bf80421332c8d09b0c6fd574cce4",
+      "transferred_from_group_channel_id": 3777,
+      "group_channel": {
+        "id": 3777,
+        "name": "Automação / Integração",
+        "company_id": 1,
+        "team_id": 7649,
+        "deleted_at": null,
+        "created_at": "2025-06-11 15:30:22",
+        "updated_at": "2025-08-14 17:43:02",
+        "openai_status": false,
+        "openai_context": null,
+        "status": "active",
+        "color": "#111111",
+        "sequential_last_received_chat_user_id": null,
+        "chat_distribution_strategy": "BALANCED",
+        "sequential_last_chat_datetime": null,
+        "is_chatbot_enabled": false,
+        "audio_transcription_enabled": false,
+        "external_device_chat_enabled": false,
+        "company": {
+          "id": 1,
+          "name": "Wosiak",
+          "domain": "wosiak",
+          "currency": "BRL",
+          "balance": "906.6450000000002",
+          "created_at": "2024-08-29 13:10:20",
+          "updated_at": "2025-08-22 09:59:49",
+          "is_partner": false,
+          "route_landline_id": 12766,
+          "route_mobile_id": 12766,
+          "max_agents_login": 5,
+          "caller_id": null,
+          "logo_name": "",
+          "logo_image_link": "",
+          "credit_limit": "0",
+          "socket_channel": "Abc123",
+          "integration_enabled": true,
+          "partner_id": null,
+          "webphone_licenses": 0,
+          "deleted_at": null,
+          "ura_licenses": 100,
+          "low_balance_reported": false,
+          "webphone_only": false,
+          "limit_call_per_agent": "30",
+          "access_bi": false,
+          "credit_sms": 0,
+          "value_sms": "0.06",
+          "route_group_landline_id": null,
+          "route_group_mobile_id": null,
+          "limit_unproductive_calls": 0,
+          "plan": 2,
+          "new_front_end": true,
+          "whatsapp_licenses": 10,
+          "url": null,
+          "original_block_date": 1754449200,
+          "blocked_at": 1786147199,
+          "blocked_sms": false,
+          "stereo_audio_enabled": true,
+          "used_3c_plus_route": false,
+          "whatsapp_max_concurrent_logins": 4,
+          "enabled_download_audios_in_batch": true,
+          "pro_mode": true,
+          "webhook_integration": true,
+          "record_audio_agent": false,
+          "two_factor": false,
+          "two_factor_interval_days": 30,
+          "two_factor_setup_deadline": "2025-02-12 00:00:00",
+          "ai_call_evaluation": true,
+          "state_dial_exception": "",
+          "international_route_id": null,
+          "international_route_group_id": null,
+          "ring_group_licenses": 10,
+          "pabx": true,
+          "plan_tax_id": null,
+          "extra_balance": "0.00",
+          "report_in_html_format": false,
+          "mailing_list_conversion_goals": false,
+          "ai_chat_evaluation": true,
+          "group_channel_ids": "[\"1839\"]",
+          "criterion_list_id": 16567,
+          "reserved_balance": "0.00",
+          "trigger_sms_value": "0.059",
+          "trigger_waba_value": "0",
+          "trigger_whatsapp_3c_value": "0",
+          "trigger_ivr_dmc_value": "0.05",
+          "trigger_ivr_dmc_available_channels": 9,
+          "trigger_ivr_dmc_licenses": 40
+        }
+      },
+      "last_instance": {
+        "id": "abc123",
+        "ultramsg_id": null,
+        "name": "Automação / Integração",
+        "token": null,
+        "company_id": 1,
+        "team_id": 7649,
+        "status": "connected",
+        "first_connection": false,
+        "phone": "554299958417",
+        "group_channel_id": 3777,
+        "deleted_at": null,
+        "created_at": "2025-06-11 15:31:27",
+        "updated_at": "2025-08-02 00:01:26",
+        "type": "z-api",
+        "phone_number_id": null,
+        "waba_token": null,
+        "whatsapp_business_account_id": null,
+        "page_token": null,
+        "page_id": null,
+        "expiration_date": "2025-09-01 23:59:59",
+        "disconnected_at": null,
+        "z_api_id": "ABC123",
+        "z_api_token": "ABC123",
+        "group_channel": {
+          "id": 3777,
+          "name": "Automação / Integração",
+          "company_id": 1,
+          "team_id": 7649,
+          "deleted_at": null,
+          "created_at": "2025-06-11 15:30:22",
+          "updated_at": "2025-08-14 17:43:02",
+          "openai_status": false,
+          "openai_context": null,
+          "status": "active",
+          "color": "#111111",
+          "sequential_last_received_chat_user_id": null,
+          "chat_distribution_strategy": "BALANCED",
+          "sequential_last_chat_datetime": null,
+          "is_chatbot_enabled": false,
+          "audio_transcription_enabled": false,
+          "external_device_chat_enabled": false
+        }
+      },
+      "contact": {
+        "id": 2839924,
+        "name": "Eduardo Wosiak",
+        "name_alias": null,
+        "image": "https://pps.whatsapp.net/v/t61.24694-24/491867791_686211294351958_8713257708430176031_n.jpg?ccb=11-4&oh=01_Q5Aa1wFkx_cdViCpsh0rIbqf9ZXVB_XlvgJcL4qRsTnucaYSMQ&oe=686BD59C&_nc_sid=5e03e0&_nc_cat=106",
+        "company_id": 1,
+        "created_at": "2025-06-11 17:33:31",
+        "updated_at": "2025-08-26 14:53:54",
+        "deleted_at": null,
+        "is_blocked": false,
+        "tags": []
+      },
+      "user": {
+        "id": 114885,
+        "name": "Wosiak - 1",
+        "email": null,
+        "active": true,
+        "telephony_id": "j2XiRPafUl",
+        "api_token": "Abc123",
+        "confirmed": true,
+        "confirmation_code": null,
+        "company_id": 1,
+        "created_at": "2024-08-29 13:20:33",
+        "updated_at": "2025-08-26 15:29:31",
+        "extension_password": "CcF1mmd6Ne",
+        "extension_id": 158898,
+        "user_document": "",
+        "last_login": "2025-08-26 18:29:31",
+        "frontend": "new",
+        "frontend_updated_at": "2024-12-02 17:21:54",
+        "last_active_at": null,
+        "password_updated_at": "2024-08-29 13:21:52",
+        "two_factor_secret": null
+      },
+      "team": {
+        "id": 7649,
+        "name": "Equipe 1",
+        "color": "#111111",
+        "company_id": 1,
+        "created_at": "2024-08-29 13:23:30",
+        "updated_at": "2024-08-29 13:41:27",
+        "whatsapp": true,
+        "qualification_list_id": 14850,
+        "whatsapp_quick_message_list_id": null
+      },
+      "protocol": {
+        "id": 8802563,
+        "agent_id": 114885,
+        "old_chat_id": null,
+        "protocol_number": "1750853988188",
+        "agent_name": "Wosiak - 1",
+        "start_time": "1750853988",
+        "end_time": "1753206752",
+        "created_at": "2025-06-25 09:19:48",
+        "updated_at": "2025-07-22 14:52:32",
+        "qualification_id": -2,
+        "qualification_note": "",
+        "instance_id": "abc123",
+        "provider": "z-api",
+        "transfer_count": 0,
+        "chat_id": 2980117,
+        "transferred_at": null,
+        "trigger_id": null,
+        "trigger_reference": null
+      }
+    },
+    "chatDetails": {
+      "agent_name": "Wosiak - 1",
+      "queue_start": null,
+      "team_name": "Equipe 1",
+      "group_channel_name": "Automação / Integração",
+      "qualification": {
+        "id": -2,
+        "name": "Não qualificada",
+        "color": "#ababab",
+        "list_id": null
+      },
+      "finished_at": 1756237831
+    }
+  },
+  "transfer-chat-whatsapp": {
+    "data": {
+      "message": {
+        "id": "internal_transfer_3044525_1756238078_7f4fd6e8-82b6-11f0-acfa-e229d52079df",
+        "internal_id": "internal_transfer_3044525_1756238078_7f4fd6e8-82b6-11f0-acfa-e229d52079df",
+        "message_from": null,
+        "number": "5542999998888",
+        "type": "transfer",
+        "body": null,
+        "instance_id": "abc123",
+        "instance": {
+          "id": "abc123",
+          "name": "Automação / Integração",
+          "team_id": 7649,
+          "company_id": 1,
+          "group_channel_id": 3777,
+          "open_ai": false,
+          "status": "connected",
+          "first_connection": false,
+          "type": "z-api",
+          "phone": "5542999998888"
+        },
+        "chat_id": "3044525",
+        "agent_id": 114880,
+        "agent": {
+          "id": 114880,
+          "name": "Eduardo Wosiak",
+          "extension": {
+            "id": 158893,
+            "extension_number": 1001,
+            "type": "user",
+            "company_id": 1,
+            "created_at": "2024-08-29 13:10:20",
+            "updated_at": "2024-08-29 13:10:20"
+          },
+          "role": {
+            "id": 2,
+            "name": "manager",
+            "created_at": "2018-06-28 11:58:40",
+            "updated_at": "2018-06-28 11:58:40",
+            "pivot": {
+              "user_id": 114880,
+              "role_id": 2
+            }
+          },
+          "teams": []
+        },
+        "time_whatsapp": 1756238078,
+        "time": 1756238078,
+        "audio_transcription": null,
+        "from": "5542999998888",
+        "to": "5542999998888",
+        "author": null,
+        "ack": null,
+        "media": null,
+        "media_name": null,
+        "media_original_name": null,
+        "size": 0,
+        "fromMe": false,
+        "self": false,
+        "isForwarded": false,
+        "isMentioned": false,
+        "is_deleted": false,
+        "is_external": false,
+        "quoted_msg": {
+          "body": null,
+          "id": null,
+          "media": null,
+          "type": null
+        },
+        "reference_id": null,
+        "from_chatbot": false,
+        "waba_template_data": null,
+        "inter_message_data": {
+          "previous_agent": {
+            "id": 114880,
+            "name": "Eduardo Wosiak"
+          },
+          "current_agent": {
+            "id": 114885,
+            "name": "Wosiak - 1"
+          }
+        },
+        "internal": null,
+        "index_order": 120,
+        "is_deleted_at": null,
+        "context": "historic",
+        "page": null,
+        "button_response": [],
+        "buttons": []
+      },
+      "chat": {
+        "id": 3044525,
+        "name": "Wosiak | Corporativo | Integrações",
+        "protocol_number": null,
+        "contact": {
+          "id": 2889649,
+          "name": "5542999998888",
+          "name_alias": null,
+          "image": "null",
+          "is_blocked": false,
+          "company_id": 1,
+          "number": "5542999998888"
+        },
+        "instance_id": "Abc123",
+        "instance": {
+          "id": "Abc123",
+          "name": "Automação / Integração",
+          "team_id": 7649,
+          "company_id": 1,
+          "group_channel_id": 3777,
+          "open_ai": false,
+          "status": "connected",
+          "first_connection": false,
+          "type": "z-api",
+          "phone": "5542999998888"
+        },
+        "number": "5542999998888",
+        "team_id": 7649,
+        "last_message": "(51) 99206-1713",
+        "last_message_data": {
+          "body": "(51) 99206-1713",
+          "type": "chat",
+          "date": 1756156240,
+          "send_by_me": true
+        },
+        "internal_message": {
+          "client_initiated_chat": false,
+          "agent_name": "Eduardo Wosiak",
+          "message": "Conversa aceita por: Eduardo Wosiak"
+        },
+        "company_id": 1,
+        "agent_id": 114885,
+        "agent": {
+          "id": 114885,
+          "name": "Wosiak - 1",
+          "extension": {
+            "id": 158898,
+            "extension_number": 11,
+            "type": "user",
+            "company_id": 1,
+            "created_at": "2024-08-29 13:20:32",
+            "updated_at": "2024-08-29 13:20:32"
+          },
+          "role": {
+            "id": 3,
+            "name": "agent",
+            "created_at": "2018-06-28 11:58:40",
+            "updated_at": "2018-06-28 11:58:40",
+            "pivot": {
+              "user_id": 114885,
+              "role_id": 3
+            }
+          },
+          "teams": [
+            {
+              "id": 7649,
+              "name": "Equipe 1",
+              "color": "#111111",
+              "company_id": 1,
+              "created_at": "2024-08-29 13:23:30",
+              "updated_at": "2024-08-29 13:41:27",
+              "whatsapp": true,
+              "qualification_list_id": 14850,
+              "whatsapp_quick_message_list_id": null,
+              "pivot": {
+                "user_id": 114885,
+                "team_id": 7649
+              }
+            }
+          ]
+        },
+        "unread": 0,
+        "quantity_of_messages": 1,
+        "finished": false,
+        "type": "chat",
+        "from_me": true,
+        "group_owner": null,
+        "allow_all_agents": false,
+        "is_read_only": false,
+        "time": null,
+        "oldest_unanswered_message_date": 1755869444,
+        "is_group": false,
+        "most_older_unanswered_message": 1755869444,
+        "most_older_received_message": 1756238078,
+        "transferred": true,
+        "transfered_from_group_channel_id": null,
+        "lag_to_response": {
+          "response_is_late": false,
+          "late_since": null,
+          "max_time_to_be_answer": null
+        },
+        "queue_response_is_late": {
+          "response_is_late": false,
+          "late_since": null,
+          "max_time_waiting_agent_answer": 0
+        },
+        "waba_message_received": {
+          "sended_message_template": false,
+          "message_received": false,
+          "end_message_cycle": null
+        },
+        "chatbot_id": null,
+        "chatbot": {
+          "is_active": false,
+          "last_action_id": null,
+          "start_chatbot": null
+        },
+        "updated_at": "2025-08-26T19:54:37.000000Z",
+        "created_at": "2025-06-23T12:04:29.000000Z",
+        "end_snooze": 1756238078,
+        "in_snooze": false,
+        "message_from": null,
+        "contact_tags": [],
+        "color": "#111111",
+        "mood": null,
+        "by_active_ivr": false,
+        "is_trigger_chat": false,
+        "messages": [],
+        "from_trigger": false
+      },
+      "agent_id": 114880,
+      "instance_id": "Abc123",
+      "team_id": 7649
+    }
   }
 };
 
@@ -1329,6 +1956,12 @@ export function InteractiveEventFilter({
       finalPath = path.replace('agent-is-idle.', '');
     } else if (path.includes('agent-entered-manual.')) {
       finalPath = path.replace('agent-entered-manual.', '');
+    } else if (path.includes('start-snooze-chat-whatsapp.')) {
+      finalPath = path.replace('start-snooze-chat-whatsapp.', '');
+    } else if (path.includes('finish-chat.')) {
+      finalPath = path.replace('finish-chat.', '');
+    } else if (path.includes('transfer-chat-whatsapp.')) {
+      finalPath = path.replace('transfer-chat-whatsapp.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);
