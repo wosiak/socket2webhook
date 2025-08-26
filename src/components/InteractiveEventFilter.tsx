@@ -1010,6 +1010,403 @@ const SAMPLE_EVENT_BODIES = {
       "button_response": [],
       "buttons": []
     }
+  },
+  "call-was-connected": {
+    "agent": {
+      "id": 1,
+      "name": "Nome do Operador | 3C Plus",
+      "email": null,
+      "active": true,
+      "telephony_id": "SzIcGT2KCo",
+      "api_token": "3OKBM5ggEDztXjigA16ZPa3Beo9xm6ghYGAvJC6dCbRdPs177PJZY9RYjbnd",
+      "confirmed": true,
+      "company_id": 1,
+      "extension_password": "Po5G27ps4M",
+      "extension_id": 214655,
+      "last_login": "2025-08-26 19:08:03",
+      "extension_number": 30,
+      "type": "agent",
+      "webphone": false,
+      "extension": {
+        "id": 214655,
+        "extension_number": 30,
+        "type": "user",
+        "company_id": 1
+      },
+      "agent_status": {
+        "id": 240093,
+        "status": 2,
+        "call": "Abc123",
+        "logged_campaign": 1,
+        "start_idleness": 1756235702,
+        "status_start_time": 1756235737,
+        "user_id": 1,
+        "call_mode": "dialer",
+        "connected_time": 1756235737
+      },
+      "roles": [
+        {
+          "id": 3,
+          "name": "agent",
+          "pivot": {
+            "user_id": 1,
+            "role_id": 3
+          }
+        }
+      ]
+    },
+    "agentStatus": 2,
+    "call": {
+      "mailing_id": "68ae07cbad3b8763ac74fcb3",
+      "phone": "5542999958417",
+      "identifier": "68ae07cb4e58e9.17690272",
+      "campaign_id": 1,
+      "company_id": 1,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:1:1:Abc123",
+      "telephony_id": "Abc123",
+      "filter_calls": "1",
+      "route_id": "12766",
+      "status": "3",
+      "dialed_time": "1756235723",
+      "answered_time": "1756235734",
+      "connected_time": "1756235737",
+      "agent": "1",
+      "agent_idleness": "35",
+      "sid": "2025082616153701"
+    },
+    "campaign": {
+      "id": 1,
+      "queue_id": null,
+      "name": "Nome da Campanha",
+      "start_time": "11:00:00",
+      "end_time": "21:30:00",
+      "paused": false,
+      "company_id": 1,
+      "check_amd": true,
+      "route_landline_id": 12766,
+      "route_mobile_id": 12766,
+      "acw_timeout": 0,
+      "caller_id": "1000000000",
+      "asr": "0.1",
+      "allows_manual": true,
+      "is_predictive": false,
+      "recording_enabled": true,
+      "filter_calls": true,
+      "horizontal_dial": false,
+      "distribution_type": "teams_and_agents",
+      "hide_phone": false,
+      "is_on_active_time": true
+    },
+    "campaignId": 1,
+    "campaignGroupId": 0,
+    "mailing": {
+      "_id": "68ae07cbad3b8763ac74fcb3",
+      "identifier": "68ae07cb4e58e9.17690272",
+      "campaign_id": 1,
+      "company_id": 1,
+      "list_id": 2886308,
+      "uf": "PR",
+      "phone": "5542999958417",
+      "dialed_phone": 1,
+      "dialed_identifier": 1,
+      "column_position": 2,
+      "row_position": 2,
+      "data": {
+        "Identificador": "11",
+        "Nome": "Corporativo",
+        "Bairro": "2K",
+        "Data Nasc": "14-06-2005"
+      },
+      "type": "dialer"
+    },
+    "qualification": {
+      "qualifications": [],
+      "url": ""
+    },
+    "queues": [],
+    "ringGroups": [],
+    "schedule": null,
+    "userExtensionStatus": null,
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T19:15:37.405987+00:00"
+  },
+  "mailing-list-was-finished": {
+    "mailingList": {
+      "id": 1,
+      "name": "Nome da Lista.csv",
+      "original_name": "",
+      "file": "mailing/Abc123.1234567890",
+      "company_id": 8673,
+      "created_at": "2025-08-26T19:12:39.000000Z",
+      "updated_at": "2025-08-26T19:12:39.000000Z",
+      "campaign_id": 200737,
+      "deleted_at": null,
+      "dial": 0,
+      "redial": 0,
+      "abandoned": 0,
+      "answered": 0,
+      "total": 0,
+      "weight": 0,
+      "callback": false,
+      "dialed": 0,
+      "importing": false,
+      "converted": 0,
+      "failed": 0,
+      "abandoned_due_amd": 0,
+      "dmc": 0,
+      "ura_id": null,
+      "should_notify": true,
+      "recycled_time": 0,
+      "recycle_source_list_id": null,
+      "recycle_process": false,
+      "recycle_filters": [],
+      "unknown": 0,
+      "pro_mode": true,
+      "conversion_goal": 0,
+      "next_call_at": null,
+      "batch_id": null,
+      "recycling_progress_percentage": 0,
+      "headers": [],
+      "qualification_id": null,
+      "asr": 0,
+      "completed": 0,
+      "completed_percentage": 0,
+      "asr_percentage": 0,
+      "answered_percentage": 0,
+      "dial_percentage": 0,
+      "redial_percentage": 0,
+      "converted_percentage": 0,
+      "dmc_percentage": 0,
+      "unknown_percentage": 0,
+      "company": {
+        "id": 1,
+        "name": "Wosiak",
+        "domain": "wosiak",
+        "currency": "BRL",
+        "balance": "1000.00000000000",
+        "is_partner": false,
+        "route_landline_id": 12766,
+        "route_mobile_id": 12766,
+        "max_agents_login": 5,
+        "caller_id": null,
+        "logo_name": "",
+        "logo_image_link": "",
+        "credit_limit": "0",
+        "socket_channel": "Abc123",
+        "integration_enabled": true,
+        "partner_id": null,
+        "webphone_licenses": 0,
+        "deleted_at": null,
+        "ura_licenses": 100,
+        "low_balance_reported": false,
+        "webphone_only": false,
+        "limit_call_per_agent": "30",
+        "access_bi": false,
+        "credit_sms": 0,
+        "value_sms": "0.06",
+        "route_group_landline_id": null,
+        "route_group_mobile_id": null,
+        "limit_unproductive_calls": 0,
+        "plan": 2,
+        "new_front_end": true,
+        "whatsapp_licenses": 10,
+        "url": null,
+        "original_block_date": 1754449200,
+        "blocked_at": 1786147199,
+        "blocked_sms": false,
+        "stereo_audio_enabled": true,
+        "used_3c_plus_route": false,
+        "whatsapp_max_concurrent_logins": 4,
+        "enabled_download_audios_in_batch": true,
+        "pro_mode": true,
+        "webhook_integration": true,
+        "record_audio_agent": false,
+        "two_factor": false,
+        "two_factor_interval_days": 30,
+        "two_factor_setup_deadline": "2025-02-12 00:00:00",
+        "ai_call_evaluation": true,
+        "state_dial_exception": "",
+        "international_route_id": null,
+        "international_route_group_id": null,
+        "ring_group_licenses": 10,
+        "pabx": true,
+        "plan_tax_id": null,
+        "extra_balance": "0.00",
+        "report_in_html_format": false,
+        "mailing_list_conversion_goals": false,
+        "ai_chat_evaluation": true,
+        "group_channel_ids": "[\"1839\"]",
+        "criterion_list_id": 16567,
+        "reserved_balance": "0.00",
+        "trigger_sms_value": "0.059",
+        "trigger_waba_value": "0",
+        "trigger_whatsapp_3c_value": "0",
+        "trigger_ivr_dmc_value": "0.05",
+        "trigger_ivr_dmc_available_channels": 9,
+        "trigger_ivr_dmc_licenses": 40,
+        "is_allowed_to_call": true,
+        "balance_to_call": 1000.00000000000,
+        "licenses": 5
+      }
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T19:12:39.818999+00:00"
+  },
+  "agent-was-logged-out": {
+    "agent": {
+      "id": 168205,
+      "name": "Nome do Operador | 3C Plus",
+      "email": null,
+      "active": true,
+      "telephony_id": "SzIcGT2KCo",
+      "api_token": "TokenDoOperador",
+      "confirmed": true,
+      "confirmation_code": null,
+      "company_id": 1,
+      "extension_password": "Abc123",
+      "extension_id": 214655,
+      "user_document": null,
+      "last_login": "2025-08-26 19:08:03",
+      "type": "agent",
+      "webphone": false,
+      "agent_status": {
+        "id": 240093,
+        "status": 0,
+        "call": "",
+        "logged_campaign": null,
+        "start_idleness": 1756235410,
+        "status_start_time": 1756235465,
+        "user_id": 168205,
+        "start_manual": 1756235466,
+        "start_manual_acw": 1756235466,
+        "webphone": false,
+        "call_mode": null,
+        "connected_time": null,
+        "logged_group": null,
+        "campaign_group": null
+      },
+      "extension": {
+        "id": 214655,
+        "extension_number": 30,
+        "type": "user",
+        "company_id": 1
+      },
+      "receptive_queues": [],
+      "roles": [
+        {
+          "id": 3,
+          "name": "agent",
+          "pivot": {
+            "user_id": 168205,
+            "role_id": 3
+          }
+        }
+      ]
+    },
+    "agent_campaign": null,
+    "campaign_group_id": null,
+    "agent_team": [],
+    "login_time": "26/08/2025 16:08:23",
+    "logout_time": "26/08/2025 16:11:05",
+    "queues": [],
+    "socket": null
+  },
+  "agent-is-idle": {
+    "agent": {
+      "id": 1,
+      "status": 1,
+      "status_in_ring_group": null,
+      "extension_number": 30
+    },
+    "queues": [],
+    "campaignId": 1,
+    "campaignGroupId": null,
+    "ring_groups": [],
+    "socket": null
+  },
+  "agent-entered-manual": {
+    "agent": {
+      "id": 168205,
+      "name": "Nome do Operador | 3C Plus",
+      "email": null,
+      "active": true,
+      "telephony_id": "SzIcGT2KCo",
+      "api_token": "TokendoOperador",
+      "confirmed": true,
+      "confirmation_code": null,
+      "company_id": 1,
+      "extension_password": "Abc123",
+      "extension_id": 214655,
+      "user_document": null,
+      "last_login": "2025-08-26 19:08:03",
+      "type": "agent",
+      "webphone": false,
+      "roles": [
+        {
+          "id": 3,
+          "name": "agent",
+          "pivot": {
+            "user_id": 168205,
+            "role_id": 3
+          }
+        }
+      ],
+      "settings": {
+        "id": 168204,
+        "timezone": "America/Sao_Paulo",
+        "language": "pt-br",
+        "user_id": 168205,
+        "hour_format": "H:i:s",
+        "date_format": "d/m/Y",
+        "web_extension": true,
+        "sector": null,
+        "access": null
+      },
+      "agent_status": {
+        "id": 240093,
+        "status": 4,
+        "call": null,
+        "logged_campaign": 200737,
+        "start_idleness": 1756235303,
+        "status_start_time": 1756235309,
+        "user_id": 168205,
+        "start_manual": 1756235309,
+        "start_manual_acw": 1756235312,
+        "webphone": false,
+        "call_mode": null,
+        "connected_time": null,
+        "logged_group": null
+      },
+      "user_extension_status": null,
+      "extension": {
+        "id": 214655,
+        "extension_number": 30,
+        "type": "user",
+        "company_id": 1
+      },
+      "receptive_queues": [],
+      "ring_groups": []
+    },
+    "agentStatus": 4,
+    "campaignId": 200737,
+    "campaignGroupId": null,
+    "queues": [],
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T19:08:29.825775+00:00"
   }
 };
 
@@ -1139,6 +1536,14 @@ export function InteractiveEventFilter({
       finalPath = path.replace('new-agent-message-whatsapp.', '');
     } else if (path.includes('new-whatsapp-internal-message.')) {
       finalPath = path.replace('new-whatsapp-internal-message.', '');
+    } else if (path.includes('mailing-list-was-finished.')) {
+      finalPath = path.replace('mailing-list-was-finished.', '');
+    } else if (path.includes('agent-was-logged-out.')) {
+      finalPath = path.replace('agent-was-logged-out.', '');
+    } else if (path.includes('agent-is-idle.')) {
+      finalPath = path.replace('agent-is-idle.', '');
+    } else if (path.includes('agent-entered-manual.')) {
+      finalPath = path.replace('agent-entered-manual.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);

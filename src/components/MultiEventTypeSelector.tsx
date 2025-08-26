@@ -240,7 +240,7 @@ export function MultiEventTypeSelector({
                   
                   <div className="flex items-center gap-1">
                     {event && (
-                      (['call-history-was-created', 'new-message-whatsapp', 'call-was-created', 'call-is-trying', 'call-was-abandoned', 'call-was-connected', 'new-agent-message-whatsapp', 'new-whatsapp-internal-message'].includes(event.name)) ? (
+                      (['call-history-was-created', 'new-message-whatsapp', 'call-was-created', 'call-is-trying', 'call-was-abandoned', 'call-was-connected', 'new-agent-message-whatsapp', 'new-whatsapp-internal-message', 'mailing-list-was-finished', 'agent-was-logged-out', 'agent-is-idle', 'agent-entered-manual'].includes(event.name)) ? (
                         <InteractiveEventFilter
                           eventName={event.name}
                           eventDisplayName={event.display_name || event.name}

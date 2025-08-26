@@ -806,6 +806,30 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
       console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
       console.log(`🔍 TESTE - eventData.message?.message_from:`, eventData.message?.message_from);
+    } else if (eventName === 'call-was-connected' && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.campaign:`, eventData.campaign);
+      console.log(`🔍 TESTE - eventData.campaign?.id:`, eventData.campaign?.id);
+    } else if (eventName === 'mailing-list-was-finished' && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.mailingList:`, eventData.mailingList);
+      console.log(`🔍 TESTE - eventData.mailingList?.id:`, eventData.mailingList?.id);
+      console.log(`🔍 TESTE - eventData.mailingList?.name:`, eventData.mailingList?.name);
+      console.log(`🔍 TESTE - eventData.mailingList?.campaign_id:`, eventData.mailingList?.campaign_id);
+      console.log(`🔍 TESTE - eventData.mailingList?.company:`, eventData.mailingList?.company);
+    } else if (['agent-was-logged-out', 'agent-is-idle', 'agent-entered-manual'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+      console.log(`🔍 TESTE - eventData.agent?.status:`, eventData.agent?.status);
+      console.log(`🔍 TESTE - eventData.campaignId:`, eventData.campaignId);
+      console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook
