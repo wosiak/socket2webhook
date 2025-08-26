@@ -22,6 +22,8 @@ export function useRouter() {
   const currentCompanyId = currentRoute.type === 'company' ? currentRoute.companyId : null;
 
   const navigateTo = (view: string, companyId?: string) => {
+    console.log('🔧 useRouter.navigateTo chamado:', { view, companyId, currentRoute: currentRoute.type });
+    
     if (view === 'company-detail' && companyId) {
       navigate({ type: 'company', companyId });
     } else if (view === 'dashboard') {
@@ -31,6 +33,8 @@ export function useRouter() {
     } else if (view === 'user-management') {
       navigate({ type: 'user-management' });
     }
+    
+    console.log('🔧 useRouter.navigateTo - após navigate, currentRoute:', currentRoute.type);
   };
 
   const navigateBack = () => {

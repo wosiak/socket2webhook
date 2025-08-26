@@ -190,13 +190,32 @@ export function UserManagement() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="user-management">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
             variant="outline"
-            onClick={() => navigateTo('dashboard')}
+            onClick={() => {
+              console.log('🔄 Forçando volta para dashboard...');
+              
+              // Tentar múltiplas abordagens para garantir que funcione
+              navigateTo('dashboard');
+              
+              // Se disponível, forçar re-render do App
+              if ((window as any).forceAppRefresh) {
+                setTimeout(() => (window as any).forceAppRefresh(), 100);
+              }
+              
+              // Fallback: recarregar página se nada funcionar
+              setTimeout(() => {
+                if (window.location.pathname.includes('user-management') || 
+                    document.querySelector('[data-testid="user-management"]')) {
+                  console.log('🔄 Fallback: recarregando página...');
+                  window.location.href = window.location.origin;
+                }
+              }, 500);
+            }}
             className="bg-white/80 backdrop-blur-sm border-gray-200 hover:bg-gray-50"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />

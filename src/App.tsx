@@ -49,6 +49,23 @@ export default function App() {
   } = useWebhookManager();
 
   const { currentView, currentCompanyId, navigateTo, navigateBack } = useRouter();
+  
+  // Debug do currentView
+  console.log('🔍 App.tsx - currentView:', currentView);
+  
+  // Force re-render quando necessário
+  const [forceRenderKey, setForceRenderKey] = useState(0);
+  
+  // Função para forçar re-render (pode ser chamada via window global)
+  const forceRefresh = () => {
+    setForceRenderKey(prev => prev + 1);
+    console.log('🔄 Forçando re-render do App.tsx');
+  };
+  
+  // Disponibilizar globalmente para debug
+  useEffect(() => {
+    (window as any).forceAppRefresh = forceRefresh;
+  }, []);
 
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -200,7 +217,7 @@ export default function App() {
                 <h1 className="text-xl font-bold text-gray-900">
                   {currentView === 'company-detail' && currentCompany 
                     ? `${currentCompany.name}`
-                    : 'Socket2Webhook | 3C + [DEV]'
+                    : 'Socket2Webhook | 3C +'
                   }
                 </h1>
                 <p className="text-sm text-gray-600">

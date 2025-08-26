@@ -770,13 +770,86 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // Log do payload recebido para debug
     console.log(`🔍 Payload do evento para filtros:`, JSON.stringify(eventData, null, 2));
     
-    // Teste específico para call-history-was-created
+    // Teste específico para eventos principais
     if (eventName === 'call-history-was-created' && eventData) {
-      console.log(`🔍 TESTE ESPECÍFICO - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE call-history-was-created - eventData:`, typeof eventData);
       console.log(`🔍 TESTE - eventData.callHistory:`, eventData.callHistory);
       console.log(`🔍 TESTE - eventData.callHistory?.status:`, eventData.callHistory?.status);
       console.log(`🔍 TESTE - eventData.data?.callHistory:`, eventData.data?.callHistory);
       console.log(`🔍 TESTE - eventData.data?.callHistory?.status:`, eventData.data?.callHistory?.status);
+    } else if (eventName === 'new-message-whatsapp' && eventData) {
+      console.log(`🔍 TESTE new-message-whatsapp - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
+      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
+      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
+      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
+      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
+    } else if (['call-was-created', 'call-is-trying', 'call-was-abandoned', 'call-was-connected'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
+      console.log(`🔍 TESTE - eventData.call?.call_mode:`, eventData.call?.call_mode);
+      if (eventName === 'call-was-connected' && eventData.agent) {
+        console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+        console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+        console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+        console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
+      }
+    } else if (['new-agent-message-whatsapp', 'new-whatsapp-internal-message'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
+      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
+      console.log(`🔍 TESTE - eventData.chat?.agent_id:`, eventData.chat?.agent_id);
+      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
+      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
+      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
+      console.log(`🔍 TESTE - eventData.message?.message_from:`, eventData.message?.message_from);
+    } else if (eventName === 'call-was-connected' && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.campaign:`, eventData.campaign);
+      console.log(`🔍 TESTE - eventData.campaign?.id:`, eventData.campaign?.id);
+    } else if (eventName === 'mailing-list-was-finished' && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.mailingList:`, eventData.mailingList);
+      console.log(`🔍 TESTE - eventData.mailingList?.id:`, eventData.mailingList?.id);
+      console.log(`🔍 TESTE - eventData.mailingList?.name:`, eventData.mailingList?.name);
+      console.log(`🔍 TESTE - eventData.mailingList?.campaign_id:`, eventData.mailingList?.campaign_id);
+      console.log(`🔍 TESTE - eventData.mailingList?.company:`, eventData.mailingList?.company);
+    } else if (['agent-was-logged-out', 'agent-is-idle', 'agent-entered-manual'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
+      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
+      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
+      console.log(`🔍 TESTE - eventData.agent?.status:`, eventData.agent?.status);
+      console.log(`🔍 TESTE - eventData.campaignId:`, eventData.campaignId);
+      console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
+    } else if (['start-snooze-chat-whatsapp', 'finish-chat', 'transfer-chat-whatsapp', 'new-agent-chat-whatsapp'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
+      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
+      console.log(`🔍 TESTE - eventData.chat?.agent_id:`, eventData.chat?.agent_id);
+      console.log(`🔍 TESTE - eventData.chat?.contact:`, eventData.chat?.contact);
+      console.log(`🔍 TESTE - eventData.chat?.finished:`, eventData.chat?.finished);
+      console.log(`🔍 TESTE - eventData.chat?.in_snooze:`, eventData.chat?.in_snooze);
+      console.log(`🔍 TESTE - eventData.data:`, eventData.data);
+      console.log(`🔍 TESTE - eventData.chatDetails:`, eventData.chatDetails);
+    } else if (['call-was-not-answered', 'call-was-amd', 'call-was-answered'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.id:`, eventData.call?.id);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
+      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
+      console.log(`🔍 TESTE - eventData.call?.hangup_cause:`, eventData.call?.hangup_cause);
+      console.log(`🔍 TESTE - eventData.call?.amd_status:`, eventData.call?.amd_status);
+      console.log(`🔍 TESTE - eventData.webhookEvent:`, eventData.webhookEvent);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook
