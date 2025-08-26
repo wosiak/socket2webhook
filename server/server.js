@@ -830,7 +830,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.log(`🔍 TESTE - eventData.agent?.status:`, eventData.agent?.status);
       console.log(`🔍 TESTE - eventData.campaignId:`, eventData.campaignId);
       console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
-    } else if (['start-snooze-chat-whatsapp', 'finish-chat', 'transfer-chat-whatsapp'].includes(eventName) && eventData) {
+    } else if (['start-snooze-chat-whatsapp', 'finish-chat', 'transfer-chat-whatsapp', 'new-agent-chat-whatsapp'].includes(eventName) && eventData) {
       console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
       console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
       console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
@@ -840,6 +840,16 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.log(`🔍 TESTE - eventData.chat?.in_snooze:`, eventData.chat?.in_snooze);
       console.log(`🔍 TESTE - eventData.data:`, eventData.data);
       console.log(`🔍 TESTE - eventData.chatDetails:`, eventData.chatDetails);
+    } else if (['call-was-not-answered', 'call-was-amd', 'call-was-answered'].includes(eventName) && eventData) {
+      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
+      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
+      console.log(`🔍 TESTE - eventData.call?.id:`, eventData.call?.id);
+      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
+      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
+      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
+      console.log(`🔍 TESTE - eventData.call?.hangup_cause:`, eventData.call?.hangup_cause);
+      console.log(`🔍 TESTE - eventData.call?.amd_status:`, eventData.call?.amd_status);
+      console.log(`🔍 TESTE - eventData.webhookEvent:`, eventData.webhookEvent);
     }
     
     // Aplicar filtros - se não passar, não enviar o webhook

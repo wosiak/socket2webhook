@@ -1819,6 +1819,199 @@ const SAMPLE_EVENT_BODIES = {
       "instance_id": "Abc123",
       "team_id": 7649
     }
+  },
+  "new-agent-chat-whatsapp": {
+    "chat": {
+      "id": 3484812,
+      "name": null,
+      "protocol_number": null,
+      "contact": {
+        "id": 3247798,
+        "name": "5542999998888",
+        "name_alias": null,
+        "image": null,
+        "is_blocked": false,
+        "company_id": 1,
+        "number": "5542999998888"
+      },
+      "instance_id": "Abc123",
+      "instance": {
+        "id": "Abc123",
+        "name": "Automação / Integração",
+        "team_id": 7649,
+        "company_id": 1,
+        "group_channel_id": 3777,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "z-api",
+        "phone": "5542999998888"
+      },
+      "number": "5542999998888",
+      "team_id": 7649,
+      "last_message": null,
+      "last_message_data": {
+        "body": null,
+        "type": null,
+        "date": 1756239954,
+        "send_by_me": false
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Eduardo Wosiak",
+        "message": "Conversa iniciada pelo agente Eduardo Wosiak"
+      },
+      "company_id": 1,
+      "agent_id": 114880,
+      "agent": {
+        "id": 114880,
+        "name": "Eduardo Wosiak",
+        "extension": {
+          "id": 158893,
+          "extension_number": 1001,
+          "type": "user",
+          "company_id": 1,
+          "created_at": "2024-08-29 13:10:20",
+          "updated_at": "2024-08-29 13:10:20"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 114880,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "unread": 0,
+      "quantity_of_messages": null,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1756239954,
+      "is_group": false,
+      "most_older_unanswered_message": 1756239954,
+      "most_older_received_message": 1756239954,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": 0
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": false,
+        "message_received": false,
+        "end_message_cycle": null
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2025-08-26T20:25:54.000000Z",
+      "created_at": "2025-08-26T20:25:54.000000Z",
+      "end_snooze": 1756239954,
+      "in_snooze": false,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#111111",
+      "mood": null,
+      "by_active_ivr": null,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    }
+  },
+  "call-was-not-answered": {
+    "call": {
+      "mailing_id": "Abc123",
+      "phone": "5542999998888",
+      "identifier": "1",
+      "campaign_id": 1,
+      "company_id": 1,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:1:1:Abc123",
+      "telephony_id": "Abc123",
+      "filter_calls": "1",
+      "route_id": "5903",
+      "status": "5",
+      "dialed_time": "1756239505",
+      "hangup_cause": "0",
+      "hangup_cause_txt": "Unknown",
+      "hangup_cause_color": "#8dc18d",
+      "hangup_time": "1756239531"
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T20:18:54.620050+00:00"
+  },
+  "call-was-amd": {
+    "call": {
+      "mailing_id": "Abc123",
+      "phone": "5542999998888",
+      "identifier": "1",
+      "campaign_id": 1,
+      "company_id": 1,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:1:1:Abc123",
+      "telephony_id": "Abc123",
+      "filter_calls": "1",
+      "route_id": "9391",
+      "status": "2",
+      "dialed_time": "1756239642",
+      "answered_time": "1756239653",
+      "amd_status": "0",
+      "amd_time": "1756239656"
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T20:20:57.595684+00:00"
+  },
+  "call-was-answered": {
+    "call": {
+      "mailing_id": "Abc123",
+      "phone": "5542999998888",
+      "identifier": "123",
+      "campaign_id": 1,
+      "company_id": 1,
+      "call_mode": "dialer",
+      "campaign_group_id": 0,
+      "id": "call:1:1:Abc123",
+      "telephony_id": "Abc123",
+      "filter_calls": "1",
+      "route_id": "13578",
+      "status": "2",
+      "dialed_time": "1756239503",
+      "answered_time": "1756239514"
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-26T20:18:35.690695+00:00"
   }
 };
 
@@ -1962,6 +2155,14 @@ export function InteractiveEventFilter({
       finalPath = path.replace('finish-chat.', '');
     } else if (path.includes('transfer-chat-whatsapp.')) {
       finalPath = path.replace('transfer-chat-whatsapp.', '');
+    } else if (path.includes('new-agent-chat-whatsapp.')) {
+      finalPath = path.replace('new-agent-chat-whatsapp.', '');
+    } else if (path.includes('call-was-not-answered.')) {
+      finalPath = path.replace('call-was-not-answered.', '');
+    } else if (path.includes('call-was-amd.')) {
+      finalPath = path.replace('call-was-amd.', '');
+    } else if (path.includes('call-was-answered.')) {
+      finalPath = path.replace('call-was-answered.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);
