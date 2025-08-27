@@ -128,7 +128,7 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
 
         {/* Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
+          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm hover:scale-105 hover:bg-blue-50/50 hover:shadow-lg hover:border-blue-200/50 transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Total de Execuções</CardTitle>
               <Activity className="h-4 w-4 text-blue-600" />
@@ -141,7 +141,7 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
             </CardContent>
           </Card>
 
-          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
+          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm hover:scale-105 hover:bg-blue-50/50 hover:shadow-lg hover:border-blue-200/50 transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Taxa de Sucesso</CardTitle>
               <TrendingUp className="h-4 w-4 text-green-600" />
@@ -157,7 +157,7 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
 
 
 
-          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
+          <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm hover:scale-105 hover:bg-blue-50/50 hover:shadow-lg hover:border-blue-200/50 transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-gray-600">Execuções Falharam</CardTitle>
               <XCircle className="h-4 w-4 text-red-600" />
