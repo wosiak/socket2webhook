@@ -2273,7 +2273,7 @@ export function InteractiveEventFilter({
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-[95vw] w-[95vw] bg-white max-h-[95vh] overflow-hidden">
+      <DialogContent className="!fixed !top-[50%] !left-[50%] !z-50 !grid !translate-x-[-50%] !translate-y-[-50%] !gap-4 !rounded-lg !border !p-6 !shadow-lg !duration-200 !w-[80vw] !max-w-6xl !bg-white !max-h-[90vh] !overflow-hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Settings className="w-5 h-5" />
@@ -2284,62 +2284,72 @@ export function InteractiveEventFilter({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[85vh] overflow-y-auto">
-          {/* Estrutura do Evento - Layout amplo */}
-          <div className="space-y-4">
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <Code className="w-4 h-4" />
-                  Estrutura do Evento
-                  <MousePointer2 className="w-4 h-4 text-blue-600" />
-                </CardTitle>
-                <p className="text-xs text-gray-600">
-                  Clique nos valores destacados para criar filtros automaticamente
-                </p>
-              </CardHeader>
-              <CardContent>
-                <ScrollArea className="h-[40vh] w-full">
-                  <pre className="text-sm leading-relaxed font-mono">
-                    {renderInteractiveJson(SAMPLE_EVENT_BODIES[eventName as keyof typeof SAMPLE_EVENT_BODIES] || SAMPLE_EVENT_BODIES["call-history-was-created"])}
-                  </pre>
-                </ScrollArea>
-              </CardContent>
-            </Card>
-          </div>
+        <div className="space-y-4 max-h-[75vh] overflow-y-auto">
+          {/* Layout principal - Evento à esquerda, Filtros à direita */}
+          <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            {/* Estrutura do Evento - 3/4 da largura */}
+            <div className="xl:col-span-3">
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Code className="w-4 h-4" />
+                    Estrutura do Evento
+                    <MousePointer2 className="w-4 h-4 text-blue-600" />
+                  </CardTitle>
+                  <p className="text-xs text-gray-600">
+                    Clique nos valores destacados para criar filtros automaticamente
+                  </p>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[60vh] w-full">
+                    <pre className="text-sm leading-relaxed font-mono">
+                      {renderInteractiveJson(SAMPLE_EVENT_BODIES[eventName as keyof typeof SAMPLE_EVENT_BODIES] || SAMPLE_EVENT_BODIES["call-history-was-created"])}
+                    </pre>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
 
-          {/* Configuração de Filtros - Layout responsivo */}
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+            {/* Configuração de Filtros - 1/4 da largura */}
+            <div className="space-y-4">
             {/* Filtros existentes */}
             {filters.length > 0 && (
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Filtros Configurados</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2 max-h-32 overflow-y-auto">
+                <CardContent className={`space-y-2 ${filters.length > 4 ? 'max-h-[40vh] overflow-y-auto' : ''}`}>
                   {filters.map((filter, index) => (
-                    <div key={index} className="flex items-center justify-between bg-gray-50 p-2 rounded">
-                      <div className="flex-1 text-xs">
-                        <code className="bg-gray-200 px-1 rounded text-xs">
-                          {filter.field_path}
-                        </code>
-                        {' '}
-                        <Badge variant="outline" className="text-xs mx-1">
-                          {OPERATOR_LABELS[filter.operator]}
-                        </Badge>
-                        {' '}
-                        <code className="bg-blue-100 px-1 rounded text-xs">
-                          {filter.value?.toString()}
-                        </code>
-                      </div>
+                    <div key={index} className="bg-gray-50 p-3 rounded relative">
+                      {/* Botão lixeira sempre no canto superior direito */}
                       <Button
                         variant="destructive"
                         size="sm"
                         onClick={() => removeFilter(index)}
-                        className="h-6 w-6 p-0"
+                        className="absolute top-2 right-2 h-5 w-5 p-0 shrink-0"
                       >
                         <Trash2 className="w-3 h-3" />
                       </Button>
+                      
+                      {/* Conteúdo do filtro com espaço reservado para a lixeira */}
+                      <div className="pr-8 text-xs space-y-1">
+                        <div className="break-words">
+                          <span className="text-gray-500 font-medium">Campo:</span>
+                          <br />
+                          <code className="bg-gray-200 px-1 rounded text-xs break-all">
+                            {filter.field_path}
+                          </code>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            {OPERATOR_LABELS[filter.operator]}
+                          </Badge>
+                          <code className="bg-blue-100 px-1 rounded text-xs break-all">
+                            {filter.value?.toString()}
+                          </code>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </CardContent>
@@ -2372,12 +2382,12 @@ export function InteractiveEventFilter({
                         value={operator}
                         onValueChange={setOperator}
                       >
-                        <SelectTrigger className="h-8 text-xs">
+                        <SelectTrigger className="h-8 text-xs bg-white hover:border-blue-500 hover:text-blue-600 transition-colors duration-200">
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent className="z-[9999] max-h-[200px] overflow-y-auto">
+                        <SelectContent className="z-[9999] max-h-[200px] overflow-y-auto bg-white border border-gray-200 shadow-lg">
                           {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value} className="text-xs">
+                            <SelectItem key={value} value={value} className="text-xs hover:bg-blue-100 hover:text-blue-700 focus:bg-blue-100 focus:text-blue-700 transition-colors duration-200 cursor-pointer">
                               {label}
                             </SelectItem>
                           ))}
@@ -2409,12 +2419,25 @@ export function InteractiveEventFilter({
                 )}
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex justify-between sm:justify-end gap-3">
           <Button variant="outline" onClick={() => setIsOpen(false)}>
             Fechar
+          </Button>
+          <Button 
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl transition-all duration-200 px-6"
+            onClick={() => {
+              // Aplicar filtros e fechar
+              if (filters.length > 0) {
+                onFiltersChange(filters);
+              }
+              setIsOpen(false);
+            }}
+          >
+            Salvar Filtros
           </Button>
         </DialogFooter>
       </DialogContent>
