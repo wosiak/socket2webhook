@@ -18,7 +18,7 @@ import {
   AlertCircle, 
   CheckCircle,
   Clock,
-  User,
+  User as UserIcon,
   Mail,
   Loader2,
   ArrowLeft
@@ -26,7 +26,7 @@ import {
 import { useUserManager } from '../hooks/useUserManager';
 import { useAuth } from '../contexts/AuthContext';
 import { useRouter } from '../hooks/useRouter';
-import type { User, CreateUserPayload, UpdateUserPayload, UserRole } from '../types';
+import type { User as UserType, CreateUserPayload, UpdateUserPayload, UserRole } from '../types';
 
 export function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -47,7 +47,7 @@ export function UserManagement() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserType | null>(null);
 
   // Form state
   const [createForm, setCreateForm] = useState<CreateUserPayload>({
@@ -113,11 +113,11 @@ export function UserManagement() {
     }
   };
 
-  const handleToggleStatus = async (user: User) => {
+  const handleToggleStatus = async (user: UserType) => {
     await toggleUserStatus(user.id);
   };
 
-  const openEditModal = (user: User) => {
+  const openEditModal = (user: UserType) => {
     setSelectedUser(user);
     setEditForm({
       name: user.name,
@@ -127,7 +127,7 @@ export function UserManagement() {
     setIsEditModalOpen(true);
   };
 
-  const openDeleteModal = (user: User) => {
+  const openDeleteModal = (user: UserType) => {
     setSelectedUser(user);
     setIsDeleteModalOpen(true);
   };
@@ -167,13 +167,13 @@ export function UserManagement() {
     );
   };
 
-  const canEditUser = (user: User) => {
+  const canEditUser = (user: UserType) => {
     // Super admin can edit anyone except themselves for role changes
     // Regular admins cannot edit super admins
     return currentUser?.role === 'super_admin' && user.id !== currentUser.id;
   };
 
-  const canDeleteUser = (user: User) => {
+  const canDeleteUser = (user: UserType) => {
     // Super admin can delete anyone except themselves
     return currentUser?.role === 'super_admin' && user.id !== currentUser.id;
   };
@@ -355,7 +355,7 @@ export function UserManagement() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center">
-                    <User className="w-5 h-5 text-white" />
+                    <UserIcon className="w-5 h-5 text-white" />
                   </div>
                   <div>
                     <CardTitle className="text-sm">{user.name}</CardTitle>
@@ -550,7 +550,7 @@ export function UserManagement() {
             <div className="p-4 bg-red-50 rounded-lg border border-red-200">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-red-600" />
+                  <UserIcon className="w-5 h-5 text-red-600" />
                 </div>
                 <div>
                   <p className="font-medium text-red-900">{selectedUser.name}</p>
