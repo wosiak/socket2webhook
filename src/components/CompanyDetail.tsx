@@ -23,7 +23,7 @@ import {
 import { Company, Webhook, ExecutionHistory, Event } from '../types';
 import { MultiEventTypeSelector } from './MultiEventTypeSelector';
 import type { EventFilter } from '../types';
-import { webhookSocketService } from '../services/webhookSocketService';
+
 
 interface CompanyDetailProps {
   company: Company | null;

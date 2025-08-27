@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { renderApiService } from '../services/renderApiService';
+import { apiService } from '../services/api';
 
 interface RenderStatus {
   isServerRunning: boolean;
@@ -34,7 +34,7 @@ export function useRenderStatus() {
     try {
       setStatus(prev => ({ ...prev, isLoading: true, error: null }));
       
-      const connectivity = await renderApiService.checkConnectivity();
+      const connectivity = await apiService.healthCheck();
       
       setStatus({
         isServerRunning: connectivity.serverRunning,
@@ -62,7 +62,7 @@ export function useRenderStatus() {
   // Verificar status de uma empresa específica
   const checkCompanyStatus = useCallback(async (companyId: string): Promise<CompanyConnectionStatus> => {
     try {
-      const companyStatus = await renderApiService.getCompanyStatus(companyId);
+      const companyStatus = await apiService.getCompanyStatus(companyId);
       
       console.log(`🔍 Status da empresa ${companyId}:`, companyStatus);
       
@@ -83,7 +83,7 @@ export function useRenderStatus() {
   // Forçar reconexão de uma empresa
   const reconnectCompany = useCallback(async (companyId: string) => {
     try {
-      const result = await renderApiService.reconnectCompany(companyId);
+      const result = await apiService.reconnectCompany(companyId);
       
       // Atualizar status após reconexão
       setTimeout(() => {

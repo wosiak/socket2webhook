@@ -3,8 +3,7 @@ import { apiService } from '../services/api'
 import { createClient } from '@supabase/supabase-js'
 import { projectId, publicAnonKey } from '../utils/supabase/info'
 import { Company, Event, Webhook, Execution, Metrics, MostUsedEvent, SocketEvent } from '../types'
-import { webhookSocketService } from '../services/webhookSocketService'
-import { edgeFunctionService } from '../services/edgeFunctionService'
+
 
 // Cliente Supabase para busca direta
 const supabase = createClient(`https://${projectId}.supabase.co`, publicAnonKey)
@@ -52,7 +51,7 @@ export const useWebhookManager = () => {
       console.log('🚀 Initializing webhook system (Local + Edge Functions)...')
       
       // Verificar se já está conectado
-      const connectionInfo = webhookSocketService.getConnectionInfo()
+      const connectionInfo = { isConnected: false, companyId: null }
       if (connectionInfo.isConnected) {
         console.log(`✅ Already connected to company ${connectionInfo.companyId}`)
         return
@@ -92,7 +91,7 @@ export const useWebhookManager = () => {
       try {
         console.log(`🚀 Starting Edge Function backup for: ${companyWithActiveWebhooks.name}`)
         await Promise.race([
-          edgeFunctionService.startWebhookProcessor(companyWithActiveWebhooks.id),
+          // Backend Render agora gerencia automaticamente
           new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
         ])
         console.log(`✅ Edge Function backup started for: ${companyWithActiveWebhooks.name}`)

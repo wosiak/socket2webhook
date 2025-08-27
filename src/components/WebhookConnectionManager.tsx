@@ -15,7 +15,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { apiService } from '../services/api'
-import { webhookSocketService } from '../services/webhookSocketService'
+
 
 interface WebhookConnectionManagerProps {
   companyId: string
@@ -76,7 +76,7 @@ export function WebhookConnectionManager({
   const checkConnectionStatus = async () => {
     try {
       // Usa o serviço local de socket
-      const connectionInfo = webhookSocketService.getConnectionInfo()
+      const connectionInfo = { isConnected: false, companyId: null }
       const isSocketConnected = connectionInfo.isConnected && connectionInfo.companyId === companyId
       
       console.log('🔍 Verificando status da conexão:')
@@ -144,7 +144,8 @@ export function WebhookConnectionManager({
 
       console.log('🔌 Conectando ao socket da 3C Plus...')
       // Conecta ao socket da 3C Plus
-      await webhookSocketService.connectToSocket(companyId, company.api_token, activeWebhooks)
+      // Backend Render agora gerencia conexões automaticamente
+      console.log('✅ Conexão delegada para backend Render')
       
       console.log('✅ Conexão ao socket estabelecida com sucesso!')
       setIsConnected(true)
@@ -164,7 +165,8 @@ export function WebhookConnectionManager({
     setError(null)
     
     try {
-      webhookSocketService.disconnectFromSocket()
+      // Backend Render agora gerencia desconexões automaticamente
+      console.log('✅ Desconexão delegada para backend Render')
       setIsConnected(false)
       onStatusChange?.(false)
       await checkConnectionStatus()
