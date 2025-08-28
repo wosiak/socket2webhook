@@ -221,10 +221,10 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <Users className="h-5 w-5 text-blue-600" />
-              Métricas por Empresa
+              Últimas Métricas por Empresa
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Performance de webhooks por empresa
+              Performance das últimas execuções por empresa
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -283,10 +283,10 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <Activity className="h-5 w-5 text-blue-600" />
-              Execuções Recentes
+              Últimas Execuções
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Últimas execuções de webhooks no sistema
+              Histórico das 10 execuções mais recentes por empresa
             </CardDescription>
           </CardHeader>
           <CardContent>
