@@ -130,7 +130,7 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm hover:scale-105 hover:bg-blue-50/50 hover:shadow-lg hover:border-blue-200/50 transition-all duration-300 cursor-pointer">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-gray-600">Total de Execuções</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Últimas execuções</CardTitle>
               <Activity className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
@@ -221,10 +221,10 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <Users className="h-5 w-5 text-blue-600" />
-              Métricas por Empresa
+              Últimas Métricas por Empresa
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Performance de webhooks por empresa
+              Performance das últimas execuções por empresa
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -283,10 +283,10 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
               <Activity className="h-5 w-5 text-blue-600" />
-              Execuções Recentes
+              Últimas Execuções
             </CardTitle>
             <CardDescription className="text-gray-600">
-              Últimas execuções de webhooks no sistema
+              Histórico das 10 execuções mais recentes por empresa
             </CardDescription>
           </CardHeader>
           <CardContent>

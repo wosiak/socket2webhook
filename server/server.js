@@ -18,6 +18,42 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+// Função para manter apenas as 10 últimas execuções por empresa
+async function cleanupOldExecutions(companyId) {
+  try {
+    // Buscar todas as execuções da empresa, ordenadas por data (mais recentes primeiro)
+    const { data: executions, error } = await supabase
+      .from('webhook_executions')
+      .select('id, created_at')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('❌ Erro ao buscar execuções para limpeza:', error);
+      return;
+    }
+
+    // Se temos mais de 10 execuções, deletar as mais antigas
+    if (executions && executions.length > 10) {
+      const executionsToDelete = executions.slice(10); // Pegar tudo além das 10 primeiras
+      const idsToDelete = executionsToDelete.map(exec => exec.id);
+
+      const { error: deleteError } = await supabase
+        .from('webhook_executions')
+        .delete()
+        .in('id', idsToDelete);
+
+      if (deleteError) {
+        console.error('❌ Erro ao deletar execuções antigas:', deleteError);
+      } else {
+        console.log(`🧹 Limpeza automática: ${idsToDelete.length} execuções antigas removidas para empresa ${companyId}`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ Erro na limpeza automática de execuções:', error);
+  }
+}
+
 // Conexões ativas por empresa (NUNCA hibernam!)
 const activeConnections = new Map();
 const socketInstances = new Map();
@@ -902,6 +938,8 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       console.error('❌ Erro ao salvar execução do webhook:', executionError);
     } else {
       console.log(`💾 Execução salva com sucesso: webhook_id=${webhook.id}, status=${status}`);
+      // Executar limpeza automática para manter apenas 10 execuções por empresa
+      await cleanupOldExecutions(companyId);
     }
 
     console.log(`✅ Webhook ${webhook.id} executado: ${status} (${response.status})`);
@@ -917,7 +955,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     console.error(`❌ Erro ao executar webhook ${webhook.id}:`, error);
     
     // Salvar execução com falha
-    await supabase
+    const { error: failedExecutionError } = await supabase
       .from('webhook_executions')
       .insert({
         webhook_id: webhook.id,
@@ -926,6 +964,11 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         status: 'failed',
         error_message: error.message
       });
+
+    if (!failedExecutionError) {
+      // Executar limpeza automática para manter apenas 10 execuções por empresa
+      await cleanupOldExecutions(companyId);
+    }
 
     throw error;
   }
