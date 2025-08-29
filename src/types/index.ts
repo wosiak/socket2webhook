@@ -37,6 +37,7 @@ export interface Webhook {
       name: string;
       display_name: string;
     };
+    filters?: EventFilter[]; // Filtros salvos para este evento específico
   }>;
 }
 
