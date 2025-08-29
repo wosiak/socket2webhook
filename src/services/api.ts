@@ -696,38 +696,71 @@ class ApiService {
           display_name,
           webhook_events!inner(webhook_id)
         `)
-        .order('display_name', { ascending: true })
-        .limit(10)
       
       if (error) {
         console.log('❌ Erro na query complexa, tentando query simples...')
-        // Fallback to simple query
-        const { data: simpleData, error: simpleError } = await supabase
+        // Fallback to simple query - get all events and count their usage manually
+        const { data: allEvents, error: eventsError } = await supabase
           .from('events')
           .select('name, display_name')
-          .order('display_name', { ascending: true })
-          .limit(10)
         
-        if (simpleError) throw simpleError
+        if (eventsError) throw eventsError
         
-        const events = simpleData?.map((item: any) => ({
-          name: item.name,
-          display_name: item.display_name || item.name,
-          count: 1
-        })) || []
+        // Get webhook_events to count usage
+        const { data: webhookEvents, error: webhookEventsError } = await supabase
+          .from('webhook_events')
+          .select('event_id, webhooks!inner(id)')
+        
+        if (webhookEventsError) throw webhookEventsError
+        
+        // Count usage for each event
+        const eventUsage = new Map()
+        webhookEvents?.forEach((we: any) => {
+          eventUsage.set(we.event_id, (eventUsage.get(we.event_id) || 0) + 1)
+        })
+        
+        const events = allEvents?.map((event: any) => ({
+          name: event.name,
+          display_name: event.display_name || event.name,
+          count: eventUsage.get(event.name) || 0
+        }))
+        .filter((event: any) => event.count > 0) // Only show events that are used
+        .sort((a: any, b: any) => b.count - a.count) // Sort by count descending
+        .slice(0, 10) || []
         
         console.log('✅ Eventos mais usados carregados (fallback):', events.length)
+        console.log('🔍 Eventos ordenados por uso:', events)
         return { success: true, data: events }
       }
       
-      const events = data?.map((item: any) => ({
-        name: item.name,
-        display_name: item.display_name || item.name,
-        count: item.webhook_events?.length || 1
-      })) || []
+      // Process the data and count usage
+      const eventUsage = new Map()
+      data?.forEach((item: any) => {
+        const eventName = item.name
+        const currentCount = eventUsage.get(eventName) || 0
+        eventUsage.set(eventName, currentCount + (item.webhook_events?.length || 0))
+      })
+      
+      // Create events array with proper counts
+      const eventsMap = new Map()
+      data?.forEach((item: any) => {
+        if (!eventsMap.has(item.name)) {
+          eventsMap.set(item.name, {
+            name: item.name,
+            display_name: item.display_name || item.name,
+            count: eventUsage.get(item.name) || 0
+          })
+        }
+      })
+      
+      const events = Array.from(eventsMap.values())
+        .filter((event: any) => event.count > 0) // Only show events that are used
+        .sort((a: any, b: any) => b.count - a.count) // Sort by count descending
+        .slice(0, 10)
       
       console.log('✅ Eventos mais usados carregados:', events.length)
       console.log('🔍 Primeiro evento:', events[0])
+      console.log('📊 Todos eventos ordenados:', events)
       return { success: true, data: events }
     } catch (error) {
       console.error('❌ Erro ao carregar eventos mais usados:', error)
