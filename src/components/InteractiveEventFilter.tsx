@@ -2012,6 +2012,168 @@ const SAMPLE_EVENT_BODIES = {
       "company_id": null
     },
     "bootTime": "2025-08-26T20:18:35.690695+00:00"
+  },
+  "manual-call-was-qualified": {
+    "user": {
+      "id": 1,
+      "name": "Wosiak - 1",
+      "email": null,
+      "active": true,
+      "telephony_id": "Abc123",
+      "api_token": "Abc123",
+      "confirmed": true,
+      "confirmation_code": null,
+      "company_id": 8673,
+      "created_at": "2024-08-29T16:20:33.000000Z",
+      "updated_at": "2025-08-29T13:40:30.000000Z",
+      "extension_password": "Abc123",
+      "extension_id": 158898,
+      "user_document": "",
+      "last_login": "2025-08-29 13:40:30",
+      "frontend": "new",
+      "frontend_updated_at": "2024-12-02 17:21:54",
+      "last_active_at": null,
+      "password_updated_at": "2024-08-29 13:21:52",
+      "two_factor_secret": null,
+      "type": "agent",
+      "webphone": false,
+      "roles": [
+        {
+          "id": 3,
+          "name": "agent",
+          "created_at": "2018-06-28T14:58:40.000000Z",
+          "updated_at": "2018-06-28T14:58:40.000000Z",
+          "pivot": {
+            "user_id": 1,
+            "role_id": 3
+          }
+        }
+      ]
+    },
+    "campaign": {
+      "id": 1,
+      "queue_id": null,
+      "name": "Nome da Campanha",
+      "start_time": "11:00:00",
+      "end_time": "21:30:00",
+      "paused": false,
+      "company_id": 1,
+      "extension_id": null,
+      "deleted_at": null,
+      "created_at": "2025-08-26T19:07:03.000000Z",
+      "updated_at": "2025-08-26T19:20:14.000000Z",
+      "check_amd": true,
+      "route_landline_id": 12766,
+      "route_mobile_id": 12766,
+      "acw_timeout": 0,
+      "caller_id": "1000000000",
+      "asr": "0.25",
+      "limit_call_per_agent": "0",
+      "work_break_group_id": 8867,
+      "allows_manual": true,
+      "active_list_notify": false,
+      "ura_limit": 0,
+      "is_predictive": false,
+      "avg_calling_time": null,
+      "avg_speaking_time": null,
+      "avg_acw_time": null,
+      "recording_enabled": true,
+      "limit_call_time": 0,
+      "copy_identifier": false,
+      "exit_manual_mode": 0,
+      "ivr_after_call_id": null,
+      "should_complete_failed_call": true,
+      "filter_calls": true,
+      "route_limit_exceeded": false,
+      "route_group_landline_id": null,
+      "route_group_mobile_id": null,
+      "progress_amd_enabled": true,
+      "update_mailing_data": false,
+      "ivr_after_call_status": false,
+      "behavior": "",
+      "horizontal_dial": false,
+      "min_idle_time": 0,
+      "check_blacklist": true,
+      "check_dnd": true,
+      "check_ddd": false,
+      "agent_dashboard": false,
+      "ai_setting_id": null,
+      "international_route_id": null,
+      "international_route_group_id": null,
+      "distribution_type": "teams_and_agents",
+      "hide_phone": false,
+      "is_on_active_time": true
+    },
+    "webhookEvent": {
+      "should_dispatch_webhook": false,
+      "webhook_urls": [],
+      "company_id": null
+    },
+    "bootTime": "2025-08-29T13:41:40.019844+00:00"
+  },
+  "manual-call-was-updated": {
+    "callHistory": {
+      "_id": "Abc123",
+      "number": "5542999998888",
+      "campaign": {
+        "id": 1,
+        "name": "Nome da Campanha"
+      },
+      "company": {
+        "id": 1,
+        "name": "Nome da Empresa"
+      },
+      "mailing_data": null,
+      "phone_type": "mobile",
+      "agent": {
+        "id": 1,
+        "name": "Wosiak - 1"
+      },
+      "route": {
+        "id": 1,
+        "name": "3C Plus ITX | Ilimitado ",
+        "host": "34.139.235.7:1",
+        "route": "1",
+        "endpoint": "PJSIP/3cplus_next2/sip:",
+        "caller_id": "1000000000"
+      },
+      "telephony_id": "Abc123",
+      "status": 7,
+      "qualification": {
+        "id": -4,
+        "name": "Mudo",
+        "behavior": 3,
+        "behavior_text": "repeat",
+        "conversion": false,
+        "dmc": null,
+        "unknown": null,
+        "impact": "negative"
+      },
+      "billed_time": 30,
+      "billed_value": 0.028,
+      "rate_value": 0.055,
+      "dial_code": 0,
+      "amd_status": null,
+      "hangup_cause": 16,
+      "recorded": true,
+      "ended_by_agent": true,
+      "ivr_after_call_time": 0,
+      "qualification_note": "",
+      "sid": "20250829104112114885",
+      "call_mode": "manual",
+      "list": [],
+      "call_date": "2025-08-29T13:41:12.000000Z",
+      "calling_time": 12,
+      "waiting_time": 0,
+      "speaking_time": 4,
+      "speaking_with_agent_time": 4,
+      "acw_time": 0,
+      "ivr_after_call": false,
+      "criteria": null,
+      "updated_at": "2025-08-29T13:41:39.732000Z",
+      "created_at": "2025-08-29T13:41:32.779000Z"
+    },
+    "socket": null
   }
 };
 
@@ -2163,6 +2325,10 @@ export function InteractiveEventFilter({
       finalPath = path.replace('call-was-amd.', '');
     } else if (path.includes('call-was-answered.')) {
       finalPath = path.replace('call-was-answered.', '');
+    } else if (path.includes('manual-call-was-qualified.')) {
+      finalPath = path.replace('manual-call-was-qualified.', '');
+    } else if (path.includes('manual-call-was-updated.')) {
+      finalPath = path.replace('manual-call-was-updated.', '');
     }
     
     console.log('🎯 Path final gerado:', finalPath);
