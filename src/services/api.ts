@@ -325,11 +325,12 @@ class ApiService {
     is_active?: boolean
     status?: 'active' | 'inactive'
     event_ids?: string[]
+    event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }>) {
     try {
       console.log('🔄 Atualizando webhook:', id, updates)
       
-      const { event_ids, ...webhookUpdates } = updates
+      const { event_ids, event_filters, ...webhookUpdates } = updates
       
       // Update webhook basic info - PADRONIZADO para usar apenas status
       const webhookUpdateData: any = {
@@ -378,14 +379,26 @@ class ApiService {
         // Create new webhook_events
         if (event_ids && event_ids.length > 0) {
           console.log('📝 EDIÇÃO - Criando novos webhook_events:', event_ids);
+          console.log('🔍 EDIÇÃO - Filtros recebidos:', event_filters);
           
-          const webhookEvents = event_ids.map(eventId => ({
-            webhook_id: id,
-            event_id: eventId,
-            created_at: new Date().toISOString()
-          }))
+          const webhookEvents = event_ids.map(eventId => {
+            // Buscar filtros para este evento específico
+            const eventFilterData = event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
+            
+            console.log(`🔍 EDIÇÃO - Para evento ${eventId}:`, { eventFilterData, type: typeof eventFilterData, isArray: Array.isArray(eventFilterData) });
+            
+            const webhookEvent = {
+              webhook_id: id,
+              event_id: eventId,
+              filters: eventFilterData, // Incluir filtros como JSONB
+              created_at: new Date().toISOString()
+            };
+            
+            console.log(`🔍 EDIÇÃO - Webhook event montado:`, webhookEvent);
+            return webhookEvent;
+          });
           
-          console.log('📤 EDIÇÃO - Dados para inserir:', webhookEvents);
+          console.log('📤 EDIÇÃO - Dados para inserir:', JSON.stringify(webhookEvents, null, 2));
           
           const { error: eventsError } = await supabase
             .from('webhook_events')

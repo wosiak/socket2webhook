@@ -303,7 +303,8 @@ export function CompanyDetail({
           name: webhookFormData.name,
           url: webhookFormData.url,
           status: webhookFormData.is_active ? 'active' : 'inactive',
-          event_ids: webhookFormData.event_ids // Adicionar event_ids para edição
+          event_ids: webhookFormData.event_ids,
+          event_filters: webhookFormData.event_filters // Incluir filtros na edição
         });
       } else {
         await onCreateWebhook({
