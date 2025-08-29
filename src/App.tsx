@@ -345,14 +345,14 @@ export default function App() {
                   {/* Filtro por status */}
                   <div className="w-full md:w-48">
                     <Select value={statusFilter} onValueChange={(value: 'all' | 'active' | 'inactive') => setStatusFilter(value)}>
-                      <SelectTrigger className="bg-white/80 backdrop-blur-sm border-gray-200">
+                      <SelectTrigger className="bg-white hover:bg-gray-50 border-gray-200 hover:border-gray-300 transition-colors duration-200">
                         <Filter className="h-4 w-4 mr-2" />
                         <SelectValue placeholder="Filtrar por status" />
                       </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">Todas as empresas</SelectItem>
-                        <SelectItem value="active">Apenas ativas</SelectItem>
-                        <SelectItem value="inactive">Apenas inativas</SelectItem>
+                      <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                        <SelectItem value="all" className="hover:bg-blue-100 hover:text-blue-700 focus:bg-blue-100 focus:text-blue-700 transition-colors duration-200 cursor-pointer">Todas as empresas</SelectItem>
+                        <SelectItem value="active" className="hover:bg-blue-100 hover:text-blue-700 focus:bg-blue-100 focus:text-blue-700 transition-colors duration-200 cursor-pointer">Apenas ativas</SelectItem>
+                        <SelectItem value="inactive" className="hover:bg-blue-100 hover:text-blue-700 focus:bg-blue-100 focus:text-blue-700 transition-colors duration-200 cursor-pointer">Apenas inativas</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
