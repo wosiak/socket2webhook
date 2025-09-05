@@ -1251,6 +1251,308 @@ process.on('SIGINT', async () => {
   process.exit(0);
 });
 
+// Monitoramento e auto-recovery (adaptado para Development/Produção)
+function startProductionMonitoring() {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const environment = isProduction ? 'PRODUÇÃO' : 'DEVELOPMENT';
+  console.log(`🏥 Iniciando monitoramento de ${environment}...`);
+  
+  // Monitoramento de memória e saúde a cada 30 segundos
+  const healthInterval = setInterval(async () => {
+    try {
+      const memUsage = process.memoryUsage();
+      const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
+      const heapTotalMB = memUsage.heapTotal / 1024 / 1024;
+      const usagePercentage = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+      const rssMB = memUsage.rss / 1024 / 1024;
+
+      // Log detalhado adaptado ao ambiente
+      console.log(`📊 ${environment} Health: Mem=${usagePercentage.toFixed(1)}% (${heapUsedMB.toFixed(0)}MB/${heapTotalMB.toFixed(0)}MB) RSS=${rssMB.toFixed(0)}MB | Conexões=${activeConnections.size} | Cache=${eventCache.size}`);
+      
+      // Limites ajustados para Render gratuito vs pago
+      const warningThreshold = isProduction ? 70 : 60;  // Render gratuito: mais conservador
+      const criticalThreshold = isProduction ? 85 : 75; // Render gratuito: mais conservador
+      
+      // Limpeza preventiva
+      if (usagePercentage > warningThreshold) {
+        console.warn(`⚠️ ${environment}: Memória em ${usagePercentage.toFixed(2)}% - limpeza preventiva`);
+        cleanupEventCache();
+      }
+      
+      // Limpeza agressiva
+      if (usagePercentage > criticalThreshold) {
+        console.error(`🚨 ${environment}: Memória crítica ${usagePercentage.toFixed(2)}% - limpeza agressiva`);
+        
+        // Limpar tudo
+        eventCache.clear();
+        activeWebhooksCache.clear();
+        
+        // Forçar GC se disponível
+        if (global.gc) {
+          global.gc();
+          console.log(`🗑️ ${environment}: Garbage collection forçado`);
+        }
+        
+        // Reconectar empresas após limpeza
+        setTimeout(async () => {
+          console.log(`🔄 ${environment}: Reconectando empresas após limpeza de memória`);
+          await connectAllActiveCompanies();
+        }, 5000);
+      }
+      
+      // Verificar conexões perdidas
+      await checkAndRecoverLostConnections();
+      
+    } catch (error) {
+      console.error(`❌ ${environment}: Erro no monitoramento:`, error);
+    }
+  }, 30000); // A cada 30 segundos
+  
+  // Verificação de conexões perdidas - ajustada por ambiente
+  const connectionCheckInterval = isProduction ? 120000 : 180000; // Dev: menos frequente para economizar recursos
+  const connectionInterval = setInterval(async () => {
+    try {
+      await forceReconnectIfNeeded();
+    } catch (error) {
+      console.error(`❌ ${environment}: Erro na verificação de conexões:`, error);
+    }
+  }, connectionCheckInterval);
+  
+  // Cleanup ao sair
+  process.on('SIGTERM', () => {
+    clearInterval(healthInterval);
+    clearInterval(connectionInterval);
+  });
+  
+  process.on('SIGINT', () => {
+    clearInterval(healthInterval);
+    clearInterval(connectionInterval);
+  });
+}
+
+// Verificar e recuperar conexões perdidas (PRODUÇÃO)
+async function checkAndRecoverLostConnections() {
+  try {
+    // Buscar empresas que deveriam estar conectadas
+    const { data: expectedConnections, error } = await supabase
+      .from('webhooks')
+      .select(`
+        company_id,
+        companies!inner(
+          id, name, status, api_token
+        )
+      `)
+      .eq('status', 'active')
+      .eq('deleted', false)
+      .eq('companies.status', 'active')
+      .not('companies.api_token', 'is', null);
+
+    if (error) {
+      console.error('❌ DEV/PROD: Erro ao verificar empresas esperadas:', error);
+      return;
+    }
+
+    if (!expectedConnections || expectedConnections.length === 0) {
+      return;
+    }
+
+    // Agrupar por empresa
+    const expectedCompanies = new Set();
+    const companiesMap = new Map();
+    
+    expectedConnections.forEach(item => {
+      const companyId = item.company_id;
+      expectedCompanies.add(companyId);
+      companiesMap.set(companyId, item.companies.name);
+    });
+
+    // Verificar conexões perdidas
+    const connectedCompanies = Array.from(activeConnections.keys());
+    const missingConnections = Array.from(expectedCompanies).filter(id => !connectedCompanies.includes(id));
+
+    if (missingConnections.length > 0) {
+      console.warn(`⚠️ DEV/PROD: ${missingConnections.length} conexões perdidas detectadas:`, 
+        missingConnections.map(id => `${companiesMap.get(id)} (${id})`));
+      
+      // Reconectar uma de cada vez para evitar sobrecarga
+      for (const companyId of missingConnections) {
+        try {
+          console.log(`🔄 DEV/PROD: Reconectando ${companiesMap.get(companyId)} (${companyId})`);
+          await connectCompany(companyId);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Delay entre reconexões
+        } catch (error) {
+          console.error(`❌ DEV/PROD: Erro ao reconectar empresa ${companyId}:`, error);
+        }
+      }
+    }
+
+  } catch (error) {
+    console.error('❌ PROD: Erro na verificação de conexões perdidas:', error);
+  }
+}
+
+// Forçar reconexão se necessário
+async function forceReconnectIfNeeded() {
+  try {
+    const connectedCount = activeConnections.size;
+    
+    // Se não há conexões, forçar reconexão
+    if (connectedCount === 0) {
+      console.warn('🚨 PROD: Nenhuma conexão ativa - forçando reconexão completa');
+      await connectAllActiveCompanies();
+      return;
+    }
+    
+    // Verificar saúde das conexões existentes
+    let deadConnections = 0;
+    const socketsToCheck = Array.from(socketInstances.entries());
+    
+    for (const [companyId, socket] of socketsToCheck) {
+      if (!socket.connected) {
+        console.warn(`⚠️ PROD: Socket morto detectado para empresa ${companyId}`);
+        deadConnections++;
+        
+        // Remover e reconectar
+        socketInstances.delete(companyId);
+        activeConnections.delete(companyId);
+        await connectCompany(companyId);
+      }
+    }
+    
+    if (deadConnections > 0) {
+      console.log(`🔄 PROD: ${deadConnections} conexões mortas foram reconectadas`);
+    }
+    
+  } catch (error) {
+    console.error('❌ PROD: Erro na verificação forçada:', error);
+  }
+}
+
+// Endpoints para PRODUÇÃO
+app.get('/prod-diagnostic', async (req, res) => {
+  try {
+    const memUsage = process.memoryUsage();
+    const formatBytes = (bytes) => `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+
+    // Verificar empresas esperadas
+    const { data: expectedConnections, error } = await supabase
+      .from('webhooks')
+      .select(`
+        company_id,
+        companies!inner(name, status, api_token)
+      `)
+      .eq('status', 'active')
+      .eq('deleted', false)
+      .eq('companies.status', 'active')
+      .not('companies.api_token', 'is', null);
+
+    const expectedCompanies = new Set();
+    const companiesMap = new Map();
+    
+    if (expectedConnections) {
+      expectedConnections.forEach(item => {
+        expectedCompanies.add(item.company_id);
+        companiesMap.set(item.company_id, item.companies.name);
+      });
+    }
+
+    const connectedCompanies = Array.from(activeConnections.keys());
+    const missingConnections = Array.from(expectedCompanies).filter(id => !connectedCompanies.includes(id));
+
+    // Verificar saúde dos sockets
+    const socketHealth = [];
+    for (const [companyId, socket] of socketInstances.entries()) {
+      socketHealth.push({
+        company_id: companyId,
+        company_name: companiesMap.get(companyId) || 'Unknown',
+        connected: socket.connected,
+        socket_id: socket.id
+      });
+    }
+
+    res.json({
+      environment: process.env.NODE_ENV === 'production' ? 'PRODUCTION' : 'DEVELOPMENT',
+      timestamp: new Date().toISOString(),
+      uptime_seconds: Math.floor(process.uptime()),
+      memory: {
+        rss: formatBytes(memUsage.rss),
+        heap_used: formatBytes(memUsage.heapUsed),
+        heap_total: formatBytes(memUsage.heapTotal),
+        external: formatBytes(memUsage.external),
+        heap_usage_percent: ((memUsage.heapUsed / memUsage.heapTotal) * 100).toFixed(2) + '%'
+      },
+      connections: {
+        active_connections: connectedCompanies.length,
+        expected_connections: Array.from(expectedCompanies).length,
+        missing_connections: missingConnections.length,
+        missing_details: missingConnections.map(id => ({
+          company_id: id,
+          company_name: companiesMap.get(id)
+        })),
+        socket_health: socketHealth
+      },
+      cache: {
+        event_cache_size: eventCache.size,
+        webhook_cache_size: activeWebhooksCache.size
+      },
+      system: {
+        node_version: process.version,
+        platform: process.platform,
+        arch: process.arch
+      }
+    });
+  } catch (error) {
+    console.error('❌ PROD: Erro no diagnóstico:', error);
+    res.status(500).json({ 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post('/prod-emergency-restart', async (req, res) => {
+  try {
+    const environment = process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV';
+    console.log(`🚨 ${environment}: RESTART DE EMERGÊNCIA solicitado`);
+    
+    // Desconectar tudo
+    for (const [companyId] of activeConnections) {
+      await disconnectCompany(companyId);
+    }
+    
+    // Limpar tudo
+    eventCache.clear();
+    activeWebhooksCache.clear();
+    
+    // Forçar GC
+    if (global.gc) {
+      global.gc();
+    }
+    
+    // Aguardar e reconectar
+    setTimeout(async () => {
+      console.log(`🔄 ${environment}: Reconectando após restart de emergência`);
+      await connectAllActiveCompanies();
+    }, 3000);
+    
+    res.json({
+      success: true,
+      message: 'Restart de emergência executado',
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    const environment = process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV';
+    console.error(`❌ ${environment}: Erro no restart de emergência:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Iniciar servidor
-startServer();
+startServer().then(() => {
+  // Iniciar monitoramento após o servidor estar rodando
+  startProductionMonitoring();
+  const environment = process.env.NODE_ENV === 'production' ? 'PROD' : 'DEV';
+  console.log(`✅ ${environment}: Sistema de monitoramento iniciado`);
+});
 

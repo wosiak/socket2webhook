@@ -1,0 +1,34 @@
+services:
+  # Backend - API Server PARA DEVELOPMENT (Render Gratuito)
+  - type: web
+    name: socket2webhook-backend-dev
+    env: node
+    buildCommand: cd server && npm install
+    startCommand: npm run start:dev
+    plan: free  # Render gratuito para development
+    rootDir: ./
+    envVars:
+      - key: NODE_ENV
+        value: development
+      - key: NODE_OPTIONS
+        value: --max-old-space-size=256 --optimize-for-size --expose-gc
+      - key: PORT
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: RENDER_INTERNAL_HOSTNAME
+        sync: false
+      - key: RENDER_EXTERNAL_HOSTNAME
+        sync: false
+    healthCheckPath: /health
+    region: oregon
+    numInstances: 1
+    autoDeploy: true
+    # CONFIGURAÇÕES PARA RENDER GRATUITO
+    previewsEnabled: false
