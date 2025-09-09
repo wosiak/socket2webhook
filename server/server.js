@@ -61,14 +61,17 @@ const socketInstances = new Map();
 // Cache para deduplicação de eventos (evitar POSTs duplicados)
 const eventCache = new Map();
 const CACHE_TTL = 120000; // 120 segundos para considerar evento duplicado
+const MAX_CACHE_SIZE = 1000; // ✅ LIMITE: Máximo 1000 eventos em cache
 
-// Fila de processamento sequencial para evitar race conditions
+// Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
+const MAX_QUEUE_SIZE = 50; // ✅ LIMITE: Máximo 50 eventos por empresa na fila
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
 const WEBHOOK_CACHE_TTL = 10000; // 10 segundos
+const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
@@ -500,6 +503,59 @@ function createEventKey(companyId, eventName, eventData) {
   return contentKey;
 }
 
+// ✅ FUNÇÃO: Limpeza agressiva de memória para evitar crashes
+function cleanupMemory() {
+  try {
+    // 1. Limpar cache de eventos se muito grande
+    if (eventCache.size > MAX_CACHE_SIZE) {
+      const entries = Array.from(eventCache.entries());
+      entries.sort((a, b) => a[1].timestamp - b[1].timestamp); // Mais antigos primeiro
+      
+      // Remove 50% dos mais antigos
+      const toRemove = entries.slice(0, Math.floor(entries.length / 2));
+      toRemove.forEach(([key]) => eventCache.delete(key));
+      
+      console.log(`🧹 MEMORY: Cache de eventos reduzido de ${entries.length} para ${eventCache.size}`);
+    }
+    
+    // 2. Limpar filas de processamento se muito grandes
+    for (const [companyId, queue] of processingQueue.entries()) {
+      if (queue.length > MAX_QUEUE_SIZE) {
+        // Manter apenas os últimos eventos
+        processingQueue.set(companyId, queue.slice(-MAX_QUEUE_SIZE));
+        console.log(`🧹 MEMORY: Fila da empresa ${companyId} reduzida para ${MAX_QUEUE_SIZE} eventos`);
+      }
+    }
+    
+    // 3. Limpar cache de webhooks se muito grande
+    if (activeWebhooksCache.size > MAX_WEBHOOK_CACHE_SIZE) {
+      const entries = Array.from(activeWebhooksCache.entries());
+      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+      
+      // Remove 30% dos mais antigos
+      const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
+      toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
+      
+      console.log(`🧹 MEMORY: Cache de webhooks reduzido de ${entries.length} para ${activeWebhooksCache.size}`);
+    }
+    
+    // 4. Force garbage collection se disponível
+    if (global.gc) {
+      global.gc();
+      console.log(`🧹 MEMORY: Garbage collection forçado`);
+    }
+    
+    // 5. Log do uso de memória atual
+    const memUsage = process.memoryUsage();
+    const memMB = Math.round(memUsage.rss / 1024 / 1024);
+    const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    console.log(`💾 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
+    
+  } catch (error) {
+    console.error('❌ Erro na limpeza de memória:', error);
+  }
+}
+
 // SISTEMA DE FILA SEQUENCIAL (ELIMINA RACE CONDITIONS)
 function addEventToQueue(companyId, eventName, eventData, companyName) {
   // Inicializar fila se não existe
@@ -507,13 +563,28 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     processingQueue.set(companyId, []);
   }
   
+  const queue = processingQueue.get(companyId);
+  
+  // ✅ PROTEÇÃO: Verificar limite da fila para evitar sobrecarga
+  if (queue.length >= MAX_QUEUE_SIZE) {
+    console.log(`⚠️ [QUEUE] Fila da empresa ${companyName} atingiu limite (${MAX_QUEUE_SIZE}), removendo evento mais antigo`);
+    queue.shift(); // Remove o mais antigo
+  }
+  
   // Adicionar evento à fila
-  processingQueue.get(companyId).push({
+  queue.push({
     eventName,
     eventData,
     companyName,
     timestamp: Date.now()
   });
+  
+  console.log(`📥 [QUEUE] Evento ${eventName} adicionado à fila da empresa ${companyName} (${queue.length} eventos na fila)`);
+  
+  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário
+  if (queue.length > MAX_QUEUE_SIZE * 0.8) {
+    cleanupMemory();
+  }
   
   // Iniciar processamento se não está processando
   if (!isProcessing.get(companyId)) {
@@ -1179,7 +1250,7 @@ function startConnectionMonitor() {
     } catch (error) {
       console.error('❌ Erro no monitor de conexões:', error);
     }
-  }, 60000); // A cada 60 segundos
+  }, 120000); // ✅ OTIMIZADO: A cada 120 segundos (reduzir CPU)
 }
 
 // Limpeza automática do cache a cada 5 minutos
@@ -1201,6 +1272,54 @@ function startCacheCleanup() {
   }, 300000); // A cada 5 minutos
 }
 
+// ✅ MONITOR DE MEMÓRIA: Prevenção proativa de crashes
+function startMemoryMonitor() {
+  setInterval(() => {
+    try {
+      const memUsage = process.memoryUsage();
+      const memMB = Math.round(memUsage.rss / 1024 / 1024);
+      const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+      const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+      
+      console.log(`📊 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB (${heapPercent}%) | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
+      
+      // ⚠️ ALERTA: Memória alta - limpeza preventiva
+      if (heapPercent > 75) {
+        console.log(`⚠️ MEMORY: Memória em ${heapPercent}% - limpeza preventiva`);
+        cleanupMemory();
+      }
+      
+      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva
+      if (heapPercent > 85) {
+        console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
+        
+        // Limpar tudo mais agressivamente
+        eventCache.clear();
+        for (const [companyId] of processingQueue.entries()) {
+          processingQueue.set(companyId, []);
+        }
+        activeWebhooksCache.clear();
+        
+        if (global.gc) global.gc();
+        
+        console.log(`🔄 MEMORY: Limpeza agressiva concluída`);
+        
+        // Se ainda assim a memória estiver alta, reconectar empresas
+        const newMemUsage = process.memoryUsage();
+        const newHeapPercent = Math.round((newMemUsage.heapUsed / newMemUsage.heapTotal) * 100);
+        
+        if (newHeapPercent > 80) {
+          console.log(`🔄 MEMORY: Reconectando empresas após limpeza de memória`);
+          connectAllActiveCompanies();
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro no monitor de memória:', error);
+    }
+  }, 30000); // A cada 30 segundos
+}
+
 // Inicialização do servidor
 async function startServer() {
   try {
@@ -1212,6 +1331,9 @@ async function startServer() {
     
     // Iniciar limpeza automática do cache
     startCacheCleanup();
+    
+    // ✅ Iniciar monitor de memória para prevenir crashes
+    startMemoryMonitor();
     
     // Iniciar servidor HTTP
     app.listen(PORT, () => {
@@ -1249,6 +1371,38 @@ process.on('SIGINT', async () => {
   
   console.log('✅ Shutdown concluído');
   process.exit(0);
+});
+
+// ✅ TRATAMENTO GLOBAL DE ERROS: Prevenir crashes
+process.on('uncaughtException', (error) => {
+  console.error('🚨 UNCAUGHT EXCEPTION:', error);
+  console.error('Stack:', error.stack);
+  
+  // Tentar limpeza de emergência
+  try {
+    cleanupMemory();
+    console.log('🔄 Limpeza de emergência executada');
+  } catch (cleanupError) {
+    console.error('❌ Erro na limpeza de emergência:', cleanupError);
+  }
+  
+  // Não fazer exit - deixar o Render gerenciar
+  console.log('⚠️ Processo continuando após uncaughtException...');
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 UNHANDLED REJECTION:', reason);
+  console.error('Promise:', promise);
+  
+  // Tentar limpeza de emergência
+  try {
+    cleanupMemory();
+    console.log('🔄 Limpeza de emergência executada');
+  } catch (cleanupError) {
+    console.error('❌ Erro na limpeza de emergência:', cleanupError);
+  }
+  
+  console.log('⚠️ Processo continuando após unhandledRejection...');
 });
 
 // Iniciar servidor
