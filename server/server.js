@@ -61,12 +61,12 @@ const socketInstances = new Map();
 // Cache para deduplicação de eventos (evitar POSTs duplicados)
 const eventCache = new Map();
 const CACHE_TTL = 120000; // 120 segundos para considerar evento duplicado
-const MAX_CACHE_SIZE = 200; // 🔥 REDUZIDO: Máximo 200 eventos em cache (era 1000)
+const MAX_CACHE_SIZE = 500; // ✅ BALANCEADO: 500 eventos em cache (era 200 muito baixo)
 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
-const MAX_QUEUE_SIZE = 10; // 🔥 REDUZIDO: Máximo 10 eventos por empresa na fila (era 50)
+const MAX_QUEUE_SIZE = 25; // ✅ BALANCEADO: 25 eventos por empresa na fila (era 10 muito baixo)
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -506,8 +506,8 @@ function createEventKey(companyId, eventName, eventData) {
 // ✅ FUNÇÃO: Limpeza agressiva de memória para evitar crashes
 function cleanupMemory() {
   try {
-    // 1. Limpar cache de eventos SEMPRE (não só quando muito grande)
-    if (eventCache.size > MAX_CACHE_SIZE * 0.5) { // 50% do limite em vez de 100%
+    // 1. Limpar cache de eventos quando necessário
+    if (eventCache.size > MAX_CACHE_SIZE * 0.8) { // 80% do limite em vez de 50%
       const entries = Array.from(eventCache.entries());
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp); // Mais antigos primeiro
       
@@ -567,8 +567,8 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   const memUsage = process.memoryUsage();
   const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
   
-  if (heapPercent > 65) {
-    console.log(`🚫 [QUEUE] Memória alta (${heapPercent}%) - descartando evento ${eventName} da empresa ${companyName}`);
+  if (heapPercent > 80) { // ✅ MENOS RESTRITIVO: 80% em vez de 65%
+    console.log(`🚫 [QUEUE] Memória CRÍTICA (${heapPercent}%) - descartando evento ${eventName} da empresa ${companyName}`);
     cleanupMemory(); // Forçar limpeza
     return; // Não adicionar o evento
   }
@@ -591,8 +591,8 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   
   console.log(`📥 [QUEUE] Evento ${eventName} adicionado à fila da empresa ${companyName} (${queue.length} eventos na fila)`);
   
-  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário (MAIS AGRESSIVO)
-  if (queue.length > MAX_QUEUE_SIZE * 0.5) { // 50% em vez de 80%
+  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário (REBALANCEADO)
+  if (queue.length > MAX_QUEUE_SIZE * 0.8) { // 80% em vez de 50% (menos agressivo)
     cleanupMemory();
   }
   
@@ -1293,14 +1293,14 @@ function startMemoryMonitor() {
       
       console.log(`📊 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB (${heapPercent}%) | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
       
-      // ⚠️ ALERTA: Memória alta - limpeza preventiva (REDUZIDO: 75% -> 60%)
-      if (heapPercent > 60) {
+      // ⚠️ ALERTA: Memória alta - limpeza preventiva (REBALANCEADO: 75%)
+      if (heapPercent > 75) {
         console.log(`⚠️ MEMORY: Memória em ${heapPercent}% - limpeza preventiva`);
         cleanupMemory();
       }
       
-      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (REDUZIDO: 85% -> 70%)
-      if (heapPercent > 70) {
+      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (REBALANCEADO: 85%)
+      if (heapPercent > 85) {
         console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
         // Limpar tudo mais agressivamente
