@@ -61,7 +61,7 @@ O frontend está configurado para deploy automático via GitHub:
 1. Conecte seu repositório ao Netlify
 2. Configure as variáveis de ambiente:
    ```env
-   VITE_SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+   VITE_SUPABASE_URL=sua_url_do_supabase_aqui
    VITE_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
    VITE_API_BASE_URL=https://socket2webhook-3c.onrender.com
    ```
@@ -87,7 +87,7 @@ O frontend está configurado para deploy automático via GitHub:
 
 3. **Variáveis de Ambiente:**
    ```env
-   SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+   SUPABASE_URL=sua_url_do_supabase_aqui
    SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
    NODE_ENV=production
    PORT=8000
@@ -236,14 +236,14 @@ npm run dev  # Roda em http://localhost:8000
 
 #### Frontend (`.env`):
 ```env
-VITE_SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+VITE_SUPABASE_URL=sua_url_do_supabase_aqui
 VITE_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
 #### Backend (`server/.env`):
 ```env
-SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+SUPABASE_URL=sua_url_do_supabase_aqui
 SUPABASE_SERVICE_ROLE_KEY=sua_service_role_key
 NODE_ENV=development
 PORT=8000

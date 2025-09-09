@@ -1,5 +1,5 @@
 # Supabase Configuration
-SUPABASE_URL=https://primzeelnavovenfdhma.supabase.co
+SUPABASE_URL=sua_url_do_supabase_aqui
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key_here
 
 # Server Configuration
