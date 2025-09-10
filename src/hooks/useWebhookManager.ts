@@ -394,7 +394,10 @@ export const useWebhookManager = () => {
     }
   }, [])
 
-  const updateWebhook = useCallback(async (id: string, updates: Partial<Webhook> & { event_ids?: string[] }) => {
+  const updateWebhook = useCallback(async (id: string, updates: Partial<Webhook> & { 
+    event_ids?: string[] 
+    event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
+  }) => {
     try {
       console.log('Tentando atualizar webhook via API...')
       const response = await apiService.updateWebhook(id, updates)

@@ -188,6 +188,16 @@ class ApiService {
         console.log(`🔍 Webhook do banco: ${webhook.name} - Status: ${webhookStatus}`);
         console.log(`🔍 Webhook events com filtros:`, JSON.stringify(webhook.webhook_events, null, 2));
         
+        // 🐛 DEBUG: Verificar filtros específicos
+        webhook.webhook_events?.forEach((we: any, index: number) => {
+          console.log(`🔍 DEBUG - Evento ${index}: ${we.event?.name}`);
+          console.log(`🔍 DEBUG - Filtros:`, we.filters);
+          console.log(`🔍 DEBUG - Tipo dos filtros:`, typeof we.filters, Array.isArray(we.filters));
+          if (we.filters && we.filters.length > 0) {
+            console.log(`🔍 DEBUG - Primeiro filtro:`, we.filters[0]);
+          }
+        });
+        
         return {
           id: webhook.id,
           company_id: webhook.company_id,
@@ -325,11 +335,12 @@ class ApiService {
     is_active?: boolean
     status?: 'active' | 'inactive'
     event_ids?: string[]
+    event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }>) {
     try {
       console.log('🔄 Atualizando webhook:', id, updates)
       
-      const { event_ids, ...webhookUpdates } = updates
+      const { event_ids, event_filters, ...webhookUpdates } = updates
       
       // Update webhook basic info - PADRONIZADO para usar apenas status
       const webhookUpdateData: any = {
@@ -359,7 +370,41 @@ class ApiService {
       
       // Update events if provided
       console.log('🔍 EDIÇÃO - event_ids recebidos:', event_ids);
-      if (event_ids !== undefined) {
+      console.log('🔍 EDIÇÃO - event_filters recebidos:', event_filters);
+      
+      // 🆕 NOVA ABORDAGEM: Se apenas event_filters fornecidos, UPDATE direto dos filtros
+      if (event_filters && event_filters.length > 0 && event_ids === undefined) {
+        console.log('🔧 EDIÇÃO - Atualizando APENAS filtros (sem mexer em eventos)...');
+        
+        for (const eventFilter of event_filters) {
+          const { eventId, filters } = eventFilter;
+          
+          console.log(`🔧 EDIÇÃO - Atualizando filtros para evento ${eventId}:`, filters);
+          
+          const { error: updateError, data: updatedData } = await supabase
+            .from('webhook_events')
+            .update({ filters: filters })
+            .eq('webhook_id', id)
+            .eq('event_id', eventId)
+            .select('*')
+          
+          if (updateError) {
+            console.error(`❌ EDIÇÃO - Erro ao atualizar filtros para evento ${eventId}:`, updateError);
+            throw updateError;
+          } else {
+            console.log(`✅ EDIÇÃO - Filtros atualizados para evento ${eventId}:`, updatedData);
+            
+            // 🐛 DEBUG: Verificar se os filtros foram salvos
+            updatedData?.forEach((event: any, index: number) => {
+              console.log(`🔍 EDIÇÃO DEBUG - Evento atualizado ${index}:`, event.event_id);
+              console.log(`🔍 EDIÇÃO DEBUG - Filtros atualizados:`, event.filters);
+              console.log(`🔍 EDIÇÃO DEBUG - Tipo dos filtros atualizados:`, typeof event.filters, Array.isArray(event.filters));
+            });
+          }
+        }
+      }
+      // 🔄 ABORDAGEM ORIGINAL: Se event_ids fornecidos, delete/recreate
+      else if (event_ids !== undefined) {
         console.log('🗑️ EDIÇÃO - Deletando webhook_events existentes para webhook:', id);
         
         // Delete existing webhook_events
@@ -379,29 +424,45 @@ class ApiService {
         if (event_ids && event_ids.length > 0) {
           console.log('📝 EDIÇÃO - Criando novos webhook_events:', event_ids);
           
-          const webhookEvents = event_ids.map(eventId => ({
-            webhook_id: id,
-            event_id: eventId,
-            created_at: new Date().toISOString()
-          }))
+          const webhookEvents = event_ids.map(eventId => {
+            // 🔧 BUG FIX: Buscar filtros para este evento específico na EDIÇÃO
+            const eventFiltersForEvent = event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
+            
+            console.log(`🔧 EDIÇÃO - Para evento ${eventId}:`, { eventFiltersForEvent, hasFilters: eventFiltersForEvent.length > 0 });
+            
+            return {
+              webhook_id: id,
+              event_id: eventId,
+              filters: eventFiltersForEvent, // ✅ ADICIONANDO FILTROS na edição
+              created_at: new Date().toISOString()
+            };
+          });
           
-          console.log('📤 EDIÇÃO - Dados para inserir:', webhookEvents);
+          console.log('📤 EDIÇÃO - Dados para inserir (COM FILTROS):', JSON.stringify(webhookEvents, null, 2));
           
-          const { error: eventsError } = await supabase
+          const { error: eventsError, data: insertedEvents } = await supabase
             .from('webhook_events')
             .insert(webhookEvents)
+            .select('*')
           
           if (eventsError) {
             console.error('❌ EDIÇÃO - Erro ao criar novos webhook_events:', eventsError);
             throw eventsError;
           } else {
-            console.log('✅ EDIÇÃO - Novos webhook_events criados com sucesso');
+            console.log('✅ EDIÇÃO - Novos webhook_events criados com sucesso:', insertedEvents);
+            
+            // 🐛 DEBUG: Verificar se os filtros foram salvos
+            insertedEvents?.forEach((event: any, index: number) => {
+              console.log(`🔍 EDIÇÃO DEBUG - Evento salvo ${index}:`, event.event_id);
+              console.log(`🔍 EDIÇÃO DEBUG - Filtros salvos:`, event.filters);
+              console.log(`🔍 EDIÇÃO DEBUG - Tipo dos filtros salvos:`, typeof event.filters, Array.isArray(event.filters));
+            });
           }
         } else {
           console.log('⚠️ EDIÇÃO - Nenhum evento para associar');
         }
       } else {
-        console.log('⏭️ EDIÇÃO - event_ids não fornecidos, pulando atualização de eventos');
+        console.log('⏭️ EDIÇÃO - Nem event_ids nem event_filters fornecidos, pulando atualização de eventos');
       }
       
       // Return updated webhook
