@@ -61,12 +61,12 @@ const socketInstances = new Map();
 // Cache para deduplicação de eventos (evitar POSTs duplicados)
 const eventCache = new Map();
 const CACHE_TTL = 120000; // 120 segundos para considerar evento duplicado
-const MAX_CACHE_SIZE = 500; // ✅ BALANCEADO: 500 eventos em cache (era 200 muito baixo)
+const MAX_CACHE_SIZE = 100; // 🔥 ULTRA CONSERVADOR: 100 eventos em cache (era 500)
 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
-const MAX_QUEUE_SIZE = 25; // ✅ BALANCEADO: 25 eventos por empresa na fila (era 10 muito baixo)
+const MAX_QUEUE_SIZE = 5; // 🔥 ULTRA CONSERVADOR: 5 eventos por empresa na fila (era 25)
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -349,7 +349,8 @@ async function connectCompany(companyId) {
       .single();
     
     if (companyError || !company) {
-      throw new Error(`Empresa ${companyId} não encontrada ou inativa`);
+      console.log(`⚠️ Empresa ${companyId} não encontrada ou inativa - pulando conexão`);
+      return; // ✅ RETURN em vez de THROW (não quebra o processo)
     }
 
     if (!company.api_token) {
@@ -567,8 +568,8 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   const memUsage = process.memoryUsage();
   const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
   
-  if (heapPercent > 80) { // ✅ MENOS RESTRITIVO: 80% em vez de 65%
-    console.log(`🚫 [QUEUE] Memória CRÍTICA (${heapPercent}%) - descartando evento ${eventName} da empresa ${companyName}`);
+  if (heapPercent > 60) { // 🔥 ULTRA CONSERVADOR: 60% em vez de 80%
+    console.log(`🚫 [QUEUE] Memória ALTA (${heapPercent}%) - descartando evento ${eventName} da empresa ${companyName}`);
     cleanupMemory(); // Forçar limpeza
     return; // Não adicionar o evento
   }
@@ -1293,14 +1294,14 @@ function startMemoryMonitor() {
       
       console.log(`📊 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB (${heapPercent}%) | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
       
-      // ⚠️ ALERTA: Memória alta - limpeza preventiva (REBALANCEADO: 75%)
-      if (heapPercent > 75) {
+      // ⚠️ ALERTA: Memória alta - limpeza preventiva (ULTRA CONSERVADOR: 50%)
+      if (heapPercent > 50) {
         console.log(`⚠️ MEMORY: Memória em ${heapPercent}% - limpeza preventiva`);
         cleanupMemory();
       }
       
-      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (REBALANCEADO: 85%)
-      if (heapPercent > 85) {
+      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (ULTRA CONSERVADOR: 65%)
+      if (heapPercent > 65) {
         console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
         // Limpar tudo mais agressivamente
@@ -1327,7 +1328,45 @@ function startMemoryMonitor() {
     } catch (error) {
       console.error('❌ Erro no monitor de memória:', error);
     }
-  }, 30000); // A cada 30 segundos
+  }, 15000); // 🔥 MAIS FREQUENTE: A cada 15 segundos (era 30)
+}
+
+// 🔥 NOVO: Limpeza forçada de memória a cada 2 minutos
+function startAggressiveCleanup() {
+  setInterval(() => {
+    try {
+      console.log('🧹 AGGRESSIVE: Limpeza forçada de memória...');
+      
+      // Forçar garbage collection
+      if (global.gc) {
+        global.gc();
+        console.log('🧹 AGGRESSIVE: Garbage collection forçado');
+      }
+      
+      // Limpar caches sempre
+      const beforeCache = eventCache.size;
+      const beforeWebhook = activeWebhooksCache.size;
+      
+      // Limpar 50% do cache sempre
+      if (eventCache.size > 0) {
+        const entries = Array.from(eventCache.entries());
+        const toRemove = entries.slice(0, Math.floor(entries.length * 0.5));
+        toRemove.forEach(([key]) => eventCache.delete(key));
+      }
+      
+      // Limpar cache de webhooks sempre
+      if (activeWebhooksCache.size > 0) {
+        const entries = Array.from(activeWebhooksCache.entries());
+        const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
+        toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
+      }
+      
+      console.log(`🧹 AGGRESSIVE: Cache ${beforeCache}->${eventCache.size}, Webhooks ${beforeWebhook}->${activeWebhooksCache.size}`);
+      
+    } catch (error) {
+      console.error('❌ Erro na limpeza agressiva:', error);
+    }
+  }, 120000); // A cada 2 minutos
 }
 
 // Inicialização do servidor
@@ -1344,6 +1383,9 @@ async function startServer() {
     
     // ✅ Iniciar monitor de memória para prevenir crashes
     startMemoryMonitor();
+    
+    // 🔥 Iniciar limpeza agressiva de memória
+    startAggressiveCleanup();
     
     // Iniciar servidor HTTP
     app.listen(PORT, () => {
