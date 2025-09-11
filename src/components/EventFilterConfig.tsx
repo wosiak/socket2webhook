@@ -42,7 +42,18 @@ const COMMON_FIELD_PATHS = {
     { path: 'callHistory.phone_type', label: 'Tipo de Telefone', type: 'string' },
     { path: 'callHistory.recorded', label: 'Gravada', type: 'boolean' },
     { path: 'callHistory.ended_by_agent', label: 'Finalizada pelo Agente', type: 'boolean' },
-    { path: 'callHistory.qualification.behavior', label: 'Comportamento da Qualificação', type: 'string' }
+    { path: 'callHistory.qualification.behavior', label: 'Comportamento da Qualificação', type: 'string' },
+    { path: 'callHistory.hangup_cause', label: 'Código de Desconexão', type: 'number' },
+    { path: 'callHistory.call_mode', label: 'Modo da Ligação', type: 'string' },
+    { path: 'callHistory.mailing_data.uf', label: 'UF do Contato', type: 'string' },
+    { path: 'callHistory.mailing_data.retry_strategy.attempts', label: 'Tentativas de Discagem', type: 'number' },
+    { path: 'callHistory.qualification.name', label: 'Nome da Qualificação', type: 'string' },
+    { path: 'callHistory.list.id', label: 'ID da Lista', type: 'number' },
+    { path: 'callHistory.ivr_digit_pressed', label: 'Dígito Pressionado na URA', type: 'string' },
+    { path: 'hangupCause.id', label: 'ID da Causa de Desconexão', type: 'number' },
+    { path: 'hangupCause.text', label: 'Descrição da Desconexão', type: 'string' },
+    { path: 'qualificationList.name', label: 'Nome da Lista de Qualificação', type: 'string' },
+    { path: 'qualificationList.type', label: 'Tipo da Lista de Qualificação', type: 'number' }
   ],
   'campaign-started': [
     { path: 'campaign.id', label: 'ID da Campanha', type: 'number' },

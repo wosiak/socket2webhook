@@ -37,25 +37,50 @@ const OPERATOR_LABELS = {
 const SAMPLE_EVENT_BODIES = {
   "call-history-was-created": {
     "callHistory": {
-      "_id": "1",
-      "number": "55211111111111",
+      "number": "5582988628425",
       "campaign": {
-        "id": 176891,
-        "name": "Nome da Campanha"
+        "id": 201074,
+        "name": "Campanha 1"
       },
       "company": {
         "id": 1,
-        "name": "Nome da Empresa"
+        "name": "Empresa 1"
       },
       "mailing_data": {
-        "_id": "68596aed6c1f3e573b48c3e3",
-        "identifier": "000.000.000-00",
-        "campaign_id": 176891,
+        "_id": "Abc123",
+        "identifier": "Abc123",
+        "campaign_id": 1,
         "company_id": 1,
-        "list_id": 2653600,
-        "uf": "RJ",
+        "list_id": 1,
+        "uf": "PR",
         "phone": "5542999998888",
-        "cpf": "12632498000"
+        "dialed_phone": 1,
+        "dialed_identifier": 1,
+        "on_calling": 0,
+        "column_position": 8,
+        "row_position": 81,
+        "cpf": "Abc123",
+        "data": {},
+        "dialed_identifier_today": {
+          "count": 1,
+          "last_day": 1757559600
+        },
+        "retry_strategy": {
+          "id": 280832,
+          "applied_default_strategy": false,
+          "hangup_cause_group_code": 3,
+          "hangup_cause_group_description": "amd",
+          "qualification_id": 0,
+          "attempts": 1,
+          "interval": 50,
+          "conclude_number": true,
+          "next_call": 1757611990,
+          "last_update": {
+            "from_list_id": 2945394,
+            "from_mailing_id": "68c2e1738464e8454a1c06f2",
+            "date": "2025-09-11 13:43:10"
+          }
+        }
       },
       "phone_type": "mobile",
       "agent": {
@@ -63,32 +88,81 @@ const SAMPLE_EVENT_BODIES = {
         "name": null
       },
       "route": {
-        "id": 11811,
-        "name": "Nome da Rota aqui",
-        "host": "45.175.210.00:0000",
-        "route": "4222"
+        "id": 1,
+        "name": "Rota",
+        "host": "0.0.0.0:0",
+        "route": "1",
+        "endpoint": "teste/teste/teste:",
+        "caller_id": "1000000000"
       },
-      "telephony_id": "KTl49imv0h",
-      "status": 5,
+      "telephony_id": "Abc123",
+      "status": 7,
       "qualification": {
-        "id": null,
-        "name": null,
+        "id": 1,
+        "name": "NOME",
         "behavior": null,
-        "conversion": null
+        "behavior_text": null,
+        "conversion": null,
+        "is_dmc": 0,
+        "is_unknown": 0,
+        "impact": null
       },
       "billed_time": 0,
+      "billed_value": 0,
+      "rate_value": 0,
+      "dial_code": 0,
+      "amd_status": null,
+      "hangup_cause": 52,
       "recorded": true,
       "ended_by_agent": false,
-      "call_mode": "dialer",
+      "ivr_after_call_time": 0,
+      "qualification_note": "",
+      "sid": "",
+      "call_mode": "ura",
       "list": {
         "id": 1,
-        "name": "Nome da Lista.csv"
+        "name": "Lista.csv",
+        "original_name": ""
       },
-      "call_date": "2025-06-25T17:13:09.000000Z",
-      "calling_time": 27,
+      "call_date": "2025-09-11T16:42:49.000000Z",
+      "calling_time": 17,
       "waiting_time": 0,
-      "speaking_time": 0
-    }
+      "speaking_time": 0,
+      "amd_time": 0,
+      "speaking_with_agent_time": 0,
+      "acw_time": 0,
+      "ivr_after_call": false,
+      "criteria": null,
+      "ura_time": 0,
+      "ivr_digit_pressed": "",
+      "teams": [],
+      "max_time_exceeded": 0,
+      "updated_at": "2025-09-11T16:43:10.043000Z",
+      "created_at": "2025-09-11T16:43:10.043000Z",
+      "_id": "68c2fc1ea67a7c48af28ee91"
+    },
+    "hangupCause": {
+      "text": "Outgoing calls barred",
+      "color": "#686868",
+      "id": 52,
+      "sip": "CANCEL / 487"
+    },
+    "qualificationList": {
+      "id": 1,
+      "name": "Vendas",
+      "company_id": 1,
+      "created_at": "2024-04-22T14:11:34.000000Z",
+      "updated_at": "2025-07-03T16:50:39.000000Z",
+      "type": 1,
+      "deleted_at": null,
+      "behavior_overwriten_call": 3,
+      "behavior_not_qualified": 3,
+      "behavior_voice_message": 3,
+      "behavior_mute_call": 3,
+      "behavior_acw_timeout": 3
+    },
+    "webhookEvent": null,
+    "bootTime": "2025-09-11T16:43:10.067661+00:00"
   },
   "new-message-whatsapp": {
     "chat": {
