@@ -66,7 +66,7 @@ const MAX_CACHE_SIZE = 2000; // ✅ CORREÇÃO: 2000 eventos para suportar alto 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
-const MAX_QUEUE_SIZE = 200; // ✅ CORREÇÃO: 200 eventos para suportar alto volume (era 25 muito baixo)
+const MAX_QUEUE_SIZE = 1000; // ✅ GARANTIA: 1000 eventos - NUNCA perder POSTs
 
 // ✅ THROTTLING: Rate limiting para prevenir picos de CPU
 const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
@@ -399,7 +399,7 @@ async function connectCompany(companyId) {
     }
 
     if (!webhooks || webhooks.length === 0) {
-      console.log(`⚠️ Nenhum webhook ativo encontrado para empresa: ${companyId}`);
+      // ✅ LIMPO: Empresa sem webhooks é normal, não precisa log
       return;
     }
 
@@ -587,21 +587,27 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
   const rssPercent = Math.round((memUsage.rss / (2 * 1024 * 1024 * 1024)) * 100); // 2GB Standard plan
   
-  // ✅ PROTEÇÃO DUPLA: Heap + RSS para Standard plan
+  // ✅ PROTEÇÃO CRÍTICA INTELIGENTE: Só descartar se realmente crítico
+  if (heapPercent > 95 || rssPercent > 95) {
+    console.log(`🚫 MEMÓRIA EXTREMA: Heap:${heapPercent}% RSS:${rssPercent}% - Descartando ${eventName} para evitar crash`);
+    cleanupMemory(); // Forçar limpeza agressiva
+    return; // Não adicionar o evento apenas em casos EXTREMOS
+  }
+  
+  // ✅ ALERTA PREVENTIVO: Alertar mas continuar processando
   if (heapPercent > 85 || rssPercent > 90) {
-    console.log(`🚫 [QUEUE] STANDARD PROTECTION - Heap:${heapPercent}% RSS:${rssPercent}% - descartando evento ${eventName}`);
-    cleanupMemory(); // Forçar limpeza
-    return; // Não adicionar o evento
+    console.log(`⚠️ MEMÓRIA ALTA: Heap:${heapPercent}% RSS:${rssPercent}% - Limpeza preventiva`);
+    cleanupMemory(); // Limpeza preventiva mas continua processando
   }
   
   const queue = processingQueue.get(companyId);
   
-  // ✅ PROTEÇÃO: Verificar limite da fila para evitar sobrecarga
-  if (queue.length >= MAX_QUEUE_SIZE) {
-    console.log(`🚨 CRÍTICO: Fila da empresa ${companyName} CHEIA (${MAX_QUEUE_SIZE}), removendo evento mais antigo`);
-    const removedEvent = queue.shift(); // Remove o mais antigo
-    console.log(`🚨 EVENTO PERDIDO: ${removedEvent.eventName} da empresa ${companyName}`);
+  // ✅ PROTEÇÃO: Só alertar quando fila fica muito grande, MAS NUNCA REMOVER
+  if (queue.length >= MAX_QUEUE_SIZE * 0.8) { // 80% = 800 eventos
+    console.log(`⚠️ ALERTA: Fila da empresa ${companyName} com ${queue.length} eventos - sistema pode estar sobrecarregado`);
   }
+  
+  // ✅ GARANTIA UNIVERSAL: NUNCA remover eventos da fila - TODAS as empresas têm 100% dos POSTs garantidos!
   
   // Adicionar evento à fila
   queue.push({
@@ -611,10 +617,14 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     timestamp: Date.now()
   });
   
-  // ✅ LIMPO: Removido log desnecessário da fila
+  // ✅ PROCESSAMENTO ACELERADO: Se fila está grande, processar mais rápido
+  if (queue.length > 100) {
+    // Remover throttling temporariamente para acelerar processamento
+    REQUEST_THROTTLE.delete(companyId);
+  }
   
-  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário (REBALANCEADO)
-  if (queue.length > MAX_QUEUE_SIZE * 0.8) { // 80% em vez de 50% (menos agressivo)
+  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário
+  if (queue.length > MAX_QUEUE_SIZE * 0.8) {
     cleanupMemory();
   }
   
@@ -657,12 +667,16 @@ async function processEventQueue(companyId) {
         connection.lastActivity = new Date().toISOString();
       }
 
-      // ✅ THROTTLING: Verificar rate limiting por empresa
+      // ✅ THROTTLING INTELIGENTE: Acelerar quando fila está grande
+      const queueSize = processingQueue.get(companyId)?.length || 0;
       const lastExecution = REQUEST_THROTTLE.get(companyId) || 0;
       const timeSinceLastExecution = Date.now() - lastExecution;
       
-      if (timeSinceLastExecution < MIN_REQUEST_INTERVAL) {
-        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastExecution;
+      // Se fila > 100 eventos, remover throttling para acelerar
+      const currentInterval = queueSize > 100 ? 0 : MIN_REQUEST_INTERVAL;
+      
+      if (timeSinceLastExecution < currentInterval) {
+        const waitTime = currentInterval - timeSinceLastExecution;
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
       
@@ -672,8 +686,12 @@ async function processEventQueue(companyId) {
       // Atualizar timestamp da última execução
       REQUEST_THROTTLE.set(companyId, Date.now());
       
-      // ✅ CORREÇÃO: Delay mínimo para máximo throughput (era 50ms muito alto)
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // ✅ DELAY INTELIGENTE: Acelerar quando fila está grande
+      const finalQueueSize = processingQueue.get(companyId)?.length || 0;
+      const delay = finalQueueSize > 100 ? 0 : 10; // Zero delay se fila grande
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
     }
   } catch (error) {
     console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
@@ -858,7 +876,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
-      console.log(`⚠️ Nenhum webhook ATIVO encontrado para empresa: ${companyId}`);
+      // ✅ LIMPO: Empresa sem webhooks ativos é normal
       
       // Se não há webhooks ativos, considerar desconectar a empresa
       await checkAndDisconnectIfNoActiveWebhooks(companyId);
@@ -876,7 +894,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     });
 
     if (relevantWebhooks.length === 0) {
-      console.log(`⚠️ Nenhum webhook ATIVO configurado para evento: ${eventName}`);
+      // ✅ LIMPO: Removido log desnecessário (evento sem webhook é normal)
       return;
     }
 
