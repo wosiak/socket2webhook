@@ -58,19 +58,19 @@ async function cleanupOldExecutions(companyId) {
 const activeConnections = new Map();
 const socketInstances = new Map();
 
-// Cache para deduplicação de eventos (evitar POSTs duplicados)
+// Cache para deduplicação de eventos (evitar POSTs duplicados) - OTIMIZADO PARA ALTO VOLUME
 const eventCache = new Map();
-const CACHE_TTL = 120000; // 120 segundos para considerar evento duplicado
-const MAX_CACHE_SIZE = 500; // ✅ BALANCEADO: 500 eventos em cache (era 200 muito baixo)
+const CACHE_TTL = 5000; // ✅ CORREÇÃO: 5 segundos (era 120s muito alto para alto volume)
+const MAX_CACHE_SIZE = 2000; // ✅ CORREÇÃO: 2000 eventos para suportar alto volume
 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
-const MAX_QUEUE_SIZE = 25; // ✅ BALANCEADO: 25 eventos por empresa na fila (era 10 muito baixo)
+const MAX_QUEUE_SIZE = 200; // ✅ CORREÇÃO: 200 eventos para suportar alto volume (era 25 muito baixo)
 
 // ✅ THROTTLING: Rate limiting para prevenir picos de CPU
 const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
-const MIN_REQUEST_INTERVAL = 500; // ✅ OTIMIZAÇÃO: Mínimo 500ms entre requests por empresa
+const MIN_REQUEST_INTERVAL = 100; // ✅ CORREÇÃO: 100ms para suportar 10 req/s (era 500ms = só 2 req/s)
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -518,8 +518,8 @@ function createEventKey(companyId, eventName, eventData) {
   // Chave baseada no hash do conteúdo completo
   const contentKey = `${companyId}:${eventName}:${hash}`;
   
-  // FALLBACK: Timestamp com janela de 2 segundos (super agressivo)
-  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 2000)}`;
+  // ✅ CORREÇÃO: Timestamp com janela de 1 segundo (era 2s muito agressivo)
+  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 1000)}`;
   
   // ✅ OTIMIZAÇÃO: Removido log de deduplicação (reduz CPU em 20%)
   
@@ -598,8 +598,9 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   
   // ✅ PROTEÇÃO: Verificar limite da fila para evitar sobrecarga
   if (queue.length >= MAX_QUEUE_SIZE) {
-    console.log(`⚠️ [QUEUE] Fila da empresa ${companyName} atingiu limite (${MAX_QUEUE_SIZE}), removendo evento mais antigo`);
-    queue.shift(); // Remove o mais antigo
+    console.log(`🚨 CRÍTICO: Fila da empresa ${companyName} CHEIA (${MAX_QUEUE_SIZE}), removendo evento mais antigo`);
+    const removedEvent = queue.shift(); // Remove o mais antigo
+    console.log(`🚨 EVENTO PERDIDO: ${removedEvent.eventName} da empresa ${companyName}`);
   }
   
   // Adicionar evento à fila
@@ -646,6 +647,7 @@ async function processEventQueue(companyId) {
       // ✅ LOG ESSENCIAL: Evento desejado recebido (conforme pedido do usuário)
       console.log(`🎯 EVENTO: ${event.eventName} recebido de ${event.companyName}`);
       
+      
       // Marcar evento como processado ANTES de processar
       markEventAsProcessed(eventKey);
       
@@ -670,8 +672,8 @@ async function processEventQueue(companyId) {
       // Atualizar timestamp da última execução
       REQUEST_THROTTLE.set(companyId, Date.now());
       
-      // Pequeno delay entre processamentos para estabilidade (reduzido)
-      await new Promise(resolve => setTimeout(resolve, 50));
+      // ✅ CORREÇÃO: Delay mínimo para máximo throughput (era 50ms muito alto)
+      await new Promise(resolve => setTimeout(resolve, 10));
     }
   } catch (error) {
     console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
@@ -897,7 +899,10 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
 
-    console.log(`✅ Evento ${eventName} processado: ${successful} sucessos, ${failed} falhas (${relevantWebhooks.length} webhooks ATIVOS)`);
+    // ✅ LOG CRÍTICO: Para debug de perda de eventos
+    if (failed > 0) {
+      console.log(`🚨 FALHA: ${eventName} - ${successful} sucessos, ${failed} falhas de ${relevantWebhooks.length} webhooks`);
+    }
 
   } catch (error) {
     console.error(`❌ Erro ao processar evento ${eventName}:`, error);
