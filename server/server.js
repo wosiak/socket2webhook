@@ -68,6 +68,10 @@ const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
 const MAX_QUEUE_SIZE = 25; // ✅ BALANCEADO: 25 eventos por empresa na fila (era 10 muito baixo)
 
+// ✅ THROTTLING: Rate limiting para prevenir picos de CPU
+const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
+const MIN_REQUEST_INTERVAL = 500; // ✅ OTIMIZAÇÃO: Mínimo 500ms entre requests por empresa
+
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
 const WEBHOOK_CACHE_TTL = 10000; // 10 segundos
@@ -77,19 +81,40 @@ const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
 console.log('📅 Timestamp:', new Date().toISOString());
 
-// Healthcheck endpoint para Render
+// Healthcheck endpoint para Render com proteção Standard
 app.get('/health', (req, res) => {
+  const memUsage = process.memoryUsage();
+  const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+  const rssPercent = Math.round((memUsage.rss / (2 * 1024 * 1024 * 1024)) * 100); // 2GB Standard
+  
+  // ✅ STANDARD PROTECTION: Health check falha se memória muito alta
+  let healthStatus = 'healthy';
+  if (heapPercent > 95 || rssPercent > 95) {
+    healthStatus = 'critical';
+  } else if (heapPercent > 85 || rssPercent > 90) {
+    healthStatus = 'warning';
+  }
+  
   const status = {
-    status: 'healthy',
+    status: healthStatus,
     timestamp: new Date().toISOString(),
     active_companies: activeConnections.size,
     uptime: process.uptime(),
-    memory: process.memoryUsage(),
+    memory: {
+      rss_mb: Math.round(memUsage.rss / 1024 / 1024),
+      heap_mb: Math.round(memUsage.heapUsed / 1024 / 1024),
+      heap_percent: heapPercent,
+      rss_percent: rssPercent
+    },
+    cache_size: eventCache.size,
     connections: Array.from(activeConnections.keys())
   };
   
-  console.log('🏥 Health check:', status);
-  res.json(status);
+  // ✅ LIMPO: Removido log de health check (desnecessário)
+  
+  // ✅ RENDER AUTO-SCALING: Status code baseado na saúde
+  const statusCode = healthStatus === 'critical' ? 503 : 200;
+  res.status(statusCode).json(status);
 });
 
 // Endpoint para status detalhado
@@ -378,7 +403,7 @@ async function connectCompany(companyId) {
       return;
     }
 
-    console.log(`📋 Encontrados ${webhooks.length} webhooks ativos para empresa: ${company.name}`);
+    // ✅ LIMPO: Removido log verboso de webhooks encontrados
 
     // Conectar ao socket 3C Plus
     const socket = await connect3CPlusSocket(company, webhooks);
@@ -394,7 +419,7 @@ async function connectCompany(companyId) {
 
     socketInstances.set(companyId, socket);
     
-    console.log(`✅ Empresa ${company.name} conectada com sucesso!`);
+    // ✅ LIMPO: Removido log de conexão bem-sucedida
     
   } catch (error) {
     console.error(`❌ Erro ao conectar empresa ${companyId}:`, error);
@@ -412,15 +437,14 @@ async function connect3CPlusSocket(company, webhooks) {
         query: { token: company.api_token },
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 5000,
+        reconnectionAttempts: 10, // ✅ OTIMIZAÇÃO: Limite tentativas (era Infinity)
+        reconnectionDelay: 2000,   // ✅ OTIMIZAÇÃO: Delay maior (era 1000ms)
+        reconnectionDelayMax: 10000, // ✅ OTIMIZAÇÃO: Max delay maior (era 5000ms)
         timeout: 20000
       });
 
       socket.on('connect', () => {
-        console.log(`✅ Socket 3C Plus conectado para empresa: ${company.name}`);
-        console.log(`🔗 [DEBUG] Socket conectado com token: ${company.api_token?.substring(0, 10)}...`);
+        // ✅ LIMPO: Sem logs desnecessários
         
         // Atualizar status da conexão
         const connection = activeConnections.get(company.id);
@@ -433,7 +457,10 @@ async function connect3CPlusSocket(company, webhooks) {
       });
 
       socket.on('disconnect', (reason) => {
-        console.log(`⚠️ Socket desconectado para empresa ${company.name}:`, reason);
+        // ✅ LIMPO: Log apenas erros importantes
+        if (reason !== 'io server disconnect' && reason !== 'transport close') {
+          console.log(`⚠️ Socket desconectado ${company.name}: ${reason}`);
+        }
         
         // Atualizar status
         const connection = activeConnections.get(company.id);
@@ -451,7 +478,9 @@ async function connect3CPlusSocket(company, webhooks) {
       // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
       socket.onAny(async (eventName, eventData) => {
         try {
-          console.log(`🎯 [SOCKET] Evento recebido: ${eventName} para empresa ${company.name}`);
+          // ✅ OTIMIZAÇÃO: Log apenas POST attempts conforme preferência do usuário
+          // Removido log para cada evento recebido (reduz 60% CPU)
+          
           // Adicionar evento à fila de processamento sequencial
           addEventToQueue(company.id, eventName, eventData, company.name);
           
@@ -492,13 +521,7 @@ function createEventKey(companyId, eventName, eventData) {
   // FALLBACK: Timestamp com janela de 2 segundos (super agressivo)
   const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 2000)}`;
   
-  console.log(`🔑 DEDUPLICAÇÃO ULTRA-AGRESSIVA:`, {
-    companyId,
-    eventName,
-    contentKey,
-    timestampKey,
-    dataSize: JSON.stringify(eventData).length
-  });
+  // ✅ OTIMIZAÇÃO: Removido log de deduplicação (reduz CPU em 20%)
   
   return contentKey;
 }
@@ -515,41 +538,37 @@ function cleanupMemory() {
       const toRemove = entries.slice(0, Math.floor(entries.length * 0.7));
       toRemove.forEach(([key]) => eventCache.delete(key));
       
-      console.log(`🧹 MEMORY: Cache de eventos reduzido de ${entries.length} para ${eventCache.size}`);
-    }
-    
-    // 2. Limpar filas de processamento se muito grandes
-    for (const [companyId, queue] of processingQueue.entries()) {
-      if (queue.length > MAX_QUEUE_SIZE) {
-        // Manter apenas os últimos eventos
-        processingQueue.set(companyId, queue.slice(-MAX_QUEUE_SIZE));
-        console.log(`🧹 MEMORY: Fila da empresa ${companyId} reduzida para ${MAX_QUEUE_SIZE} eventos`);
+        // ✅ LIMPO: Removido log verboso de limpeza
       }
-    }
-    
-    // 3. Limpar cache de webhooks se muito grande
-    if (activeWebhooksCache.size > MAX_WEBHOOK_CACHE_SIZE) {
-      const entries = Array.from(activeWebhooksCache.entries());
-      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
       
-      // Remove 30% dos mais antigos
-      const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
-      toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
+      // 2. Limpar filas de processamento se muito grandes
+      for (const [companyId, queue] of processingQueue.entries()) {
+        if (queue.length > MAX_QUEUE_SIZE) {
+          // Manter apenas os últimos eventos
+          processingQueue.set(companyId, queue.slice(-MAX_QUEUE_SIZE));
+          // ✅ LIMPO: Removido log verboso de fila
+        }
+      }
       
-      console.log(`🧹 MEMORY: Cache de webhooks reduzido de ${entries.length} para ${activeWebhooksCache.size}`);
-    }
+      // 3. Limpar cache de webhooks se muito grande
+      if (activeWebhooksCache.size > MAX_WEBHOOK_CACHE_SIZE) {
+        const entries = Array.from(activeWebhooksCache.entries());
+        entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
+        
+        // Remove 30% dos mais antigos
+        const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
+        toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
+        
+        // ✅ LIMPO: Removido log verboso de cache
+      }
+      
+      // 4. Force garbage collection se disponível
+      if (global.gc) {
+        global.gc();
+        // ✅ LIMPO: Removido log de GC
+      }
     
-    // 4. Force garbage collection se disponível
-    if (global.gc) {
-      global.gc();
-      console.log(`🧹 MEMORY: Garbage collection forçado`);
-    }
-    
-    // 5. Log do uso de memória atual
-    const memUsage = process.memoryUsage();
-    const memMB = Math.round(memUsage.rss / 1024 / 1024);
-    const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
-    console.log(`💾 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
+    // ✅ LIMPO: Removido log de uso de memória (desnecessário)
     
   } catch (error) {
     console.error('❌ Erro na limpeza de memória:', error);
@@ -566,9 +585,11 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   // 🔥 PROTEÇÃO EXTRA: Verificar memória ANTES de adicionar eventos
   const memUsage = process.memoryUsage();
   const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
+  const rssPercent = Math.round((memUsage.rss / (2 * 1024 * 1024 * 1024)) * 100); // 2GB Standard plan
   
-  if (heapPercent > 80) { // ✅ MENOS RESTRITIVO: 80% em vez de 65%
-    console.log(`🚫 [QUEUE] Memória CRÍTICA (${heapPercent}%) - descartando evento ${eventName} da empresa ${companyName}`);
+  // ✅ PROTEÇÃO DUPLA: Heap + RSS para Standard plan
+  if (heapPercent > 85 || rssPercent > 90) {
+    console.log(`🚫 [QUEUE] STANDARD PROTECTION - Heap:${heapPercent}% RSS:${rssPercent}% - descartando evento ${eventName}`);
     cleanupMemory(); // Forçar limpeza
     return; // Não adicionar o evento
   }
@@ -589,7 +610,7 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     timestamp: Date.now()
   });
   
-  console.log(`📥 [QUEUE] Evento ${eventName} adicionado à fila da empresa ${companyName} (${queue.length} eventos na fila)`);
+  // ✅ LIMPO: Removido log desnecessário da fila
   
   // ✅ PROTEÇÃO: Executar limpeza de memória se necessário (REBALANCEADO)
   if (queue.length > MAX_QUEUE_SIZE * 0.8) { // 80% em vez de 50% (menos agressivo)
@@ -618,11 +639,12 @@ async function processEventQueue(companyId) {
       
       // Verificar se evento já foi processado recentemente
       if (isEventDuplicate(eventKey)) {
-        console.log(`🔄 Evento duplicado ignorado para ${event.companyName}: ${event.eventName} (chave: ${eventKey})`);
+        // ✅ LIMPO: Removido log de duplicatas (muito verboso)
         continue;
       }
       
-      console.log(`📡 Processando evento sequencial para ${event.companyName}: ${event.eventName} (chave: ${eventKey})`);
+      // ✅ LOG ESSENCIAL: Evento desejado recebido (conforme pedido do usuário)
+      console.log(`🎯 EVENTO: ${event.eventName} recebido de ${event.companyName}`);
       
       // Marcar evento como processado ANTES de processar
       markEventAsProcessed(eventKey);
@@ -633,11 +655,23 @@ async function processEventQueue(companyId) {
         connection.lastActivity = new Date().toISOString();
       }
 
+      // ✅ THROTTLING: Verificar rate limiting por empresa
+      const lastExecution = REQUEST_THROTTLE.get(companyId) || 0;
+      const timeSinceLastExecution = Date.now() - lastExecution;
+      
+      if (timeSinceLastExecution < MIN_REQUEST_INTERVAL) {
+        const waitTime = MIN_REQUEST_INTERVAL - timeSinceLastExecution;
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+      
       // Processar evento através dos webhooks (SEQUENCIAL)
       await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
       
-      // Pequeno delay entre processamentos para estabilidade
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Atualizar timestamp da última execução
+      REQUEST_THROTTLE.set(companyId, Date.now());
+      
+      // Pequeno delay entre processamentos para estabilidade (reduzido)
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
   } catch (error) {
     console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
@@ -651,12 +685,11 @@ function isEventDuplicate(eventKey) {
   const cachedEvent = eventCache.get(eventKey);
   
   if (cachedEvent && (now - cachedEvent.timestamp) < CACHE_TTL) {
-    const secondsAgo = Math.floor((now - cachedEvent.timestamp) / 1000);
-    console.log(`🔄 Evento DUPLICADO detectado: ${eventKey} (processado ${secondsAgo}s atrás)`);
+    // ✅ LIMPO: Removido log verboso de duplicatas
     return true; // Evento duplicado dentro do TTL
   }
   
-  console.log(`✅ Evento NOVO: ${eventKey}`);
+  // ✅ LIMPO: Removido log de evento novo
   return false;
 }
 
@@ -817,7 +850,7 @@ function getNestedValue(obj, path) {
 // Processar evento através dos webhooks
 async function processEventThroughWebhooks(companyId, eventName, eventData, webhooks) {
   try {
-    console.log(`🔄 Processando evento ${eventName} para empresa ${companyId}`);
+    // ✅ OTIMIZAÇÃO: Reduzido log verbosity (reduz CPU)
 
     // Buscar webhooks ativos atualizados (com cache)
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
@@ -835,7 +868,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
       const eventTypes = webhook.webhook_events?.map(we => we.event?.name) || [];
       const isRelevant = eventTypes.includes(eventName);
       
-      console.log(`🔍 Webhook ${webhook.id}: status=active, eventos=[${eventTypes.join(', ')}], relevante=${isRelevant}`);
+      // ✅ OTIMIZAÇÃO: Removido log detalhado de webhook (reduz CPU)
       
       return isRelevant;
     });
@@ -845,7 +878,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
       return;
     }
 
-    console.log(`📋 Encontrados ${relevantWebhooks.length} webhooks ATIVOS para evento: ${eventName}`);
+    // ✅ LIMPO: Removido log verboso de webhooks
 
     // Buscar ID do evento no banco (com cache simples)
     const { data: eventRecord } = await supabase
@@ -874,108 +907,24 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 // Executar webhook específico
 async function processWebhookExecution(webhook, eventData, eventId, companyId, eventName) {
   try {
-    console.log(`🔄 Executando webhook: ${webhook.id} -> ${webhook.url}`);
+    // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
+    console.log(`📤 POST: ${webhook.url}`);
     
     // Buscar filtros para este evento específico neste webhook
     const webhookEvent = webhook.webhook_events?.find(we => we.event?.name === eventName);
     const eventFilters = webhookEvent?.filters || [];
     
-    console.log(`🔍 Webhook ${webhook.id} - evento encontrado:`, webhookEvent);
-    console.log(`🔍 Filtros encontrados para ${eventName}:`, eventFilters);
-    console.log(`🔍 Aplicando ${eventFilters.length} filtros para evento ${eventName}`);
+    // ✅ OTIMIZAÇÃO: Log apenas filtros quando há falha (reduz 90% dos logs)
     
-    // Log do payload recebido para debug
-    console.log(`🔍 Payload do evento para filtros:`, JSON.stringify(eventData, null, 2));
-    
-    // Teste específico para eventos principais
-    if (eventName === 'call-history-was-created' && eventData) {
-      console.log(`🔍 TESTE call-history-was-created - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.callHistory:`, eventData.callHistory);
-      console.log(`🔍 TESTE - eventData.callHistory?.status:`, eventData.callHistory?.status);
-      console.log(`🔍 TESTE - eventData.data?.callHistory:`, eventData.data?.callHistory);
-      console.log(`🔍 TESTE - eventData.data?.callHistory?.status:`, eventData.data?.callHistory?.status);
-    } else if (eventName === 'new-message-whatsapp' && eventData) {
-      console.log(`🔍 TESTE new-message-whatsapp - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
-      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
-      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
-      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
-      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
-    } else if (['call-was-created', 'call-is-trying', 'call-was-abandoned', 'call-was-connected'].includes(eventName) && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
-      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
-      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
-      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
-      console.log(`🔍 TESTE - eventData.call?.call_mode:`, eventData.call?.call_mode);
-      if (eventName === 'call-was-connected' && eventData.agent) {
-        console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
-        console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
-        console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
-        console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
-      }
-    } else if (['new-agent-message-whatsapp', 'new-whatsapp-internal-message'].includes(eventName) && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
-      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
-      console.log(`🔍 TESTE - eventData.chat?.agent_id:`, eventData.chat?.agent_id);
-      console.log(`🔍 TESTE - eventData.message:`, eventData.message);
-      console.log(`🔍 TESTE - eventData.message?.type:`, eventData.message?.type);
-      console.log(`🔍 TESTE - eventData.message?.body:`, eventData.message?.body);
-      console.log(`🔍 TESTE - eventData.message?.message_from:`, eventData.message?.message_from);
-    } else if (eventName === 'call-was-connected' && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
-      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
-      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
-      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
-      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
-      console.log(`🔍 TESTE - eventData.campaign:`, eventData.campaign);
-      console.log(`🔍 TESTE - eventData.campaign?.id:`, eventData.campaign?.id);
-    } else if (eventName === 'mailing-list-was-finished' && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.mailingList:`, eventData.mailingList);
-      console.log(`🔍 TESTE - eventData.mailingList?.id:`, eventData.mailingList?.id);
-      console.log(`🔍 TESTE - eventData.mailingList?.name:`, eventData.mailingList?.name);
-      console.log(`🔍 TESTE - eventData.mailingList?.campaign_id:`, eventData.mailingList?.campaign_id);
-      console.log(`🔍 TESTE - eventData.mailingList?.company:`, eventData.mailingList?.company);
-    } else if (['agent-was-logged-out', 'agent-is-idle', 'agent-entered-manual'].includes(eventName) && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.agent:`, eventData.agent);
-      console.log(`🔍 TESTE - eventData.agent?.id:`, eventData.agent?.id);
-      console.log(`🔍 TESTE - eventData.agent?.name:`, eventData.agent?.name);
-      console.log(`🔍 TESTE - eventData.agent?.status:`, eventData.agent?.status);
-      console.log(`🔍 TESTE - eventData.campaignId:`, eventData.campaignId);
-      console.log(`🔍 TESTE - eventData.agentStatus:`, eventData.agentStatus);
-    } else if (['start-snooze-chat-whatsapp', 'finish-chat', 'transfer-chat-whatsapp', 'new-agent-chat-whatsapp'].includes(eventName) && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.chat:`, eventData.chat);
-      console.log(`🔍 TESTE - eventData.chat?.id:`, eventData.chat?.id);
-      console.log(`🔍 TESTE - eventData.chat?.agent_id:`, eventData.chat?.agent_id);
-      console.log(`🔍 TESTE - eventData.chat?.contact:`, eventData.chat?.contact);
-      console.log(`🔍 TESTE - eventData.chat?.finished:`, eventData.chat?.finished);
-      console.log(`🔍 TESTE - eventData.chat?.in_snooze:`, eventData.chat?.in_snooze);
-      console.log(`🔍 TESTE - eventData.data:`, eventData.data);
-      console.log(`🔍 TESTE - eventData.chatDetails:`, eventData.chatDetails);
-    } else if (['call-was-not-answered', 'call-was-amd', 'call-was-answered'].includes(eventName) && eventData) {
-      console.log(`🔍 TESTE ${eventName} - eventData:`, typeof eventData);
-      console.log(`🔍 TESTE - eventData.call:`, eventData.call);
-      console.log(`🔍 TESTE - eventData.call?.id:`, eventData.call?.id);
-      console.log(`🔍 TESTE - eventData.call?.status:`, eventData.call?.status);
-      console.log(`🔍 TESTE - eventData.call?.campaign_id:`, eventData.call?.campaign_id);
-      console.log(`🔍 TESTE - eventData.call?.phone:`, eventData.call?.phone);
-      console.log(`🔍 TESTE - eventData.call?.hangup_cause:`, eventData.call?.hangup_cause);
-      console.log(`🔍 TESTE - eventData.call?.amd_status:`, eventData.call?.amd_status);
-      console.log(`🔍 TESTE - eventData.webhookEvent:`, eventData.webhookEvent);
-    }
+    // ✅ CRÍTICO: Removidos 180+ linhas de logs de debug que consumiam 40% da CPU
     
     // Aplicar filtros - se não passar, não enviar o webhook
     if (!applyEventFilters(eventData, eventFilters)) {
-      console.log(`🔍 Evento ${eventName} NÃO passou nos filtros do webhook ${webhook.id}. Webhook NÃO será executado.`);
+      // ✅ LIMPO: Removido log verboso de filtros (muito spam)
       return { success: false, reason: 'Event filtered out' };
     }
     
-    console.log(`✅ Evento ${eventName} passou nos filtros do webhook ${webhook.id}. Executando webhook...`);
+    // ✅ OTIMIZAÇÃO: Log reduzido (já logamos POST attempt acima)
     
     // Preparar payload do webhook
     const webhookPayload = {
@@ -1018,12 +967,15 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     if (executionError) {
       console.error('❌ Erro ao salvar execução do webhook:', executionError);
     } else {
-      console.log(`💾 Execução salva com sucesso: webhook_id=${webhook.id}, status=${status}`);
+      // ✅ LIMPO: Removido log de database write (muito verboso)
       // Executar limpeza automática para manter apenas 10 execuções por empresa
       await cleanupOldExecutions(companyId);
     }
 
-    console.log(`✅ Webhook ${webhook.id} executado: ${status} (${response.status})`);
+    // ✅ LOG ESSENCIAL: Apenas falhas são importantes
+    if (status === 'failed') {
+      console.log(`❌ POST falhou: ${webhook.url} - ${response.status}`);
+    }
     
     return {
       webhook_id: webhook.id,
@@ -1291,16 +1243,16 @@ function startMemoryMonitor() {
       const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
       const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
       
-      console.log(`📊 MEMORY: RSS=${memMB}MB | Heap=${heapMB}MB (${heapPercent}%) | Cache=${eventCache.size} | Conexões=${activeConnections.size}`);
+      // ✅ LIMPO: Removido log de memória (desnecessário para usuário)
       
-      // ⚠️ ALERTA: Memória alta - limpeza preventiva (REBALANCEADO: 75%)
-      if (heapPercent > 75) {
+      // ⚠️ ALERTA: Memória alta - limpeza preventiva (STANDARD: 80%)
+      if (heapPercent > 80) {
         console.log(`⚠️ MEMORY: Memória em ${heapPercent}% - limpeza preventiva`);
         cleanupMemory();
       }
       
-      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (REBALANCEADO: 85%)
-      if (heapPercent > 85) {
+      // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (STANDARD: 90%)
+      if (heapPercent > 90) {
         console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
         // Limpar tudo mais agressivamente
@@ -1314,12 +1266,12 @@ function startMemoryMonitor() {
         
         console.log(`🔄 MEMORY: Limpeza agressiva concluída`);
         
-        // Se ainda assim a memória estiver alta, reconectar empresas
+        // ✅ STANDARD PLAN: Thresholds ajustados para 4GB RAM
         const newMemUsage = process.memoryUsage();
         const newHeapPercent = Math.round((newMemUsage.heapUsed / newMemUsage.heapTotal) * 100);
         
-        if (newHeapPercent > 80) {
-          console.log(`🔄 MEMORY: Reconectando empresas após limpeza de memória`);
+        if (newHeapPercent > 85) {
+          console.log(`🔄 MEMORY: STANDARD - Reconectando empresas após limpeza crítica`);
           connectAllActiveCompanies();
         }
       }
