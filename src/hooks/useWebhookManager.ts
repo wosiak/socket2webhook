@@ -45,19 +45,12 @@ export const useWebhookManager = () => {
     }
   }, [])
 
-  // Função para conectar automaticamente todas as empresas com webhooks ativos (Sistema Local + Edge Functions)
+  // ✅ SISTEMA LIMPO: Apenas Render 24/7 - sem Edge Functions desnecessárias
   const connectAllActiveCompanies = useCallback(async () => {
     try {
-      console.log('🚀 Initializing webhook system (Local + Edge Functions)...')
+      console.log('🚀 Sistema usando apenas Render 24/7 - sem Edge Functions!')
       
-      // Verificar se já está conectado
-      const connectionInfo = { isConnected: false, companyId: null }
-      if (connectionInfo.isConnected) {
-        console.log(`✅ Already connected to company ${connectionInfo.companyId}`)
-        return
-      }
-      
-      // Buscar a primeira empresa com webhooks ativos (uma por vez para estabilidade)
+      // Buscar empresa com webhooks ativos apenas para logs
       const companyWithActiveWebhooks = companies.find(company => {
         const companyWebhooks = webhooks.filter(w => w.company_id === company.id)
         const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
@@ -65,39 +58,15 @@ export const useWebhookManager = () => {
       })
       
       if (!companyWithActiveWebhooks) {
-        console.log('📭 No companies with active webhooks found')
+        console.log('📭 Nenhuma empresa com webhooks ativos encontrada')
         return
       }
       
-      console.log(`🔌 Connecting to company: ${companyWithActiveWebhooks.name}`)
+      console.log(`✅ Empresa ${companyWithActiveWebhooks.name} sendo processada no Render 24/7`)
       
-      const companyWebhooks = webhooks.filter(w => w.company_id === companyWithActiveWebhooks.id)
-      const activeWebhooks = companyWebhooks.filter(w => w.is_active || w.status === 'active')
+      // ✅ ECONOMIA: Sem chamadas para Edge Functions = sem custos extras
       
-      // Converter webhooks para o formato esperado
-      const webhookConfigs = activeWebhooks.map(webhook => ({
-        id: webhook.id,
-        company_id: webhook.company_id,
-        url: webhook.url,
-        is_active: webhook.is_active || webhook.status === 'active',
-        event_types: webhook.event_types || webhook.webhook_events?.map(we => we.event.name) || []
-      }))
-      
-      // Frontend socket desabilitado - usando apenas backend Render 24/7
-      // await webhookSocketService.connectToSocket(companyWithActiveWebhooks.id, companyWithActiveWebhooks.api_token, webhookConfigs)
-      console.log(`⚠️ Frontend socket disabled - using backend Render 24/7 for: ${companyWithActiveWebhooks.name}`)
-      
-      // Tentar inicializar Edge Function como backup (sem bloquear se falhar)
-      try {
-        console.log(`🚀 Starting Edge Function backup for: ${companyWithActiveWebhooks.name}`)
-        await Promise.race([
-          // Backend Render agora gerencia automaticamente
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
-        ])
-        console.log(`✅ Edge Function backup started for: ${companyWithActiveWebhooks.name}`)
-      } catch (error) {
-        console.log(`⚠️ Edge Function backup failed (using local only): ${error.message}`)
-      }
+      // Sistema completo rodando apenas no Render - Edge Functions desnecessárias
       
     } catch (error) {
       console.error('❌ Error in webhook system initialization:', error)

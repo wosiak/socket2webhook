@@ -1,36 +1,18 @@
-name: Webhook Keepalive
-
-on:
-  schedule:
-    # Executa a cada 5 minutos para garantia máxima
-    - cron: '*/5 * * * *'
-  workflow_dispatch: # Permite execução manual
-
-jobs:
-  keepalive:
-    runs-on: ubuntu-latest
-    
-    steps:
-    - name: Keep webhooks alive
-      run: |
-        echo "🔄 Keeping webhook system alive..."
-        
-        # Call public keepalive (não precisa de auth)
-        response=$(curl -s -X POST \
-          https://primzeelnavovenfdhma.supabase.co/functions/v1/public-keepalive \
-          -H "Content-Type: application/json" \
-          --max-time 45)
-        
-        echo "Public keepalive response: $response"
-        
-        # Backup call with auth
-        auth_response=$(curl -s -X POST \
-          https://primzeelnavovenfdhma.supabase.co/functions/v1/keepalive-scheduler \
-          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByaW16ZWVsbmF2b3ZlbmZkaG1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU1NDgyMzgsImV4cCI6MjA3MTEyNDIzOH0.exCcezOlx0klLLCkwb5rY68ZxsAsWKfsskQmKiv-M08" \
-          -H "Content-Type: application/json" \
-          -d '{"action": "keepalive"}' \
-          --max-time 30)
-        
-        echo "Backup keepalive response: $auth_response"
-        
-        echo "✅ Keepalive completed successfully"
+# ❌ DESABILITADO: Edge Functions desnecessárias - usando apenas Render
+# 
+# Este keepalive chamava Edge Functions do Supabase que geravam custos altos
+# Agora usando apenas Render para o servidor Socket2Webhook 24/7
+#
+# name: Webhook Keepalive (DISABLED)
+#
+# on:
+#   schedule:
+#     - cron: '*/5 * * * *'  # Era 288 calls/dia = custos altos
+#   workflow_dispatch:
+#
+# jobs:
+#   keepalive:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - name: Edge Functions disabled
+#       run: echo "Edge Functions desabilitadas - usando apenas Render"
