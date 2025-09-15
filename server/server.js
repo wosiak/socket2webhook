@@ -541,14 +541,9 @@ function cleanupMemory() {
         // ✅ LIMPO: Removido log verboso de limpeza
       }
       
-      // 2. Limpar filas de processamento se muito grandes
-      for (const [companyId, queue] of processingQueue.entries()) {
-        if (queue.length > MAX_QUEUE_SIZE) {
-          // Manter apenas os últimos eventos
-          processingQueue.set(companyId, queue.slice(-MAX_QUEUE_SIZE));
-          // ✅ LIMPO: Removido log verboso de fila
-        }
-      }
+      // ✅ GARANTIA ABSOLUTA: NUNCA limpar filas - 100% dos eventos devem ser processados!
+      // REMOVIDO: Lógica que removia eventos antigos da fila (CAUSAVA PERDA DE EVENTOS!)
+      // Agora o autoscaling do Render resolve automaticamente a sobrecarga
       
       // 3. Limpar cache de webhooks se muito grande
       if (activeWebhooksCache.size > MAX_WEBHOOK_CACHE_SIZE) {
