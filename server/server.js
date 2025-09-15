@@ -66,6 +66,7 @@ const MAX_CACHE_SIZE = 2000; // ✅ CORREÇÃO: 2000 eventos para suportar alto 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
+const processingTimestamps = new Map(); // Map de companyId -> timestamp (para timeout)
 const MAX_QUEUE_SIZE = 1000; // ✅ GARANTIA: 1000 eventos - NUNCA perder POSTs
 
 // ✅ THROTTLING: Rate limiting para prevenir picos de CPU
@@ -623,6 +624,18 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     cleanupMemory();
   }
   
+  // ✅ FORÇA RESET: Se fila > 1000 eventos OU processamento > 5 minutos, forçar reset
+  const currentQueueSize = queue.length;
+  const processingStart = processingTimestamps.get(companyId);
+  const isStuck = processingStart && (Date.now() - processingStart) > 300000; // 5 minutos
+  
+  if ((currentQueueSize > 1000 || isStuck) && isProcessing.get(companyId)) {
+    const reason = isStuck ? 'TIMEOUT 5min' : `${currentQueueSize} eventos`;
+    console.log(`🔄 FORCE RESET: Empresa ${companyName} (${reason}) - FORÇANDO reset do processamento travado`);
+    isProcessing.set(companyId, false);
+    processingTimestamps.delete(companyId);
+  }
+
   // Iniciar processamento se não está processando
   if (!isProcessing.get(companyId)) {
     processEventQueue(companyId);
@@ -637,6 +650,7 @@ async function processEventQueue(companyId) {
   
   console.log(`▶️ DEBUG: Iniciando processamento para empresa ${companyId}`);
   isProcessing.set(companyId, true);
+  processingTimestamps.set(companyId, Date.now()); // ✅ TIMEOUT: Marcar início
   
   try {
     const queueLength = processingQueue.get(companyId)?.length || 0;
@@ -701,6 +715,7 @@ async function processEventQueue(companyId) {
   } finally {
     console.log(`🔚 DEBUG: Finalizando processamento para empresa ${companyId}`);
     isProcessing.set(companyId, false);
+    processingTimestamps.delete(companyId); // ✅ TIMEOUT: Limpar timestamp
   }
 }
 
