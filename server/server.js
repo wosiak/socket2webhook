@@ -644,21 +644,15 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
 
 async function processEventQueue(companyId) {
   if (isProcessing.get(companyId)) {
-    console.log(`🔄 DEBUG: Empresa ${companyId} já está processando - pulando`);
     return; // Já está processando
   }
   
-  console.log(`▶️ DEBUG: Iniciando processamento para empresa ${companyId}`);
   isProcessing.set(companyId, true);
   processingTimestamps.set(companyId, Date.now()); // ✅ TIMEOUT: Marcar início
   
   try {
-    const queueLength = processingQueue.get(companyId)?.length || 0;
-    console.log(`🔢 DEBUG: Empresa ${companyId} tem ${queueLength} eventos na fila`);
-    
     while (processingQueue.get(companyId)?.length > 0) {
       const event = processingQueue.get(companyId).shift();
-      console.log(`🎯 DEBUG: Processando evento ${event.eventName} para empresa ${companyId}`);
       
       // Criar chave única para deduplicação
       const eventKey = createEventKey(companyId, event.eventName, event.eventData);
@@ -696,9 +690,7 @@ async function processEventQueue(companyId) {
       }
       
       // Processar evento através dos webhooks (SEQUENCIAL)
-      console.log(`📤 DEBUG: Chamando processEventThroughWebhooks para empresa ${companyId}`);
       await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
-      console.log(`✅ DEBUG: processEventThroughWebhooks concluído para empresa ${companyId}`);
       
       // Atualizar timestamp da última execução
       REQUEST_THROTTLE.set(companyId, Date.now());
@@ -713,7 +705,6 @@ async function processEventQueue(companyId) {
   } catch (error) {
     console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
   } finally {
-    console.log(`🔚 DEBUG: Finalizando processamento para empresa ${companyId}`);
     isProcessing.set(companyId, false);
     processingTimestamps.delete(companyId); // ✅ TIMEOUT: Limpar timestamp
   }
@@ -889,15 +880,10 @@ function getNestedValue(obj, path) {
 // Processar evento através dos webhooks
 async function processEventThroughWebhooks(companyId, eventName, eventData, webhooks) {
   try {
-    console.log(`🔍 DEBUG: Buscando webhooks ativos para empresa ${companyId}`);
-    
     // Buscar webhooks ativos atualizados (com cache)
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
-    console.log(`📋 DEBUG: Empresa ${companyId} tem ${currentWebhooks?.length || 0} webhooks ativos`);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
-      console.log(`⚠️ DEBUG: Empresa ${companyId} NÃO tem webhooks ativos - ENCERRANDO processamento`);
-      
       // Se não há webhooks ativos, considerar desconectar a empresa
       await checkAndDisconnectIfNoActiveWebhooks(companyId);
       return;
@@ -908,17 +894,12 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
       const eventTypes = webhook.webhook_events?.map(we => we.event?.name) || [];
       const isRelevant = eventTypes.includes(eventName);
       
-      // ✅ OTIMIZAÇÃO: Removido log detalhado de webhook (reduz CPU)
-      
       return isRelevant;
     });
 
     if (relevantWebhooks.length === 0) {
-      // ✅ LIMPO: Removido log desnecessário (evento sem webhook é normal)
       return;
     }
-
-    // ✅ LIMPO: Removido log verboso de webhooks
 
     // Buscar ID do evento no banco (com cache simples)
     const { data: eventRecord } = await supabase
