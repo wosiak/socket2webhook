@@ -631,14 +631,20 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
 
 async function processEventQueue(companyId) {
   if (isProcessing.get(companyId)) {
+    console.log(`🔄 DEBUG: Empresa ${companyId} já está processando - pulando`);
     return; // Já está processando
   }
   
+  console.log(`▶️ DEBUG: Iniciando processamento para empresa ${companyId}`);
   isProcessing.set(companyId, true);
   
   try {
+    const queueLength = processingQueue.get(companyId)?.length || 0;
+    console.log(`🔢 DEBUG: Empresa ${companyId} tem ${queueLength} eventos na fila`);
+    
     while (processingQueue.get(companyId)?.length > 0) {
       const event = processingQueue.get(companyId).shift();
+      console.log(`🎯 DEBUG: Processando evento ${event.eventName} para empresa ${companyId}`);
       
       // Criar chave única para deduplicação
       const eventKey = createEventKey(companyId, event.eventName, event.eventData);
@@ -676,7 +682,9 @@ async function processEventQueue(companyId) {
       }
       
       // Processar evento através dos webhooks (SEQUENCIAL)
+      console.log(`📤 DEBUG: Chamando processEventThroughWebhooks para empresa ${companyId}`);
       await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
+      console.log(`✅ DEBUG: processEventThroughWebhooks concluído para empresa ${companyId}`);
       
       // Atualizar timestamp da última execução
       REQUEST_THROTTLE.set(companyId, Date.now());
@@ -691,6 +699,7 @@ async function processEventQueue(companyId) {
   } catch (error) {
     console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
   } finally {
+    console.log(`🔚 DEBUG: Finalizando processamento para empresa ${companyId}`);
     isProcessing.set(companyId, false);
   }
 }
@@ -865,13 +874,14 @@ function getNestedValue(obj, path) {
 // Processar evento através dos webhooks
 async function processEventThroughWebhooks(companyId, eventName, eventData, webhooks) {
   try {
-    // ✅ OTIMIZAÇÃO: Reduzido log verbosity (reduz CPU)
-
+    console.log(`🔍 DEBUG: Buscando webhooks ativos para empresa ${companyId}`);
+    
     // Buscar webhooks ativos atualizados (com cache)
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
+    console.log(`📋 DEBUG: Empresa ${companyId} tem ${currentWebhooks?.length || 0} webhooks ativos`);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
-      // ✅ LIMPO: Empresa sem webhooks ativos é normal
+      console.log(`⚠️ DEBUG: Empresa ${companyId} NÃO tem webhooks ativos - ENCERRANDO processamento`);
       
       // Se não há webhooks ativos, considerar desconectar a empresa
       await checkAndDisconnectIfNoActiveWebhooks(companyId);
