@@ -504,27 +504,59 @@ async function connect3CPlusSocket(company, webhooks) {
   });
 }
 
-// SISTEMA DE DEDUPLICAÇÃO ULTRA-AGRESSIVO
+// SISTEMA DE DEDUPLICAÇÃO HÍBRIDO - PREVINE DUPLICATAS REAIS
 function createEventKey(companyId, eventName, eventData) {
-  // Criar hash único baseado no conteúdo completo do evento
+  // ✅ SOLUÇÃO: Criar chave baseada em dados ESSENCIAIS, ignorando timestamps variáveis
+  
+  // Função para extrair dados essenciais, removendo campos de timestamp que podem variar
+  function extractEssentialData(data) {
+    if (!data || typeof data !== 'object') return data;
+    
+    // Clonar o objeto para não modificar o original
+    const essential = JSON.parse(JSON.stringify(data));
+    
+    // Remover campos de timestamp que podem causar falsos negativos
+    function removeTimestampFields(obj) {
+      if (Array.isArray(obj)) {
+        return obj.map(removeTimestampFields);
+      } else if (obj && typeof obj === 'object') {
+        const cleaned = {};
+        for (const [key, value] of Object.entries(obj)) {
+          // Ignorar campos de timestamp comuns que podem variar ligeiramente
+          if (!key.toLowerCase().includes('timestamp') && 
+              !key.toLowerCase().includes('time') && 
+              !key.toLowerCase().includes('date') &&
+              key !== 'created_at' && 
+              key !== 'updated_at') {
+            cleaned[key] = removeTimestampFields(value);
+          }
+        }
+        return cleaned;
+      }
+      return obj;
+    }
+    
+    return removeTimestampFields(essential);
+  }
+  
+  // Extrair dados essenciais
+  const essentialData = extractEssentialData(eventData);
+  
+  // Criar hash baseado apenas nos dados essenciais
   const eventStr = JSON.stringify({
     company: companyId,
     event: eventName,
-    data: eventData
-  });
+    data: essentialData
+  }, Object.keys(essentialData).sort()); // Ordenar chaves para consistência
   
-  // Usar crypto para hash único (já importado no topo)
   const hash = crypto.createHash('md5').update(eventStr).digest('hex').substring(0, 16);
   
-  // Chave baseada no hash do conteúdo completo
+  // ✅ CHAVE HÍBRIDA: Conteúdo essencial + janela de tempo
   const contentKey = `${companyId}:${eventName}:${hash}`;
+  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 2000)}`; // Janela de 2 segundos
   
-  // ✅ CORREÇÃO: Timestamp com janela de 1 segundo (era 2s muito agressivo)
-  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 1000)}`;
-  
-  // ✅ OTIMIZAÇÃO: Removido log de deduplicação (reduz CPU em 20%)
-  
-  return contentKey;
+  // Retornar ambas as chaves para verificação dupla
+  return { contentKey, timestampKey };
 }
 
 // ✅ FUNÇÃO: Limpeza agressiva de memória para evitar crashes
@@ -654,12 +686,12 @@ async function processEventQueue(companyId) {
     while (processingQueue.get(companyId)?.length > 0) {
       const event = processingQueue.get(companyId).shift();
       
-      // Criar chave única para deduplicação
-      const eventKey = createEventKey(companyId, event.eventName, event.eventData);
+      // Criar chaves de deduplicação (conteúdo + timestamp)
+      const eventKeys = createEventKey(companyId, event.eventName, event.eventData);
       
       // Verificar se evento já foi processado recentemente
-      if (isEventDuplicate(eventKey)) {
-        // ✅ LIMPO: Removido log de duplicatas (muito verboso)
+      if (isEventDuplicate(eventKeys)) {
+        console.log(`🔄 DUPLICATA: ${event.eventName} de ${event.companyName} - ignorando`);
         continue;
       }
       
@@ -668,7 +700,7 @@ async function processEventQueue(companyId) {
       
       
       // Marcar evento como processado ANTES de processar
-      markEventAsProcessed(eventKey);
+      markEventAsProcessed(eventKeys);
       
       // Atualizar última atividade
       const connection = activeConnections.get(companyId);
@@ -710,27 +742,46 @@ async function processEventQueue(companyId) {
   }
 }
 
-function isEventDuplicate(eventKey) {
+function isEventDuplicate(eventKeys) {
   const now = Date.now();
-  const cachedEvent = eventCache.get(eventKey);
   
-  if (cachedEvent && (now - cachedEvent.timestamp) < CACHE_TTL) {
-    // ✅ LIMPO: Removido log verboso de duplicatas
-    return true; // Evento duplicado dentro do TTL
+  // ✅ VERIFICAÇÃO DUPLA: Checar tanto conteúdo quanto timestamp
+  const { contentKey, timestampKey } = eventKeys;
+  
+  // 1. Verificar se o mesmo conteúdo já foi processado recentemente
+  const cachedByContent = eventCache.get(contentKey);
+  if (cachedByContent && (now - cachedByContent.timestamp) < CACHE_TTL) {
+    return true; // Duplicata por conteúdo
   }
   
-  // ✅ LIMPO: Removido log de evento novo
+  // 2. Verificar se eventos similares foram processados na mesma janela de tempo
+  const cachedByTime = eventCache.get(timestampKey);
+  if (cachedByTime && (now - cachedByTime.timestamp) < 3000) { // 3 segundos para timestamp
+    return true; // Duplicata por proximidade temporal
+  }
+  
   return false;
 }
 
-function markEventAsProcessed(eventKey) {
-  eventCache.set(eventKey, {
-    timestamp: Date.now(),
-    processed: true
+function markEventAsProcessed(eventKeys) {
+  const now = Date.now();
+  const { contentKey, timestampKey } = eventKeys;
+  
+  // Marcar ambas as chaves como processadas
+  eventCache.set(contentKey, {
+    timestamp: now,
+    processed: true,
+    type: 'content'
+  });
+  
+  eventCache.set(timestampKey, {
+    timestamp: now,
+    processed: true,
+    type: 'timestamp'
   });
   
   // Limpar cache antigo periodicamente
-  if (eventCache.size > 1000) {
+  if (eventCache.size > MAX_CACHE_SIZE) {
     cleanupEventCache();
   }
 }
