@@ -58,10 +58,10 @@ async function cleanupOldExecutions(companyId) {
 const activeConnections = new Map();
 const socketInstances = new Map();
 
-// Cache para deduplicação de eventos (evitar POSTs duplicados) - OTIMIZADO PARA ALTO VOLUME
-const eventCache = new Map();
-const CACHE_TTL = 5000; // ✅ CORREÇÃO: 5 segundos (era 120s muito alto para alto volume)
-const MAX_CACHE_SIZE = 2000; // ✅ CORREÇÃO: 2000 eventos para suportar alto volume
+// Cache para deduplicação de POSTs (evitar POSTs duplicados do mesmo webhook+evento)
+const postCache = new Map();
+const POST_CACHE_TTL = 3000; // 3 segundos - janela razoável para prevenir duplicatas
+const MAX_POST_CACHE_SIZE = 1000;
 
 // Fila de processamento sequencial para evitar race conditions  
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
@@ -504,60 +504,7 @@ async function connect3CPlusSocket(company, webhooks) {
   });
 }
 
-// SISTEMA DE DEDUPLICAÇÃO HÍBRIDO - PREVINE DUPLICATAS REAIS
-function createEventKey(companyId, eventName, eventData) {
-  // ✅ SOLUÇÃO: Criar chave baseada em dados ESSENCIAIS, ignorando timestamps variáveis
-  
-  // Função para extrair dados essenciais, removendo campos de timestamp que podem variar
-  function extractEssentialData(data) {
-    if (!data || typeof data !== 'object') return data;
-    
-    // Clonar o objeto para não modificar o original
-    const essential = JSON.parse(JSON.stringify(data));
-    
-    // Remover campos de timestamp que podem causar falsos negativos
-    function removeTimestampFields(obj) {
-      if (Array.isArray(obj)) {
-        return obj.map(removeTimestampFields);
-      } else if (obj && typeof obj === 'object') {
-        const cleaned = {};
-        for (const [key, value] of Object.entries(obj)) {
-          // Ignorar campos de timestamp comuns que podem variar ligeiramente
-          if (!key.toLowerCase().includes('timestamp') && 
-              !key.toLowerCase().includes('time') && 
-              !key.toLowerCase().includes('date') &&
-              key !== 'created_at' && 
-              key !== 'updated_at') {
-            cleaned[key] = removeTimestampFields(value);
-          }
-        }
-        return cleaned;
-      }
-      return obj;
-    }
-    
-    return removeTimestampFields(essential);
-  }
-  
-  // Extrair dados essenciais
-  const essentialData = extractEssentialData(eventData);
-  
-  // Criar hash baseado apenas nos dados essenciais
-  const eventStr = JSON.stringify({
-    company: companyId,
-    event: eventName,
-    data: essentialData
-  }, Object.keys(essentialData).sort()); // Ordenar chaves para consistência
-  
-  const hash = crypto.createHash('md5').update(eventStr).digest('hex').substring(0, 16);
-  
-  // ✅ CHAVE HÍBRIDA: Conteúdo essencial + janela de tempo
-  const contentKey = `${companyId}:${eventName}:${hash}`;
-  const timestampKey = `${companyId}:${eventName}:${Math.floor(Date.now() / 2000)}`; // Janela de 2 segundos
-  
-  // Retornar ambas as chaves para verificação dupla
-  return { contentKey, timestampKey };
-}
+// ✅ REMOVIDO: Sistema de deduplicação incorreto que estava filtrando eventos legítimos
 
 // ✅ FUNÇÃO: Limpeza agressiva de memória para evitar crashes
 function cleanupMemory() {
@@ -686,21 +633,8 @@ async function processEventQueue(companyId) {
     while (processingQueue.get(companyId)?.length > 0) {
       const event = processingQueue.get(companyId).shift();
       
-      // Criar chaves de deduplicação (conteúdo + timestamp)
-      const eventKeys = createEventKey(companyId, event.eventName, event.eventData);
-      
-      // Verificar se evento já foi processado recentemente
-      if (isEventDuplicate(eventKeys)) {
-        console.log(`🔄 DUPLICATA: ${event.eventName} de ${event.companyName} - ignorando`);
-        continue;
-      }
-      
       // ✅ LOG ESSENCIAL: Evento desejado recebido (conforme pedido do usuário)
       console.log(`🎯 EVENTO: ${event.eventName} recebido de ${event.companyName}`);
-      
-      
-      // Marcar evento como processado ANTES de processar
-      markEventAsProcessed(eventKeys);
       
       // Atualizar última atividade
       const connection = activeConnections.get(companyId);
@@ -742,60 +676,18 @@ async function processEventQueue(companyId) {
   }
 }
 
-function isEventDuplicate(eventKeys) {
-  const now = Date.now();
-  
-  // ✅ VERIFICAÇÃO DUPLA: Checar tanto conteúdo quanto timestamp
-  const { contentKey, timestampKey } = eventKeys;
-  
-  // 1. Verificar se o mesmo conteúdo já foi processado recentemente
-  const cachedByContent = eventCache.get(contentKey);
-  if (cachedByContent && (now - cachedByContent.timestamp) < CACHE_TTL) {
-    return true; // Duplicata por conteúdo
-  }
-  
-  // 2. Verificar se eventos similares foram processados na mesma janela de tempo
-  const cachedByTime = eventCache.get(timestampKey);
-  if (cachedByTime && (now - cachedByTime.timestamp) < 3000) { // 3 segundos para timestamp
-    return true; // Duplicata por proximidade temporal
-  }
-  
-  return false;
-}
+// ✅ REMOVIDAS: Funções de deduplicação incorretas que estavam bloqueando eventos legítimos
 
-function markEventAsProcessed(eventKeys) {
+function cleanupCaches() {
   const now = Date.now();
-  const { contentKey, timestampKey } = eventKeys;
-  
-  // Marcar ambas as chaves como processadas
-  eventCache.set(contentKey, {
-    timestamp: now,
-    processed: true,
-    type: 'content'
-  });
-  
-  eventCache.set(timestampKey, {
-    timestamp: now,
-    processed: true,
-    type: 'timestamp'
-  });
-  
-  // Limpar cache antigo periodicamente
-  if (eventCache.size > MAX_CACHE_SIZE) {
-    cleanupEventCache();
-  }
-}
-
-function cleanupEventCache() {
-  const now = Date.now();
-  let expiredEvents = 0;
+  let expiredPosts = 0;
   let expiredWebhooks = 0;
   
-  // Limpar cache de eventos expirados
-  for (const [key, value] of eventCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      eventCache.delete(key);
-      expiredEvents++;
+  // Limpar cache de POSTs expirados
+  for (const [key, value] of postCache.entries()) {
+    if (now - value.timestamp > POST_CACHE_TTL) {
+      postCache.delete(key);
+      expiredPosts++;
     }
   }
   
@@ -807,8 +699,8 @@ function cleanupEventCache() {
     }
   }
   
-  if (expiredEvents > 0 || expiredWebhooks > 0) {
-    console.log(`🧹 Cache limpo: ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
+  if (expiredPosts > 0 || expiredWebhooks > 0) {
+    console.log(`🧹 Cache limpo: ${expiredPosts} POSTs e ${expiredWebhooks} webhooks expirados removidos`);
   }
 }
 
@@ -982,6 +874,24 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 // Executar webhook específico
 async function processWebhookExecution(webhook, eventData, eventId, companyId, eventName) {
   try {
+    // ✅ DEDUPLICAÇÃO CORRETA: Verificar se este POST específico já foi feito recentemente
+    const postKey = `${webhook.id}:${eventName}:${companyId}:${JSON.stringify(eventData).substring(0, 100)}`;
+    const now = Date.now();
+    const existingPost = postCache.get(postKey);
+    
+    if (existingPost && (now - existingPost.timestamp) < POST_CACHE_TTL) {
+      console.log(`🔄 POST DUPLICADO: ${webhook.url} - já enviado há ${Math.round((now - existingPost.timestamp)/1000)}s`);
+      return { success: false, reason: 'Duplicate POST prevented' };
+    }
+    
+    // Marcar POST como sendo executado
+    postCache.set(postKey, { timestamp: now });
+    
+    // Limpar cache se muito grande
+    if (postCache.size > MAX_POST_CACHE_SIZE) {
+      cleanupCaches();
+    }
+    
     // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
     console.log(`📤 POST: ${webhook.url}`);
     
@@ -1296,13 +1206,7 @@ function startCacheCleanup() {
   
   setInterval(() => {
     try {
-      const sizeBefore = eventCache.size;
-      cleanupEventCache();
-      const sizeAfter = eventCache.size;
-      
-      if (sizeBefore !== sizeAfter) {
-        console.log(`🧹 Cache limpo: ${sizeBefore - sizeAfter} eventos expirados removidos`);
-      }
+      cleanupCaches();
     } catch (error) {
       console.error('❌ Erro na limpeza do cache:', error);
     }
