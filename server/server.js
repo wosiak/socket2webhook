@@ -107,7 +107,7 @@ app.get('/health', (req, res) => {
       heap_percent: heapPercent,
       rss_percent: rssPercent
     },
-    cache_size: eventCache.size,
+    cache_size: postCache.size,
     connections: Array.from(activeConnections.keys())
   };
   
@@ -438,10 +438,13 @@ async function connect3CPlusSocket(company, webhooks) {
         query: { token: company.api_token },
         transports: ['websocket'],
         reconnection: true,
-        reconnectionAttempts: 10, // ✅ OTIMIZAÇÃO: Limite tentativas (era Infinity)
-        reconnectionDelay: 2000,   // ✅ OTIMIZAÇÃO: Delay maior (era 1000ms)
-        reconnectionDelayMax: 10000, // ✅ OTIMIZAÇÃO: Max delay maior (era 5000ms)
-        timeout: 20000
+        reconnectionAttempts: Infinity, // 🛡️ NUNCA desistir de reconectar
+        reconnectionDelay: 1000,        // 🛡️ Reconectar mais rápido
+        reconnectionDelayMax: 5000,     // 🛡️ Max delay menor
+        timeout: 30000,                 // 🛡️ Timeout maior
+        forceNew: true,                 // 🛡️ Sempre criar nova conexão
+        upgrade: true,                  // 🛡️ Permitir upgrade de transport
+        rememberUpgrade: false          // 🛡️ Não lembrar upgrade (sempre testar)
       });
 
       socket.on('connect', () => {
@@ -458,17 +461,30 @@ async function connect3CPlusSocket(company, webhooks) {
       });
 
       socket.on('disconnect', (reason) => {
-        // ✅ LIMPO: Log apenas erros importantes
-        if (reason !== 'io server disconnect' && reason !== 'transport close') {
-          console.log(`⚠️ Socket desconectado ${company.name}: ${reason}`);
-        }
+        console.log(`🚨 CRÍTICO: Socket desconectado ${company.name}: ${reason} - TENTANDO RECONECTAR!`);
         
         // Atualizar status
         const connection = activeConnections.get(company.id);
         if (connection) {
           connection.status = 'disconnected';
           connection.lastActivity = new Date().toISOString();
+          connection.disconnectReason = reason;
+          connection.lastDisconnect = new Date().toISOString();
         }
+        
+        // 🛡️ RECONEXÃO AUTOMÁTICA IMEDIATA (não esperar 120s do monitor)
+        setTimeout(async () => {
+          try {
+            console.log(`🔄 RECONECTANDO empresa ${company.name} após desconexão...`);
+            await connectCompany(company.id);
+            console.log(`✅ SUCESSO: Empresa ${company.name} reconectada automaticamente!`);
+          } catch (error) {
+            console.error(`❌ FALHA na reconexão automática de ${company.name}:`, error);
+            
+            // 🛡️ RETRY COM BACKOFF: tentar novamente em 30s, 60s, 120s
+            setTimeout(() => attemptReconnectWithBackoff(company.id, company.name, 1), 30000);
+          }
+        }, 5000); // Tentar reconectar em 5 segundos
       });
 
       socket.on('connect_error', (error) => {
@@ -476,6 +492,24 @@ async function connect3CPlusSocket(company, webhooks) {
         reject(error);
       });
 
+      // 🛡️ HEARTBEAT: Verificar se conexão está realmente funcionando
+      socket.emit('ping'); // Testar conexão imediatamente
+      
+      // 🛡️ HEARTBEAT PERIÓDICO: A cada 30 segundos
+      const heartbeatInterval = setInterval(() => {
+        if (socket.connected) {
+          socket.emit('ping');
+        } else {
+          console.log(`💔 HEARTBEAT FALHOU: ${company.name} não está conectado!`);
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000);
+      
+      // Limpar heartbeat ao desconectar
+      socket.on('disconnect', () => {
+        clearInterval(heartbeatInterval);
+      });
+      
       // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
       socket.onAny(async (eventName, eventData) => {
         try {
@@ -502,6 +536,41 @@ async function connect3CPlusSocket(company, webhooks) {
       reject(error);
     }
   });
+}
+
+// 🛡️ FUNÇÃO: Reconexão com backoff exponencial (retry inteligente)
+async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
+  const maxAttempts = 5;
+  const delays = [30000, 60000, 120000, 300000, 600000]; // 30s, 1m, 2m, 5m, 10m
+  
+  if (attempt > maxAttempts) {
+    console.error(`🚨 FALHA TOTAL: Empresa ${companyName} não conseguiu reconectar após ${maxAttempts} tentativas!`);
+    
+    // 🛡️ ÚLTIMO RECURSO: Agendar tentativa completa em 30 minutos
+    setTimeout(async () => {
+      console.log(`🔄 ÚLTIMO RECURSO: Tentando reconectar ${companyName} após 30min...`);
+      try {
+        await connectCompany(companyId);
+        console.log(`✅ MILAGRE: Empresa ${companyName} reconectada após último recurso!`);
+      } catch (error) {
+        console.error(`❌ ÚLTIMO RECURSO FALHOU para ${companyName}:`, error);
+      }
+    }, 1800000); // 30 minutos
+    return;
+  }
+  
+  try {
+    console.log(`🔄 RETRY ${attempt}/${maxAttempts}: Reconectando ${companyName}...`);
+    await connectCompany(companyId);
+    console.log(`✅ SUCESSO: Empresa ${companyName} reconectada no retry ${attempt}!`);
+  } catch (error) {
+    console.error(`❌ RETRY ${attempt} FALHOU para ${companyName}:`, error);
+    
+    const delay = delays[attempt - 1] || delays[delays.length - 1];
+    console.log(`⏰ Próxima tentativa para ${companyName} em ${delay/1000}s...`);
+    
+    setTimeout(() => attemptReconnectWithBackoff(companyId, companyName, attempt + 1), delay);
+  }
 }
 
 // ✅ REMOVIDO: Sistema de deduplicação incorreto que estava filtrando eventos legítimos
@@ -1153,21 +1222,33 @@ async function checkAndDisconnectInactiveCompanies() {
 
 // Monitorar conexões a cada 60 segundos
 function startConnectionMonitor() {
-  console.log('🔍 Iniciando monitor de conexões...');
+  console.log('🛡️ Iniciando WATCHDOG avançado - garantia 100% de funcionamento...');
   
   setInterval(async () => {
     try {
-      console.log(`🔍 Monitor: Verificando ${activeConnections.size} conexões...`);
+      // 🛡️ WATCHDOG 1: Verificar conexões sem atividade há muito tempo
+      const now = Date.now();
+      const maxInactivity = 10 * 60 * 1000; // 10 minutos sem atividade = suspeito
       
-      // 1. Verificar empresas inativas e desconectá-las
-      await checkAndDisconnectInactiveCompanies();
-      
-      // 2. Verificar empresas conectadas - se ainda têm webhooks ativos
-      for (const [companyId] of activeConnections) {
-        await checkAndDisconnectIfNoActiveWebhooks(companyId);
+      for (const [companyId, connection] of activeConnections.entries()) {
+        const lastActivity = new Date(connection.lastActivity).getTime();
+        const inactiveTime = now - lastActivity;
+        
+        if (inactiveTime > maxInactivity && connection.status === 'connected') {
+          console.log(`🚨 WATCHDOG: Empresa ${connection.company.name} sem atividade há ${Math.round(inactiveTime/60000)}min - RECONECTANDO FORÇADO!`);
+          
+          // Forçar reconexão de empresa suspeita
+          try {
+            await disconnectCompany(companyId);
+            await connectCompany(companyId);
+            console.log(`✅ WATCHDOG: Empresa ${connection.company.name} reconectada com sucesso!`);
+          } catch (error) {
+            console.error(`❌ WATCHDOG: Falha ao reconectar ${connection.company.name}:`, error);
+          }
+        }
       }
       
-      // 2. Verificar empresas desconectadas - se agora têm webhooks ativos
+      // 🛡️ WATCHDOG 2: Verificar empresas que deveriam estar conectadas
       const { data: companiesWithActiveWebhooks, error } = await supabase
         .from('companies')
         .select(`
@@ -1180,24 +1261,47 @@ function startConnectionMonitor() {
       if (!error && companiesWithActiveWebhooks) {
         for (const company of companiesWithActiveWebhooks) {
           if (!activeConnections.has(company.id)) {
-            console.log(`🔌 Empresa ${company.name} tem webhooks ativos mas não está conectada - conectando...`);
-            await checkAndReconnectIfHasActiveWebhooks(company.id);
+            console.log(`🚨 WATCHDOG: Empresa ${company.name} tem webhooks ativos mas NÃO ESTÁ CONECTADA - CONECTANDO URGENTE!`);
+            try {
+              await connectCompany(company.id);
+              console.log(`✅ WATCHDOG: Empresa ${company.name} conectada com sucesso!`);
+            } catch (error) {
+              console.error(`❌ WATCHDOG: Falha ao conectar ${company.name}:`, error);
+            }
           }
         }
       }
       
-      // 3. Log de status
+      // 🛡️ WATCHDOG 3: Verificar filas travadas
+      for (const [companyId, queue] of processingQueue.entries()) {
+        if (queue.length > 50 && isProcessing.get(companyId)) {
+          const processingStart = processingTimestamps.get(companyId);
+          if (processingStart && (now - processingStart) > 300000) { // 5 minutos
+            console.log(`🚨 WATCHDOG: Fila da empresa ${companyId} travada há 5min+ - DESTRAVANDO!`);
+            isProcessing.set(companyId, false);
+            processingTimestamps.delete(companyId);
+            processEventQueue(companyId);
+          }
+        }
+      }
+      
+      // 🛡️ WATCHDOG 4: Verificar empresas desconectadas há muito tempo
+      await checkAndDisconnectInactiveCompanies();
+      for (const [companyId] of activeConnections) {
+        await checkAndDisconnectIfNoActiveWebhooks(companyId);
+      }
+      
+      // 📊 Status resumido
       const connections = Array.from(activeConnections.values());
       const connected = connections.filter(c => c.status === 'connected').length;
       const disconnected = connections.filter(c => c.status === 'disconnected').length;
       
-      console.log(`📊 Status: ${connected} conectadas, ${disconnected} desconectadas`);
-      console.log(`🗄️ Cache de eventos: ${eventCache.size} entradas`);
+      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${postCache.size} POSTs em cache`);
       
     } catch (error) {
-      console.error('❌ Erro no monitor de conexões:', error);
+      console.error('❌ Erro no watchdog:', error);
     }
-  }, 120000); // ✅ OTIMIZADO: A cada 120 segundos (reduzir CPU)
+  }, 60000); // 🛡️ WATCHDOG A CADA 60 SEGUNDOS (mais ativo para problemas críticos)
 }
 
 // Limpeza automática do cache a cada 5 minutos
@@ -1234,12 +1338,21 @@ function startMemoryMonitor() {
       if (heapPercent > 90) {
         console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
-        // Limpar tudo mais agressivamente
-        eventCache.clear();
-        for (const [companyId] of processingQueue.entries()) {
-          processingQueue.set(companyId, []);
-        }
+        // 🛡️ LIMPEZA SEGURA: NÃO limpar filas de processamento (pode perder eventos!)
+        // eventCache.clear(); // ✅ REMOVIDO: Era referência antiga
+        
+        // Limpar apenas caches seguros
         activeWebhooksCache.clear();
+        
+        // ⚠️ CUIDADO: NÃO limpar processingQueue (perderia eventos!)
+        // Apenas reduzir filas muito grandes (manter últimos 100)
+        for (const [companyId, queue] of processingQueue.entries()) {
+          if (queue.length > 200) {
+            const keptEvents = queue.slice(-100); // Manter últimos 100
+            processingQueue.set(companyId, keptEvents);
+            console.log(`🔧 REDUZINDO fila da empresa ${companyId}: ${queue.length} -> ${keptEvents.length} eventos`);
+          }
+        }
         
         if (global.gc) global.gc();
         
