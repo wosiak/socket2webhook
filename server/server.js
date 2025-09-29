@@ -57,6 +57,7 @@ async function cleanupOldExecutions(companyId) {
 // Conexões ativas por empresa (NUNCA hibernam!)
 const activeConnections = new Map();
 const socketInstances = new Map();
+const connectionLocks = new Map(); // Previne múltiplas conexões simultâneas
 
 // Cache para deduplicação de POSTs (evitar POSTs duplicados do mesmo webhook+evento)
 const postCache = new Map();
@@ -409,6 +410,12 @@ async function connectCompany(companyId) {
     // Conectar ao socket 3C Plus
     const socket = await connect3CPlusSocket(company, webhooks);
     
+    // 🛡️ VERIFICAR SE CONEXÃO FOI CRIADA (não bloqueada por lock)
+    if (!socket) {
+      console.log(`⏳ Conexão para ${company.name} foi bloqueada por lock - tentativa ignorada`);
+      return;
+    }
+    
     // Armazenar informações da conexão
     activeConnections.set(companyId, {
       company: company,
@@ -432,6 +439,23 @@ async function connectCompany(companyId) {
 async function connect3CPlusSocket(company, webhooks) {
   return new Promise((resolve, reject) => {
     try {
+      // 🛡️ PREVENIR MÚLTIPLAS CONEXÕES SIMULTÂNEAS
+      if (connectionLocks.get(company.id)) {
+        console.log(`⏳ Conexão já em andamento para ${company.name} - aguardando...`);
+        return resolve(null); // Não criar nova conexão
+      }
+      
+      // 🔒 FECHAR CONEXÃO EXISTENTE ANTES DE CRIAR NOVA
+      const existingSocket = socketInstances.get(company.id);
+      if (existingSocket && existingSocket.connected) {
+        console.log(`🔄 Fechando conexão existente para ${company.name} antes de reconectar`);
+        existingSocket.disconnect();
+        existingSocket.removeAllListeners();
+      }
+      
+      // 🔒 ATIVAR LOCK
+      connectionLocks.set(company.id, true);
+      
       console.log(`🔌 Estabelecendo conexão WebSocket para empresa: ${company.name}`);
       
       const socket = io('https://socket.3c.plus', {
@@ -449,6 +473,9 @@ async function connect3CPlusSocket(company, webhooks) {
 
       socket.on('connect', () => {
         // ✅ LIMPO: Sem logs desnecessários
+        
+        // 🔓 LIBERAR LOCK - Conexão estabelecida com sucesso
+        connectionLocks.set(company.id, false);
         
         // Atualizar status da conexão
         const connection = activeConnections.get(company.id);
@@ -489,6 +516,10 @@ async function connect3CPlusSocket(company, webhooks) {
 
       socket.on('connect_error', (error) => {
         console.error(`❌ Erro de conexão socket para empresa ${company.name}:`, error);
+        
+        // 🔓 LIBERAR LOCK - Erro na conexão
+        connectionLocks.set(company.id, false);
+        
         reject(error);
       });
 
@@ -533,6 +564,10 @@ async function connect3CPlusSocket(company, webhooks) {
       
     } catch (error) {
       console.error(`❌ Erro ao configurar socket para empresa ${company.name}:`, error);
+      
+      // 🔓 LIBERAR LOCK - Erro geral na criação do socket
+      connectionLocks.set(company.id, false);
+      
       reject(error);
     }
   });
