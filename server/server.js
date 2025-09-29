@@ -487,8 +487,24 @@ async function connect3CPlusSocket(company, webhooks) {
         resolve(socket);
       });
 
+      // 🛡️ HEARTBEAT: Verificar se conexão está realmente funcionando
+      socket.emit('ping'); // Testar conexão imediatamente
+      
+      // 🛡️ HEARTBEAT PERIÓDICO: A cada 30 segundos
+      const heartbeatInterval = setInterval(() => {
+        if (socket.connected) {
+          socket.emit('ping');
+        } else {
+          console.log(`💔 HEARTBEAT FALHOU: ${company.name} não está conectado!`);
+          clearInterval(heartbeatInterval);
+        }
+      }, 30000);
+
       socket.on('disconnect', (reason) => {
         console.log(`🚨 CRÍTICO: Socket desconectado ${company.name}: ${reason} - TENTANDO RECONECTAR!`);
+        
+        // 🧹 LIMPAR HEARTBEAT (único lugar)
+        clearInterval(heartbeatInterval);
         
         // Atualizar status
         const connection = activeConnections.get(company.id);
@@ -521,24 +537,6 @@ async function connect3CPlusSocket(company, webhooks) {
         connectionLocks.set(company.id, false);
         
         reject(error);
-      });
-
-      // 🛡️ HEARTBEAT: Verificar se conexão está realmente funcionando
-      socket.emit('ping'); // Testar conexão imediatamente
-      
-      // 🛡️ HEARTBEAT PERIÓDICO: A cada 30 segundos
-      const heartbeatInterval = setInterval(() => {
-        if (socket.connected) {
-          socket.emit('ping');
-        } else {
-          console.log(`💔 HEARTBEAT FALHOU: ${company.name} não está conectado!`);
-          clearInterval(heartbeatInterval);
-        }
-      }, 30000);
-      
-      // Limpar heartbeat ao desconectar
-      socket.on('disconnect', () => {
-        clearInterval(heartbeatInterval);
       });
       
       // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
