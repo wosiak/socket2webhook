@@ -520,8 +520,14 @@ async function connect3CPlusSocket(company, webhooks) {
           connection.lastDisconnect = new Date().toISOString();
         }
         
-        // 🛡️ RECONEXÃO AUTOMÁTICA IMEDIATA (não esperar 120s do monitor)
+        // 🛡️ RECONEXÃO AUTOMÁTICA IMEDIATA (apenas se não há reconexão em andamento)
         setTimeout(async () => {
+          // 🔒 VERIFICAR LOCK antes de tentar reconectar
+          if (connectionLocks.get(company.id)) {
+            console.log(`⏳ Reconexão já em andamento para ${company.name} - pulando timeout`);
+            return;
+          }
+          
           try {
             console.log(`🔄 RECONECTANDO empresa ${company.name} após desconexão...`);
             await connectCompany(company.id);
@@ -529,8 +535,10 @@ async function connect3CPlusSocket(company, webhooks) {
           } catch (error) {
             console.error(`❌ FALHA na reconexão automática de ${company.name}:`, error);
             
-            // 🛡️ RETRY COM BACKOFF: tentar novamente em 30s, 60s, 120s
-            setTimeout(() => attemptReconnectWithBackoff(company.id, company.name, 1), 30000);
+            // 🛡️ RETRY COM BACKOFF: tentar novamente apenas se não há lock
+            if (!connectionLocks.get(company.id)) {
+              setTimeout(() => attemptReconnectWithBackoff(company.id, company.name, 1), 30000);
+            }
           }
         }, 5000); // Tentar reconectar em 5 segundos
       });
@@ -597,6 +605,12 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
     return;
   }
   
+  // 🔒 VERIFICAR LOCK antes de tentar retry
+  if (connectionLocks.get(companyId)) {
+    console.log(`⏳ Reconexão já em andamento para ${companyName} - cancelando retry ${attempt}`);
+    return;
+  }
+  
   try {
     console.log(`🔄 RETRY ${attempt}/${maxAttempts}: Reconectando ${companyName}...`);
     await connectCompany(companyId);
@@ -607,7 +621,10 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
     const delay = delays[attempt - 1] || delays[delays.length - 1];
     console.log(`⏰ Próxima tentativa para ${companyName} em ${delay/1000}s...`);
     
-    setTimeout(() => attemptReconnectWithBackoff(companyId, companyName, attempt + 1), delay);
+    // 🔒 Só agendar novo retry se não há lock
+    if (!connectionLocks.get(companyId)) {
+      setTimeout(() => attemptReconnectWithBackoff(companyId, companyName, attempt + 1), delay);
+    }
   }
 }
 
