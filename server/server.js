@@ -79,6 +79,11 @@ const activeWebhooksCache = new Map();
 const WEBHOOK_CACHE_TTL = 10000; // 10 segundos
 const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
+// Cache de eventos para deduplicação (ADICIONADO para corrigir ReferenceError)
+const eventCache = new Map();
+const CACHE_TTL = 300000; // 5 minutos
+const MAX_CACHE_SIZE = 500;
+
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
 console.log('📅 Timestamp:', new Date().toISOString());
