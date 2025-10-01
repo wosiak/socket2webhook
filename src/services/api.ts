@@ -682,11 +682,12 @@ class ApiService {
     try {
       console.log('📊 Buscando métricas por empresa...')
       
-      // Get companies first
+      // Get companies first (limited to 10 for dashboard performance)
       const { data: companiesData, error: companiesError } = await supabase
         .from('companies')
         .select('id, name, status')
         .order('name', { ascending: true })
+        .limit(10)
       
       if (companiesError) {
         console.error('❌ Erro ao buscar empresas:', companiesError)
