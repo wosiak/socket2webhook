@@ -1095,27 +1095,33 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const status = response.ok ? 'success' : 'failed';
     const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
 
-    // 🚀 OTIMIZAÇÃO DISK IO: Salvar apenas execuções críticas (90% menos INSERTs!)
-    const shouldSaveExecution = status === 'failed' || Math.random() < 0.1; // Apenas falhas + 10% sucessos
+    // 🚀 OTIMIZAÇÃO DISK IO: Logging opcional para não sobrecarregar banco
+    const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true'; // Desabilitado por padrão
+    const shouldSaveExecution = ENABLE_EXECUTION_LOGGING && (status === 'failed' || Math.random() < 0.05); // Apenas 5% se habilitado
     
     if (shouldSaveExecution) {
-      const { error: executionError } = await supabase
-        .from('webhook_executions')
-        .insert({
-          webhook_id: webhook.id,
-          company_id: companyId,
-          event_id: eventId,
-          status: status,
-          response_status: response.status,
-          response_body: responseText.length > 500 ? responseText.substring(0, 500) + '...' : responseText, // Reduzir payload
-          error_message: errorMessage
-        });
+      try {
+        const { error: executionError } = await supabase
+          .from('webhook_executions')
+          .insert({
+            webhook_id: webhook.id,
+            company_id: companyId,
+            event_id: eventId,
+            status: status,
+            response_status: response.status,
+            response_body: responseText.length > 300 ? responseText.substring(0, 300) + '...' : responseText, // Payload ainda menor
+            error_message: errorMessage?.length > 300 ? errorMessage.substring(0, 300) + '...' : errorMessage
+          });
 
-      if (executionError) {
-        console.error('❌ Erro ao salvar execução do webhook:', executionError);
-      } else {
-        // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
-        scheduleCleanup(companyId);
+        if (executionError) {
+          console.error('❌ Erro ao salvar execução do webhook:', executionError);
+        } else {
+          // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
+          scheduleCleanup(companyId);
+        }
+      } catch (dbError) {
+        // ✅ SILENCIOSO: Não quebrar POST por erro de logging
+        console.error('⚠️ Erro no logging (não crítico):', dbError);
       }
     }
 
@@ -1134,20 +1140,28 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
   } catch (error) {
     console.error(`❌ Erro ao executar webhook ${webhook.id}:`, error);
     
-    // 🚀 OTIMIZAÇÃO DISK IO: Falhas sempre são salvas (críticas para debug)
-    const { error: failedExecutionError } = await supabase
-      .from('webhook_executions')
-      .insert({
-        webhook_id: webhook.id,
-        company_id: companyId,
-        event_id: eventId,
-        status: 'failed',
-        error_message: error.message.length > 500 ? error.message.substring(0, 500) + '...' : error.message // Reduzir payload
-      });
+    // 🚀 OTIMIZAÇÃO DISK IO: Logging de falhas também opcional
+    const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true';
+    
+    if (ENABLE_EXECUTION_LOGGING) {
+      try {
+        const { error: failedExecutionError } = await supabase
+          .from('webhook_executions')
+          .insert({
+            webhook_id: webhook.id,
+            company_id: companyId,
+            event_id: eventId,
+            status: 'failed',
+            error_message: error.message.length > 300 ? error.message.substring(0, 300) + '...' : error.message
+          });
 
-    if (!failedExecutionError) {
-      // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
-      scheduleCleanup(companyId);
+        if (!failedExecutionError) {
+          scheduleCleanup(companyId);
+        }
+      } catch (dbError) {
+        // ✅ SILENCIOSO: Não quebrar por erro de logging
+        console.error('⚠️ Erro no logging de falha (não crítico):', dbError);
+      }
     }
 
     throw error;
