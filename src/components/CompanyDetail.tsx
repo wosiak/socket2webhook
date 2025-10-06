@@ -124,12 +124,9 @@ export function CompanyDetail({
     if (activeWebhooks.length === 0) return;
 
     try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { supabase } = await import('../utils/supabase/client');
       
-      if (supabaseUrl && supabaseKey) {
-        const supabase = createClient(supabaseUrl, supabaseKey);
+      if (supabase) {
         const webhookIds = activeWebhooks.map(w => w.id);
         console.log('🔄 Reativando webhooks:', webhookIds);
         

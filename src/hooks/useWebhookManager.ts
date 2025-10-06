@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { apiService } from '../services/api'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../utils/supabase/client'
 import { Company, Event, Webhook, Execution, Metrics, MostUsedEvent, SocketEvent } from '../types'
-
-// Cliente Supabase para busca direta
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 
 

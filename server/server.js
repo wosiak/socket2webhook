@@ -18,39 +18,74 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Função para manter apenas as 10 últimas execuções por empresa
-async function cleanupOldExecutions(companyId) {
+// 🚀 OTIMIZAÇÃO DISK IO: Cleanup em lote menos frequente
+const CLEANUP_BATCH = new Map(); // Acumular cleanups por empresa
+const CLEANUP_INTERVAL = 300000; // 5 minutos entre cleanups
+
+async function scheduleCleanup(companyId) {
+  // Só agendar se não há cleanup pendente
+  if (!CLEANUP_BATCH.has(companyId)) {
+    CLEANUP_BATCH.set(companyId, Date.now());
+    
+    // Executar cleanup em lote após 5 minutos
+    setTimeout(async () => {
+      await batchCleanupExecutions();
+    }, CLEANUP_INTERVAL);
+  }
+}
+
+async function batchCleanupExecutions() {
   try {
-    // Buscar todas as execuções da empresa, ordenadas por data (mais recentes primeiro)
-    const { data: executions, error } = await supabase
-      .from('webhook_executions')
-      .select('id, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-
+    const companies = Array.from(CLEANUP_BATCH.keys());
+    CLEANUP_BATCH.clear();
+    
+    if (companies.length === 0) return;
+    
+    console.log(`🧹 BATCH CLEANUP: Limpando execuções de ${companies.length} empresas...`);
+    
+    // 🚀 OTIMIZAÇÃO: DELETE direto com subquery (1 operação vs N operações)
+    const { error } = await supabase.rpc('cleanup_old_executions_batch', {
+      company_ids: companies,
+      keep_count: 10
+    });
+    
     if (error) {
-      console.error('❌ Erro ao buscar execuções para limpeza:', error);
-      return;
-    }
-
-    // Se temos mais de 10 execuções, deletar as mais antigas
-    if (executions && executions.length > 10) {
-      const executionsToDelete = executions.slice(10); // Pegar tudo além das 10 primeiras
-      const idsToDelete = executionsToDelete.map(exec => exec.id);
-
-      const { error: deleteError } = await supabase
-        .from('webhook_executions')
-        .delete()
-        .in('id', idsToDelete);
-
-      if (deleteError) {
-        console.error('❌ Erro ao deletar execuções antigas:', deleteError);
-      } else {
-        console.log(`🧹 Limpeza automática: ${idsToDelete.length} execuções antigas removidas para empresa ${companyId}`);
+      console.error('❌ Erro no batch cleanup:', error);
+      // Fallback para método individual se RPC falhar
+      for (const companyId of companies) {
+        await cleanupOldExecutionsIndividual(companyId);
       }
+    } else {
+      console.log(`✅ BATCH CLEANUP: ${companies.length} empresas processadas`);
     }
   } catch (error) {
-    console.error('❌ Erro na limpeza automática de execuções:', error);
+    console.error('❌ Erro no batch cleanup:', error);
+  }
+}
+
+// Fallback para cleanup individual (método antigo)
+async function cleanupOldExecutionsIndividual(companyId) {
+  try {
+    const { data: executions, error } = await supabase
+      .from('webhook_executions')
+      .select('id')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .range(10, 1000); // Pegar apenas IDs das execuções antigas
+
+    if (error || !executions || executions.length === 0) return;
+
+    const idsToDelete = executions.map(exec => exec.id);
+    const { error: deleteError } = await supabase
+      .from('webhook_executions')
+      .delete()
+      .in('id', idsToDelete);
+
+    if (!deleteError) {
+      console.log(`🧹 Cleanup individual: ${idsToDelete.length} execuções removidas para empresa ${companyId}`);
+    }
+  } catch (error) {
+    console.error('❌ Erro no cleanup individual:', error);
   }
 }
 
@@ -64,7 +99,7 @@ const postCache = new Map();
 const POST_CACHE_TTL = 3000; // 3 segundos - janela razoável para prevenir duplicatas
 const MAX_POST_CACHE_SIZE = 1000;
 
-// Fila de processamento sequencial para evitar race conditions  
+// Fila de processamento sequencial para evitar race conditions
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
 const processingTimestamps = new Map(); // Map de companyId -> timestamp (para timeout)
@@ -76,7 +111,7 @@ const MIN_REQUEST_INTERVAL = 100; // ✅ CORREÇÃO: 100ms para suportar 10 req/
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
-const WEBHOOK_CACHE_TTL = 10000; // 10 segundos
+const WEBHOOK_CACHE_TTL = 300000; // 🚀 OTIMIZAÇÃO: 5 minutos (era 10s) - reduzir consultas DB
 const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
 // Cache de eventos para deduplicação (ADICIONADO para corrigir ReferenceError)
@@ -551,7 +586,7 @@ async function connect3CPlusSocket(company, webhooks) {
         
         reject(error);
       });
-      
+
       // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
       socket.onAny(async (eventName, eventData) => {
         try {
@@ -738,7 +773,7 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     isProcessing.set(companyId, false);
     processingTimestamps.delete(companyId);
   }
-
+  
   // Iniciar processamento se não está processando
   if (!isProcessing.get(companyId)) {
     processEventQueue(companyId);
@@ -778,7 +813,7 @@ async function processEventQueue(companyId) {
         const waitTime = currentInterval - timeSinceLastExecution;
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
-      
+
       // Processar evento através dos webhooks (SEQUENCIAL)
       await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
       
@@ -1060,25 +1095,28 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const status = response.ok ? 'success' : 'failed';
     const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
 
-    // Salvar execução no banco  
-    const { error: executionError } = await supabase
-      .from('webhook_executions')
-      .insert({
-        webhook_id: webhook.id,
-        company_id: companyId,
-        event_id: eventId,
-        status: status,
-        response_status: response.status,
-        response_body: responseText.length > 1000 ? responseText.substring(0, 1000) + '...' : responseText,
-        error_message: errorMessage
-      });
+    // 🚀 OTIMIZAÇÃO DISK IO: Salvar apenas execuções críticas (90% menos INSERTs!)
+    const shouldSaveExecution = status === 'failed' || Math.random() < 0.1; // Apenas falhas + 10% sucessos
+    
+    if (shouldSaveExecution) {
+      const { error: executionError } = await supabase
+        .from('webhook_executions')
+        .insert({
+          webhook_id: webhook.id,
+          company_id: companyId,
+          event_id: eventId,
+          status: status,
+          response_status: response.status,
+          response_body: responseText.length > 500 ? responseText.substring(0, 500) + '...' : responseText, // Reduzir payload
+          error_message: errorMessage
+        });
 
-    if (executionError) {
-      console.error('❌ Erro ao salvar execução do webhook:', executionError);
-    } else {
-      // ✅ LIMPO: Removido log de database write (muito verboso)
-      // Executar limpeza automática para manter apenas 10 execuções por empresa
-      await cleanupOldExecutions(companyId);
+      if (executionError) {
+        console.error('❌ Erro ao salvar execução do webhook:', executionError);
+      } else {
+        // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
+        scheduleCleanup(companyId);
+      }
     }
 
     // ✅ LOG ESSENCIAL: Apenas falhas são importantes
@@ -1096,7 +1134,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
   } catch (error) {
     console.error(`❌ Erro ao executar webhook ${webhook.id}:`, error);
     
-    // Salvar execução com falha
+    // 🚀 OTIMIZAÇÃO DISK IO: Falhas sempre são salvas (críticas para debug)
     const { error: failedExecutionError } = await supabase
       .from('webhook_executions')
       .insert({
@@ -1104,12 +1142,12 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
         company_id: companyId,
         event_id: eventId,
         status: 'failed',
-        error_message: error.message
+        error_message: error.message.length > 500 ? error.message.substring(0, 500) + '...' : error.message // Reduzir payload
       });
 
     if (!failedExecutionError) {
-      // Executar limpeza automática para manter apenas 10 execuções por empresa
-      await cleanupOldExecutions(companyId);
+      // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
+      scheduleCleanup(companyId);
     }
 
     throw error;

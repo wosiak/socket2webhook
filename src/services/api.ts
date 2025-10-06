@@ -1,4 +1,3 @@
-import { createClient } from '@supabase/supabase-js'
 import type { 
   User, 
   AuthSession, 
@@ -7,13 +6,7 @@ import type {
   UpdateUserPayload,
   UserRole
 } from '../types'
-
-// Use environment variables for API configuration
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-// Create Supabase client
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+import { supabase } from '../utils/supabase/client'
 
 class ApiService {
   // Health check
@@ -966,7 +959,7 @@ class ApiService {
         .update({ last_used_at: new Date().toISOString() })
         .eq('token', token)
       
-      return { success: true, data: data.user as User }
+      return { success: true, data: data.user as unknown as User }
     } catch (error) {
       console.error('❌ Erro ao validar sessão:', error)
       return { success: false, error: 'Erro ao validar sessão' }
