@@ -379,6 +379,56 @@ app.post('/reconnect/:companyId', async (req, res) => {
   }
 });
 
+// 🔍 ENDPOINT DE DEBUG: Verificar dados da empresa
+app.get('/debug-company/:companyName', async (req, res) => {
+  const { companyName } = req.params;
+  
+  try {
+    console.log(`🔍 DEBUG: Verificando dados da empresa ${companyName}`);
+    
+    const { data: company, error } = await supabase
+      .from('companies')
+      .select('id, name, cluster_type, api_token, status')
+      .eq('name', companyName)
+      .single();
+    
+    if (error) {
+      console.log(`❌ Erro ao buscar empresa ${companyName}:`, error.message);
+      return res.status(404).json({ 
+        success: false, 
+        error: error.message,
+        company: companyName
+      });
+    }
+    
+    console.log(`✅ Empresa ${companyName} encontrada:`, {
+      id: company.id,
+      name: company.name,
+      cluster_type: company.cluster_type,
+      token_preview: company.api_token?.substring(0, 10) + '...',
+      status: company.status
+    });
+    
+    res.json({ 
+      success: true, 
+      company: {
+        id: company.id,
+        name: company.name,
+        cluster_type: company.cluster_type,
+        token_preview: company.api_token?.substring(0, 10) + '...',
+        status: company.status
+      }
+    });
+    
+  } catch (error) {
+    console.error(`🚨 Erro no debug da empresa ${companyName}:`, error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // 🧪 ENDPOINT DE TESTE: Testar conectividade com clusters
 app.get('/test-cluster/:clusterType', async (req, res) => {
   const { clusterType } = req.params;
