@@ -379,6 +379,131 @@ app.post('/reconnect/:companyId', async (req, res) => {
   }
 });
 
+// 🧪 ENDPOINT DE TESTE: Testar conectividade com clusters
+app.get('/test-cluster/:clusterType', async (req, res) => {
+  const { clusterType } = req.params;
+  
+  try {
+    console.log(`🧪 TESTE: Testando conectividade com ${clusterType}`);
+    
+    if (!['cluster1', 'cluster2'].includes(clusterType)) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cluster deve ser cluster1 ou cluster2' 
+      });
+    }
+    
+    const socketUrl = CLUSTER_URLS[clusterType];
+    console.log(`🧪 TESTE: URL do cluster ${clusterType}: ${socketUrl}`);
+    
+    // Teste básico de conectividade (sem token real)
+    const testSocket = io(socketUrl, {
+      query: { token: 'test-token' },
+      transports: ['websocket'],
+      timeout: 5000,
+      forceNew: true
+    });
+    
+    const testResult = await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        testSocket.disconnect();
+        resolve({
+          success: false,
+          error: 'Timeout - não conseguiu conectar em 5 segundos',
+          cluster: clusterType,
+          url: socketUrl
+        });
+      }, 5000);
+      
+      testSocket.on('connect', () => {
+        clearTimeout(timeout);
+        testSocket.disconnect();
+        resolve({
+          success: true,
+          message: 'Conectividade OK',
+          cluster: clusterType,
+          url: socketUrl
+        });
+      });
+      
+      testSocket.on('connect_error', (error) => {
+        clearTimeout(timeout);
+        testSocket.disconnect();
+        resolve({
+          success: false,
+          error: error.message,
+          cluster: clusterType,
+          url: socketUrl
+        });
+      });
+    });
+    
+    console.log(`🧪 TESTE RESULTADO:`, testResult);
+    res.json(testResult);
+    
+  } catch (error) {
+    console.error(`🧪 TESTE ERRO:`, error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      cluster: clusterType
+    });
+  }
+});
+
+// 🛡️ ENDPOINT DE VERIFICAÇÃO: Verificar compatibilidade de empresas existentes
+app.get('/verify-compatibility', async (req, res) => {
+  try {
+    console.log(`🛡️ VERIFICAÇÃO: Testando compatibilidade de empresas existentes`);
+    
+    // Buscar todas as empresas
+    const { data: companies, error } = await supabase
+      .from('companies')
+      .select('id, name, cluster_type, created_at')
+      .order('created_at', { ascending: true });
+    
+    if (error) throw error;
+    
+    const results = companies.map(company => {
+      const clusterType = company.cluster_type || 'cluster1'; // Fallback
+      const socketUrl = CLUSTER_URLS[clusterType];
+      
+      return {
+        id: company.id,
+        name: company.name,
+        cluster_type_db: company.cluster_type,
+        cluster_type_resolved: clusterType,
+        socket_url: socketUrl,
+        is_legacy: !company.cluster_type, // Empresa criada antes da feature
+        created_at: company.created_at
+      };
+    });
+    
+    const summary = {
+      total_companies: companies.length,
+      legacy_companies: results.filter(r => r.is_legacy).length,
+      cluster1_companies: results.filter(r => r.cluster_type_resolved === 'cluster1').length,
+      cluster2_companies: results.filter(r => r.cluster_type_resolved === 'cluster2').length
+    };
+    
+    console.log(`🛡️ VERIFICAÇÃO RESULTADO:`, summary);
+    
+    res.json({
+      success: true,
+      summary,
+      companies: results,
+      message: 'Todas as empresas têm cluster válido (fallback para cluster1 quando necessário)'
+    });
+    
+  } catch (error) {
+    console.error(`🛡️ VERIFICAÇÃO ERRO:`, error);
+    res.status(500).json({ 
+      success: false, 
+      error: error.message 
+    });
+  }
+});
+
 // Endpoint para forçar reconexão completa (usado pelo keepalive)
 app.post('/force-reconnect', async (req, res) => {
   try {
@@ -407,7 +532,7 @@ async function connectCompany(companyId) {
   try {
     console.log(`🔌 Conectando empresa: ${companyId}`);
     
-    // Buscar dados da empresa
+    // Buscar dados da empresa (incluindo cluster_type)
     const { data: company, error: companyError } = await supabase
       .from('companies')
       .select('*')
@@ -475,6 +600,12 @@ async function connectCompany(companyId) {
   }
 }
 
+// 🚀 NOVO: Mapeamento de clusters para URLs
+const CLUSTER_URLS = {
+  cluster1: 'https://socket.3c.plus',
+  cluster2: 'https://new-socket.3cplus.com.br'
+};
+
 // Conectar ao socket 3C Plus
 async function connect3CPlusSocket(company, webhooks) {
   return new Promise((resolve, reject) => {
@@ -496,9 +627,16 @@ async function connect3CPlusSocket(company, webhooks) {
       // 🔒 ATIVAR LOCK
       connectionLocks.set(company.id, true);
       
-      console.log(`🔌 Estabelecendo conexão WebSocket para empresa: ${company.name}`);
+      // 🚀 NOVO: Determinar URL do cluster
+      const clusterType = company.cluster_type || 'cluster1'; // Padrão cluster1 para compatibilidade
+      const socketUrl = CLUSTER_URLS[clusterType];
       
-      const socket = io('https://socket.3c.plus', {
+      console.log(`🔌 Estabelecendo conexão WebSocket para empresa: ${company.name}`);
+      console.log(`   📍 Cluster: ${clusterType}`);
+      console.log(`   🌐 URL: ${socketUrl}`);
+      console.log(`   🔑 Token: ${company.api_token.substring(0, 10)}...`);
+      
+      const socket = io(socketUrl, {
         query: { token: company.api_token },
         transports: ['websocket'],
         reconnection: true,
@@ -1256,11 +1394,11 @@ async function connectAllActiveCompanies() {
   try {
     console.log('🚀 Conectando todas as empresas ativas...');
     
-    // Buscar empresas com webhooks ativos
+    // Buscar empresas com webhooks ativos (incluindo cluster_type)
     const { data: companies, error } = await supabase
       .from('companies')
       .select(`
-        id, name, api_token, status,
+        id, name, api_token, status, cluster_type,
         webhooks!inner(status)
       `)
       .eq('status', 'active')

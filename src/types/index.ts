@@ -4,6 +4,7 @@ export interface Company {
   name: string;
   api_token: string;
   status: 'active' | 'inactive';
+  cluster_type: 'cluster1' | 'cluster2'; // 🚀 NOVO: Seleção de cluster
   created_at: string;
   updated_at: string;
 }

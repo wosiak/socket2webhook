@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Badge } from './ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
@@ -2447,18 +2446,15 @@ export function InteractiveEventFilter({
     
     if (fieldType === 'boolean') {
       return (
-        <Select
+        <select
           value={selectedValue?.toString() || ''}
-          onValueChange={(value) => setSelectedValue(value === 'true')}
+          onChange={(e) => setSelectedValue(e.target.value === 'true')}
+          className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione..." />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="true">Verdadeiro</SelectItem>
-            <SelectItem value="false">Falso</SelectItem>
-          </SelectContent>
-        </Select>
+          <option value="">Selecione...</option>
+          <option value="true">Verdadeiro</option>
+          <option value="false">Falso</option>
+        </select>
       );
     }
 

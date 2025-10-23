@@ -58,6 +58,7 @@ class ApiService {
     company_3c_id: string
     api_token: string
     status?: string
+    cluster_type?: 'cluster1' | 'cluster2' // 🚀 NOVO: Suporte a cluster
   }) {
     try {
       console.log('Creating company with data:', company)
@@ -69,6 +70,7 @@ class ApiService {
           company_3c_id: company.company_3c_id,
           api_token: company.api_token,
           status: company.status || 'active',
+          cluster_type: company.cluster_type || 'cluster1', // 🚀 PADRÃO: cluster1 para compatibilidade
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -90,6 +92,7 @@ class ApiService {
     company_3c_id: string
     api_token: string
     status: string
+    cluster_type: 'cluster1' | 'cluster2' // 🚀 NOVO: Suporte a cluster
   }>) {
     try {
       const { data, error } = await supabase
