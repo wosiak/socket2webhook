@@ -421,47 +421,47 @@ const SAMPLE_EVENT_BODIES = {
       "contact": {
         "id": 1,
         "name": "Nome do Contato",
-        "name_alias": null,
+        "name_alias": "Nome do Contato",
         "image": null,
         "is_blocked": false,
         "company_id": 1,
-        "number": "5542999998888"
+        "number": "5542998359999"
       },
-      "instance_id": "abc123",
+      "instance_id": "Abc123",
       "instance": {
-        "id": "abc123",
-        "name": "Grupo de Canal",
-        "team_id": 1,
+        "id": "Abc123",
+        "name": "Automação / Integração",
+        "team_id": 7649,
         "company_id": 1,
-        "group_channel_id": 1,
+        "group_channel_id": 3777,
         "open_ai": false,
         "status": "connected",
         "first_connection": false,
         "type": "z-api",
-        "phone": "5542900000000"
+        "phone": "554299959999"
       },
-      "number": "5542999998888",
-      "team_id": 1,
-      "last_message": "Última mensagem",
+      "number": "5542998359999",
+      "team_id": 7649,
+      "last_message": "teste",
       "last_message_data": {
-        "body": "Última mensagem",
+        "body": "teste",
         "type": "chat",
-        "date": 1756154712,
+        "date": 1761325688,
         "send_by_me": true
       },
       "internal_message": {
-        "client_initiated_chat": false,
-        "agent_name": "Nome do Agente",
-        "message": "Conversa aceita por: Nome do Agente"
+        "client_initiated_chat": true,
+        "agent_name": "Wosiak - 1",
+        "message": "Conversa aceita por: Wosiak - 1 - 24-10-2025 14:08:06"
       },
       "company_id": 1,
-      "agent_id": 1,
+      "agent_id": 114885,
       "agent": {
-        "id": 1,
-        "name": "Nome do Agente",
+        "id": 114885,
+        "name": "Wosiak - 1",
         "extension": {
-          "id": 1,
-          "extension_number": 1,
+          "id": 158898,
+          "extension_number": 11,
           "type": "user",
           "company_id": 1,
           "created_at": "2024-08-29 13:20:32",
@@ -473,24 +473,24 @@ const SAMPLE_EVENT_BODIES = {
           "created_at": "2018-06-28 11:58:40",
           "updated_at": "2018-06-28 11:58:40",
           "pivot": {
-            "user_id": 1,
+            "user_id": 114885,
             "role_id": 3
           }
         },
         "teams": [
           {
-            "id": 1,
+            "id": 7649,
             "name": "Equipe 1",
             "color": "#111111",
             "company_id": 1,
             "created_at": "2024-08-29 13:23:30",
             "updated_at": "2024-08-29 13:41:27",
             "whatsapp": true,
-            "qualification_list_id": 1,
+            "qualification_list_id": 14850,
             "whatsapp_quick_message_list_id": null,
             "pivot": {
-              "user_id": 1,
-              "team_id": 1
+              "user_id": 114885,
+              "team_id": 7649
             }
           }
         ]
@@ -504,10 +504,10 @@ const SAMPLE_EVENT_BODIES = {
       "allow_all_agents": false,
       "is_read_only": false,
       "time": null,
-      "oldest_unanswered_message_date": 1756154712,
+      "oldest_unanswered_message_date": 1761325688,
       "is_group": false,
-      "most_older_unanswered_message": 1756154712,
-      "most_older_received_message": 1756154713,
+      "most_older_unanswered_message": 1761325688,
+      "most_older_received_message": 1761325688,
       "transferred": false,
       "transfered_from_group_channel_id": null,
       "lag_to_response": {
@@ -531,47 +531,72 @@ const SAMPLE_EVENT_BODIES = {
         "last_action_id": null,
         "start_chatbot": null
       },
-      "updated_at": "2025-08-25T20:45:12.000000Z",
-      "created_at": "2025-06-25T12:18:33.000000Z",
-      "end_snooze": 1756154713,
+      "updated_at": "2025-10-24T17:08:08.000000Z",
+      "created_at": "2025-10-14T16:57:49.000000Z",
+      "end_snooze": 1761325688,
       "in_snooze": false,
       "message_from": null,
-      "contact_tags": [],
+      "contact_tags": [
+        {
+          "id": 8678,
+          "name": "Ajuste",
+          "color": "#E8E8E8",
+          "company_id": 1,
+          "created_at": "2025-10-24 13:04:25",
+          "updated_at": "2025-10-24 13:04:25",
+          "pivot": {
+            "contact_id": 1,
+            "tag_id": 8678
+          }
+        },
+        {
+          "id": 8637,
+          "name": "Desenvolvimento",
+          "color": "#FFF6BF",
+          "company_id": 1,
+          "created_at": "2025-10-23 11:51:01",
+          "updated_at": "2025-10-23 11:51:01",
+          "pivot": {
+            "contact_id": 1,
+            "tag_id": 8637
+          }
+        }
+      ],
       "color": "#111111",
       "mood": null,
       "by_active_ivr": false,
       "is_trigger_chat": false,
       "messages": [],
-      "from_trigger": false
+      "from_trigger": true
     },
     "message": {
-      "id": "3EB004DDC77FC568253409",
-      "internal_id": "true_5542998256599@c_3777_1756154712_65b5d4e8-81f4-11f0-992d-de2f8e2714f4",
-      "message_from": "Nome do Agente",
-      "number": "5542999998888",
+      "id": "3EB0EF5EE1173528C097BE",
+      "internal_id": "true_5542998359225@c_3777_1761325688_03523526-b0fc-11f0-9249-6e0fe047d31c",
+      "message_from": "Wosiak - 1",
+      "number": "5542998359225",
       "type": "chat",
-      "body": "Mensagem aqui",
-      "instance_id": "abc123",
+      "body": "teste",
+      "instance_id": "Abc123",
       "instance": {
-        "id": "abc123",
-        "name": "Nome do Grupo de Canal",
-        "team_id": 1,
+        "id": "Abc123",
+        "name": "Automação / Integração",
+        "team_id": 7649,
         "company_id": 1,
-        "group_channel_id": 1,
+        "group_channel_id": 3777,
         "open_ai": false,
         "status": "connected",
         "first_connection": false,
         "type": "z-api",
-        "phone": "5542900000000"
+        "phone": "554299958417"
       },
       "chat_id": 1,
       "agent_id": 1,
       "agent": {
-        "id": 1,
-        "name": "Nome do Agente",
+        "id": 114885,
+        "name": "Wosiak - 1",
         "extension": {
-          "id": 1,
-          "extension_number": 1,
+          "id": 158898,
+          "extension_number": 11,
           "type": "user",
           "company_id": 1,
           "created_at": "2024-08-29 13:20:32",
@@ -583,13 +608,13 @@ const SAMPLE_EVENT_BODIES = {
           "created_at": "2018-06-28 11:58:40",
           "updated_at": "2018-06-28 11:58:40",
           "pivot": {
-            "user_id": 1,
+            "user_id": 114885,
             "role_id": 3
           }
         },
         "teams": [
           {
-            "id": 1,
+            "id": 7649,
             "name": "Equipe 1",
             "color": "#111111",
             "company_id": 1,
@@ -599,18 +624,18 @@ const SAMPLE_EVENT_BODIES = {
             "qualification_list_id": 14850,
             "whatsapp_quick_message_list_id": null,
             "pivot": {
-              "user_id": 1,
-              "team_id": 1
+              "user_id": 114885,
+              "team_id": 7649
             }
           }
         ]
       },
-      "time_whatsapp": 1756154712,
-      "time": 1756154712,
+      "time_whatsapp": 1761325688,
+      "time": 1761325688,
       "audio_transcription": null,
-      "from": "5542900000000",
-      "to": "5542999998888",
-      "author": "Nome do Agente",
+      "from": "554299958417",
+      "to": "5542998359999",
+      "author": "Wosiak - 1",
       "ack": null,
       "media": null,
       "media_name": null,
@@ -633,7 +658,7 @@ const SAMPLE_EVENT_BODIES = {
       "waba_template_data": null,
       "inter_message_data": null,
       "internal": false,
-      "index_order": 8,
+      "index_order": 406,
       "is_deleted_at": null,
       "context": "historic",
       "page": null,
