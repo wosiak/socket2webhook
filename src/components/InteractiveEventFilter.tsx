@@ -2614,21 +2614,17 @@ export function InteractiveEventFilter({
 
                     <div>
                       <Label className="text-xs">Operador</Label>
-                      <Select
+                      <select
                         value={operator}
-                        onValueChange={setOperator}
+                        onChange={(e) => setOperator(e.target.value)}
+                        className="h-8 text-xs bg-white border border-input rounded-md px-3 py-2 hover:border-blue-500 hover:text-blue-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       >
-                        <SelectTrigger className="h-8 text-xs bg-white hover:border-blue-500 hover:text-blue-600 transition-colors duration-200">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="z-[9999] max-h-[200px] overflow-y-auto bg-white border border-gray-200 shadow-lg">
-                          {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value} className="text-xs hover:bg-blue-100 hover:text-blue-700 focus:bg-blue-100 focus:text-blue-700 transition-colors duration-200 cursor-pointer">
-                              {label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {Object.entries(OPERATOR_LABELS).map(([value, label]) => (
+                          <option key={value} value={value}>
+                            {label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
 
                     <div>
