@@ -560,7 +560,7 @@ app.post('/force-reconnect', async (req, res) => {
     console.log(`🔄 Forçando reconexão completa de todas as empresas ativas...`);
     
     // Reconectar todas as empresas com webhooks ativos
-    await connectAllActiveCompanies();
+    await connectAllActiveCompanies({ force: true });
     
     const connectedCompanies = Array.from(activeConnections.keys());
     
@@ -578,10 +578,21 @@ app.post('/force-reconnect', async (req, res) => {
 });
 
 // Conectar empresa específica
-async function connectCompany(companyId) {
+async function connectCompany(companyId, options = {}) {
+  const { force = false } = options;
   try {
     console.log(`🔌 Conectando empresa: ${companyId}`);
     
+    // Verificar se já existe uma conexão ativa para evitar reconexões desnecessárias
+    const existingConnection = activeConnections.get(companyId);
+    const existingSocket = socketInstances.get(companyId);
+
+    if (!force && existingSocket && existingSocket.connected) {
+      const companyName = existingConnection?.company?.name || companyId;
+      console.log(`✅ Empresa ${companyName} já está conectada - ignorando nova tentativa`);
+      return;
+    }
+
     // Buscar dados da empresa (incluindo cluster_type)
     const { data: company, error: companyError } = await supabase
       .from('companies')
@@ -729,7 +740,13 @@ async function connect3CPlusSocket(company, webhooks) {
       }, 30000);
 
       socket.on('disconnect', (reason) => {
-        console.log(`🚨 CRÍTICO: Socket desconectado ${company.name}: ${reason} - TENTANDO RECONECTAR!`);
+        const isManualDisconnect = reason === 'io client disconnect' || reason === 'client namespace disconnect';
+        const logLabel = isManualDisconnect ? 'ℹ️ MANUAL' : '🚨 CRÍTICO';
+        const logMessage = isManualDisconnect
+          ? `${logLabel}: Socket desconectado manualmente ${company.name}: ${reason}`
+          : `${logLabel}: Socket desconectado ${company.name}: ${reason} - TENTANDO RECONECTAR!`;
+
+        console.log(logMessage);
         
         // 🧹 LIMPAR HEARTBEAT (único lugar)
         clearInterval(heartbeatInterval);
@@ -741,6 +758,10 @@ async function connect3CPlusSocket(company, webhooks) {
           connection.lastActivity = new Date().toISOString();
           connection.disconnectReason = reason;
           connection.lastDisconnect = new Date().toISOString();
+        }
+
+        if (isManualDisconnect) {
+          return; // Reconexão será gerenciada manualmente
         }
         
         // 🛡️ RECONEXÃO AUTOMÁTICA IMEDIATA (apenas se não há reconexão em andamento)
@@ -1440,7 +1461,8 @@ async function disconnectCompany(companyId) {
 }
 
 // Conectar todas as empresas ativas
-async function connectAllActiveCompanies() {
+async function connectAllActiveCompanies(options = {}) {
+  const { force = false } = options;
   try {
     console.log('🚀 Conectando todas as empresas ativas...');
     
@@ -1467,7 +1489,7 @@ async function connectAllActiveCompanies() {
 
     // Conectar cada empresa
     const results = await Promise.allSettled(
-      companies.map(company => connectCompany(company.id))
+      companies.map(company => connectCompany(company.id, { force }))
     );
 
     const successful = results.filter(r => r.status === 'fulfilled').length;
