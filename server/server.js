@@ -116,8 +116,221 @@ const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
 // Cache de eventos para deduplicação (ADICIONADO para corrigir ReferenceError)
 const eventCache = new Map();
-const CACHE_TTL = 300000; // 5 minutos
-const MAX_CACHE_SIZE = 500;
+const EVENT_CACHE_TTL = 5000; // 5 segundos - evita reprocessar eventos idênticos
+const MAX_EVENT_CACHE_SIZE = 2000;
+
+const IDENTIFIER_KEYS_PRIORITY = [
+  'uuid',
+  'unique_id',
+  'uniqueId',
+  'event_uuid',
+  'eventUuid',
+  'event_id',
+  'eventId',
+  'message_uuid',
+  'messageUuid',
+  'message_id',
+  'messageId',
+  'message_key',
+  'messageKey',
+  'call_history_id',
+  'call_history_uuid',
+  'callHistoryId',
+  'callHistoryUuid',
+  'call_id',
+  'callId',
+  'history_id',
+  'historyId',
+  'conversation_id',
+  'conversationId',
+  'protocol_number',
+  'protocolNumber',
+  'ticket_id',
+  'ticketId',
+  'whatsapp_id',
+  'whatsappId',
+  'record_id',
+  'recordId',
+  'interaction_id',
+  'interactionId',
+  'id'
+];
+
+const IDENTIFIER_IGNORE_SEGMENTS = [
+  'company',
+  'agent',
+  'team',
+  'queue',
+  'user',
+  'instance',
+  'integration',
+  'webhook',
+  'contact',
+  'department',
+  'sector'
+];
+
+function shouldUseIdentifier(key, path) {
+  const lowerKey = key.toLowerCase();
+  const lowerPath = (path || '').toLowerCase();
+
+  if (IDENTIFIER_IGNORE_SEGMENTS.some(segment => lowerKey.includes(segment))) {
+    return false;
+  }
+
+  if (lowerPath && IDENTIFIER_IGNORE_SEGMENTS.some(segment => lowerPath.includes(segment))) {
+    return false;
+  }
+
+  return true;
+}
+
+function normalizeIdentifierValue(value) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim();
+  }
+
+  if (typeof value === 'number' || typeof value === 'bigint') {
+    return value.toString();
+  }
+
+  if (typeof value === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+
+  return null;
+}
+
+function findIdentifierValue(payload, depth = 0, visited = new Set(), path = '') {
+  if (!payload || typeof payload !== 'object' || depth > 6) {
+    return null;
+  }
+
+  if (visited.has(payload)) {
+    return null;
+  }
+
+  visited.add(payload);
+
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const result = findIdentifierValue(item, depth + 1, visited, path);
+      if (result) {
+        return result;
+      }
+    }
+    return null;
+  }
+
+  for (const identifierKey of IDENTIFIER_KEYS_PRIORITY) {
+    if (!Object.prototype.hasOwnProperty.call(payload, identifierKey)) {
+      continue;
+    }
+
+    const currentPath = path ? `${path}.${identifierKey}` : identifierKey;
+
+    if (!shouldUseIdentifier(identifierKey, currentPath)) {
+      continue;
+    }
+
+    const candidateValue = normalizeIdentifierValue(payload[identifierKey]);
+
+    if (candidateValue) {
+      return { key: identifierKey, value: candidateValue };
+    }
+  }
+
+  for (const key of Object.keys(payload)) {
+    const value = payload[key];
+
+    if (!value || typeof value !== 'object') {
+      continue;
+    }
+
+    const nextPath = path ? `${path}.${key}` : key;
+    const nestedResult = findIdentifierValue(value, depth + 1, visited, nextPath);
+
+    if (nestedResult) {
+      return nestedResult;
+    }
+  }
+
+  return null;
+}
+
+function sortObject(input) {
+  if (Array.isArray(input)) {
+    return input.map(sortObject);
+  }
+
+  if (input && typeof input === 'object') {
+    const sortedKeys = Object.keys(input).sort();
+    const result = {};
+
+    for (const key of sortedKeys) {
+      result[key] = sortObject(input[key]);
+    }
+
+    return result;
+  }
+
+  return input;
+}
+
+function generateEventFingerprint(companyId, eventName, eventData) {
+  if (!eventData || typeof eventData !== 'object') {
+    return null;
+  }
+
+  try {
+    const identifier = findIdentifierValue(eventData);
+    const parts = [String(companyId), String(eventName)];
+
+    if (identifier) {
+      const identifierPart = `${identifier.key}:${identifier.value}`;
+      parts.push(identifierPart);
+      return {
+        fingerprint: parts.join('|'),
+        identifier: identifierPart
+      };
+    }
+
+    const normalizedPayload = JSON.stringify(sortObject(eventData));
+
+    if (!normalizedPayload) {
+      return null;
+    }
+
+    const hash = crypto.createHash('sha1').update(normalizedPayload).digest('hex');
+    parts.push(hash);
+
+    return {
+      fingerprint: parts.join('|'),
+      identifier: `hash:${hash.slice(0, 12)}`
+    };
+  } catch (error) {
+    console.error('Erro ao gerar fingerprint do evento:', error);
+    return null;
+  }
+}
+
+function trimEventCacheIfNeeded() {
+  if (eventCache.size <= MAX_EVENT_CACHE_SIZE) {
+    return;
+  }
+
+  const entries = Array.from(eventCache.entries()).sort((a, b) => a[1].timestamp - b[1].timestamp);
+  const excess = eventCache.size - MAX_EVENT_CACHE_SIZE;
+
+  for (let index = 0; index < excess; index += 1) {
+    const [keyToDelete] = entries[index];
+    eventCache.delete(keyToDelete);
+  }
+}
 
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
@@ -205,7 +418,7 @@ app.get('/cache-stats', (req, res) => {
   
   // Estatísticas do cache de eventos
   for (const [key, value] of eventCache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
+    if (now - value.timestamp > EVENT_CACHE_TTL) {
       expiredEvents++;
     } else {
       validEvents++;
@@ -226,7 +439,7 @@ app.get('/cache-stats', (req, res) => {
       total: eventCache.size,
       valid: validEvents,
       expired: expiredEvents,
-      ttl_seconds: CACHE_TTL / 1000
+      ttl_seconds: EVENT_CACHE_TTL / 1000
     },
     webhook_cache: {
       total: activeWebhooksCache.size,
@@ -878,7 +1091,7 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
 function cleanupMemory() {
   try {
     // 1. Limpar cache de eventos quando necessário
-    if (eventCache.size > MAX_CACHE_SIZE * 0.8) { // 80% do limite em vez de 50%
+    if (eventCache.size > MAX_EVENT_CACHE_SIZE * 0.8) { // 80% do limite em vez de 50%
       const entries = Array.from(eventCache.entries());
       entries.sort((a, b) => a[1].timestamp - b[1].timestamp); // Mais antigos primeiro
       
@@ -944,6 +1157,31 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   }
   
   const queue = processingQueue.get(companyId);
+
+  // Deduplicação de eventos na origem para evitar POSTs múltiplos
+  const fingerprintInfo = generateEventFingerprint(companyId, eventName, eventData);
+
+  if (fingerprintInfo) {
+    const now = Date.now();
+    const cachedEvent = eventCache.get(fingerprintInfo.fingerprint);
+
+    if (cachedEvent) {
+      if (now - cachedEvent.timestamp < EVENT_CACHE_TTL) {
+        console.log(`Duplicate event ignorado para ${companyName} (${eventName}) - ${fingerprintInfo.identifier}`);
+        return;
+      }
+
+      eventCache.delete(fingerprintInfo.fingerprint);
+    }
+
+    eventCache.set(fingerprintInfo.fingerprint, {
+      timestamp: now,
+      identifier: fingerprintInfo.identifier,
+      eventName
+    });
+
+    trimEventCacheIfNeeded();
+  }
   
   // ✅ PROTEÇÃO: Só alertar quando fila fica muito grande, MAS NUNCA REMOVER
   if (queue.length >= MAX_QUEUE_SIZE * 0.8) { // 80% = 800 eventos
@@ -1049,6 +1287,7 @@ async function processEventQueue(companyId) {
 function cleanupCaches() {
   const now = Date.now();
   let expiredPosts = 0;
+  let expiredEvents = 0;
   let expiredWebhooks = 0;
   
   // Limpar cache de POSTs expirados
@@ -1059,6 +1298,14 @@ function cleanupCaches() {
     }
   }
   
+  // Limpar cache de eventos expirados
+  for (const [key, value] of eventCache.entries()) {
+    if (now - value.timestamp > EVENT_CACHE_TTL) {
+      eventCache.delete(key);
+      expiredEvents++;
+    }
+  }
+
   // Limpar cache de webhooks expirados
   for (const [key, value] of activeWebhooksCache.entries()) {
     if (now - value.timestamp > WEBHOOK_CACHE_TTL) {
@@ -1067,8 +1314,8 @@ function cleanupCaches() {
     }
   }
   
-  if (expiredPosts > 0 || expiredWebhooks > 0) {
-    console.log(`🧹 Cache limpo: ${expiredPosts} POSTs e ${expiredWebhooks} webhooks expirados removidos`);
+  if (expiredPosts > 0 || expiredEvents > 0 || expiredWebhooks > 0) {
+    console.log(`🧹 Cache limpo: ${expiredPosts} POSTs, ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
   }
 }
 
