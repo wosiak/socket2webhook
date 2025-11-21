@@ -95,7 +95,122 @@ const socketInstances = new Map();
 const connectionLocks = new Map(); // Previne múltiplas conexões simultâneas
 const eventListeners = new Map(); // Map de companyId -> Map de eventName -> handler function
 
-// Cache para deduplicação de POSTs (evitar POSTs duplicados do mesmo webhook+evento)
+// 🚀 NOVO: Classe simples para garantir um POST por evento
+class EventPostGuard {
+  constructor() {
+    this.processedEvents = new Map(); // Map de chave -> timestamp
+    this.TTL = 10000; // 10 segundos - janela para considerar duplicado
+    this.MAX_SIZE = 5000; // Máximo de eventos rastreados
+  }
+
+  /**
+   * Gera chave única para um evento
+   * Usa: webhookId + eventName + identificador único do evento (uuid, id, etc)
+   */
+  generateKey(webhookId, eventName, eventData) {
+    // Tentar encontrar identificador único no evento
+    const identifier = this.findEventIdentifier(eventData);
+    
+    // Se não encontrar identificador, usar hash do payload completo
+    if (!identifier) {
+      const payloadStr = JSON.stringify(eventData);
+      const hash = crypto.createHash('md5').update(payloadStr).digest('hex').substring(0, 16);
+      return `${webhookId}:${eventName}:hash:${hash}`;
+    }
+    
+    return `${webhookId}:${eventName}:${identifier}`;
+  }
+
+  /**
+   * Busca identificador único no evento (uuid, id, etc)
+   */
+  findEventIdentifier(eventData, depth = 0) {
+    if (!eventData || typeof eventData !== 'object' || depth > 4) {
+      return null;
+    }
+
+    // Prioridade: uuid > id > unique_id
+    const priorityKeys = ['uuid', 'id', 'unique_id', 'uniqueId', 'event_uuid', 'event_id', 'message_id', 'call_id'];
+    
+    for (const key of priorityKeys) {
+      if (eventData[key] !== undefined && eventData[key] !== null) {
+        return String(eventData[key]);
+      }
+    }
+
+    // Buscar recursivamente em objetos aninhados
+    for (const value of Object.values(eventData)) {
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const nested = this.findEventIdentifier(value, depth + 1);
+        if (nested) return nested;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Verifica se evento já foi processado (sem marcar)
+   * Retorna true se deve processar, false se é duplicado
+   */
+  shouldProcess(webhookId, eventName, eventData) {
+    const key = this.generateKey(webhookId, eventName, eventData);
+    const now = Date.now();
+    
+    // Verificar se já foi processado recentemente
+    const existing = this.processedEvents.get(key);
+    if (existing && (now - existing) < this.TTL) {
+      return false; // Duplicado - não processar
+    }
+    
+    return true; // Novo evento - processar
+  }
+
+  /**
+   * Marca evento como processado (chamar APÓS fazer POST com sucesso)
+   */
+  markAsProcessed(webhookId, eventName, eventData) {
+    const key = this.generateKey(webhookId, eventName, eventData);
+    const now = Date.now();
+    
+    // Marcar como processado
+    this.processedEvents.set(key, now);
+    
+    // Limpar cache se muito grande
+    if (this.processedEvents.size > this.MAX_SIZE) {
+      this.cleanup();
+    }
+  }
+
+  /**
+   * Limpa eventos expirados do cache
+   */
+  cleanup() {
+    const now = Date.now();
+    let removed = 0;
+    
+    for (const [key, timestamp] of this.processedEvents.entries()) {
+      if (now - timestamp > this.TTL) {
+        this.processedEvents.delete(key);
+        removed++;
+      }
+    }
+    
+    // Se ainda muito grande após limpeza, remover os mais antigos
+    if (this.processedEvents.size > this.MAX_SIZE * 0.8) {
+      const entries = Array.from(this.processedEvents.entries())
+        .sort((a, b) => a[1] - b[1]); // Ordenar por timestamp
+      
+      const toRemove = entries.slice(0, Math.floor(this.processedEvents.size * 0.3));
+      toRemove.forEach(([key]) => this.processedEvents.delete(key));
+    }
+  }
+}
+
+// Instância global do guard
+const eventPostGuard = new EventPostGuard();
+
+// Cache para deduplicação de POSTs (LEGADO - mantido para compatibilidade, mas não usado)
 const postCache = new Map();
 const POST_CACHE_TTL = 3000; // 3 segundos - janela razoável para prevenir duplicatas
 const MAX_POST_CACHE_SIZE = 1000;
@@ -362,7 +477,7 @@ app.get('/health', (req, res) => {
       heap_percent: heapPercent,
       rss_percent: rssPercent
     },
-    cache_size: postCache.size,
+    cache_size: eventPostGuard.processedEvents.size,
     connections: Array.from(activeConnections.keys())
   };
   
@@ -1260,28 +1375,25 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   
   const queue = processingQueue.get(companyId);
 
-  // Deduplicação de eventos na origem para evitar POSTs múltiplos
-  const fingerprintInfo = generateEventFingerprint(companyId, eventName, eventData);
+  // 🚀 NOVO: Deduplicação simplificada - apenas evitar eventos idênticos na mesma janela de tempo
+  // A deduplicação real de POSTs será feita pela EventPostGuard antes de enviar
+  const eventKey = `${companyId}:${eventName}:${JSON.stringify(eventData).substring(0, 200)}`;
+  const now = Date.now();
+  const cachedEvent = eventCache.get(eventKey);
 
-  if (fingerprintInfo) {
-    const now = Date.now();
-    const cachedEvent = eventCache.get(fingerprintInfo.fingerprint);
+  if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
+    // Evento duplicado na mesma janela de tempo - ignorar
+    return;
+  }
 
-    if (cachedEvent) {
-      if (now - cachedEvent.timestamp < EVENT_CACHE_TTL) {
-        console.log(`Duplicate event ignorado para ${companyName} (${eventName}) - ${fingerprintInfo.identifier}`);
-        return;
-      }
+  // Marcar evento como processado
+  eventCache.set(eventKey, {
+    timestamp: now,
+    eventName
+  });
 
-      eventCache.delete(fingerprintInfo.fingerprint);
-    }
-
-    eventCache.set(fingerprintInfo.fingerprint, {
-      timestamp: now,
-      identifier: fingerprintInfo.identifier,
-      eventName
-    });
-
+  // Limpar cache se necessário
+  if (eventCache.size > MAX_EVENT_CACHE_SIZE) {
     trimEventCacheIfNeeded();
   }
   
@@ -1388,17 +1500,11 @@ async function processEventQueue(companyId) {
 
 function cleanupCaches() {
   const now = Date.now();
-  let expiredPosts = 0;
   let expiredEvents = 0;
   let expiredWebhooks = 0;
   
-  // Limpar cache de POSTs expirados
-  for (const [key, value] of postCache.entries()) {
-    if (now - value.timestamp > POST_CACHE_TTL) {
-      postCache.delete(key);
-      expiredPosts++;
-    }
-  }
+  // 🚀 NOVO: Limpar EventPostGuard
+  eventPostGuard.cleanup();
   
   // Limpar cache de eventos expirados
   for (const [key, value] of eventCache.entries()) {
@@ -1416,8 +1522,8 @@ function cleanupCaches() {
     }
   }
   
-  if (expiredPosts > 0 || expiredEvents > 0 || expiredWebhooks > 0) {
-    console.log(`🧹 Cache limpo: ${expiredPosts} POSTs, ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
+  if (expiredEvents > 0 || expiredWebhooks > 0) {
+    console.log(`🧹 Cache limpo: ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
   }
 }
 
@@ -1591,26 +1697,11 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 // Executar webhook específico
 async function processWebhookExecution(webhook, eventData, eventId, companyId, eventName) {
   try {
-    // ✅ DEDUPLICAÇÃO CORRETA: Verificar se este POST específico já foi feito recentemente
-    const postKey = `${webhook.id}:${eventName}:${companyId}:${JSON.stringify(eventData).substring(0, 100)}`;
-    const now = Date.now();
-    const existingPost = postCache.get(postKey);
-    
-    if (existingPost && (now - existingPost.timestamp) < POST_CACHE_TTL) {
-      console.log(`🔄 POST DUPLICADO: ${webhook.url} - já enviado há ${Math.round((now - existingPost.timestamp)/1000)}s`);
+    // 🚀 NOVO: Verificar se evento já foi processado (ANTES de aplicar filtros)
+    if (!eventPostGuard.shouldProcess(webhook.id, eventName, eventData)) {
+      console.log(`🔄 POST DUPLICADO IGNORADO: ${webhook.url} - evento já processado`);
       return { success: false, reason: 'Duplicate POST prevented' };
     }
-    
-    // Marcar POST como sendo executado
-    postCache.set(postKey, { timestamp: now });
-    
-    // Limpar cache se muito grande
-    if (postCache.size > MAX_POST_CACHE_SIZE) {
-      cleanupCaches();
-    }
-    
-    // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
-    console.log(`📤 POST: ${webhook.url}`);
     
     // Buscar filtros para este evento específico neste webhook
     const webhookEvent = webhook.webhook_events?.find(we => we.event?.name === eventName);
@@ -1623,8 +1714,12 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // Aplicar filtros - se não passar, não enviar o webhook
     if (!applyEventFilters(eventData, eventFilters)) {
       // ✅ LIMPO: Removido log verboso de filtros (muito spam)
+      // NÃO marcar como processado se não passou nos filtros (pode ser testado em outro webhook)
       return { success: false, reason: 'Event filtered out' };
     }
+    
+    // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
+    console.log(`📤 POST: ${webhook.url} - ${eventName}`);
     
     // ✅ OTIMIZAÇÃO: Log reduzido (já logamos POST attempt acima)
     
@@ -1652,6 +1747,9 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     const responseText = await response.text();
     const status = response.ok ? 'success' : 'failed';
     const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
+
+    // 🚀 NOVO: Marcar evento como processado APENAS se POST foi feito (sucesso ou falha, mas POST foi enviado)
+    eventPostGuard.markAsProcessed(webhook.id, eventName, eventData);
 
     // 🚀 OTIMIZAÇÃO DISK IO: Logging opcional para não sobrecarregar banco
     const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true'; // Desabilitado por padrão
@@ -1982,7 +2080,7 @@ function startConnectionMonitor() {
       const connected = connections.filter(c => c.status === 'connected').length;
       const disconnected = connections.filter(c => c.status === 'disconnected').length;
       
-      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${postCache.size} POSTs em cache`);
+      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${eventPostGuard.processedEvents.size} eventos rastreados`);
       
     } catch (error) {
       console.error('❌ Erro no watchdog:', error);
