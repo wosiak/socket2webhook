@@ -93,6 +93,7 @@ async function cleanupOldExecutionsIndividual(companyId) {
 const activeConnections = new Map();
 const socketInstances = new Map();
 const connectionLocks = new Map(); // Previne múltiplas conexões simultâneas
+const eventListeners = new Map(); // Map de companyId -> Map de eventName -> handler function
 
 // Cache para deduplicação de POSTs (evitar POSTs duplicados do mesmo webhook+evento)
 const postCache = new Map();
@@ -466,6 +467,11 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
     
     // Verificar se deve desconectar (se não tem webhooks ativos mas está conectada)
     await checkAndDisconnectIfNoActiveWebhooks(companyId);
+    
+    // 🚀 NOVO: Atualizar listeners se empresa está conectada
+    if (activeConnections.has(companyId)) {
+      await updateEventListeners(companyId);
+    }
     
     const isConnected = activeConnections.has(companyId);
     
@@ -880,6 +886,102 @@ const CLUSTER_URLS = {
   cluster2: 'https://new-socket.3cplus.com.br'
 };
 
+// 🚀 NOVO: Extrair eventos únicos dos webhooks
+function extractUniqueEvents(webhooks) {
+  const eventsSet = new Set();
+  
+  if (!webhooks || webhooks.length === 0) {
+    return [];
+  }
+  
+  webhooks.forEach(webhook => {
+    if (webhook.webhook_events && Array.isArray(webhook.webhook_events)) {
+      webhook.webhook_events.forEach(we => {
+        if (we.event && we.event.name) {
+          eventsSet.add(we.event.name);
+        }
+      });
+    }
+  });
+  
+  return Array.from(eventsSet);
+}
+
+// 🚀 NOVO: Registrar listeners específicos para eventos
+function registerEventListeners(socket, companyId, companyName, events) {
+  // Remover listeners antigos se existirem
+  removeEventListeners(socket, companyId);
+  
+  // Criar mapa de listeners para esta empresa
+  const listenersMap = new Map();
+  eventListeners.set(companyId, listenersMap);
+  
+  // Registrar listener para cada evento
+  events.forEach(eventName => {
+    const handler = async (eventData) => {
+      try {
+        // Adicionar evento à fila de processamento sequencial
+        addEventToQueue(companyId, eventName, eventData, companyName);
+      } catch (error) {
+        console.error(`❌ Erro ao processar evento ${eventName} para empresa ${companyName}:`, error);
+      }
+    };
+    
+    socket.on(eventName, handler);
+    listenersMap.set(eventName, handler);
+    
+    console.log(`👂 Listener registrado: ${eventName} para empresa ${companyName}`);
+  });
+  
+  console.log(`✅ ${events.length} listeners registrados para empresa ${companyName}`);
+}
+
+// 🚀 NOVO: Remover listeners específicos
+function removeEventListeners(socket, companyId) {
+  const listenersMap = eventListeners.get(companyId);
+  
+  if (listenersMap && socket) {
+    listenersMap.forEach((handler, eventName) => {
+      socket.off(eventName, handler);
+    });
+    listenersMap.clear();
+  }
+  
+  eventListeners.delete(companyId);
+}
+
+// 🚀 NOVO: Atualizar listeners quando webhooks mudarem
+async function updateEventListeners(companyId) {
+  const socket = socketInstances.get(companyId);
+  const connection = activeConnections.get(companyId);
+  
+  if (!socket || !connection) {
+    return; // Socket não está conectado
+  }
+  
+  // Verificar se socket está realmente conectado
+  if (!socket.connected) {
+    console.log(`⚠️ Socket não está conectado para empresa ${companyId} - não atualizando listeners`);
+    return;
+  }
+  
+  // Buscar webhooks atualizados
+  const webhooks = await getActiveWebhooksForCompany(companyId);
+  
+  if (!webhooks || webhooks.length === 0) {
+    // Sem webhooks, remover todos os listeners
+    removeEventListeners(socket, companyId);
+    console.log(`🗑️ Todos os listeners removidos para empresa ${companyId} (sem webhooks ativos)`);
+    return;
+  }
+  
+  // Extrair eventos únicos
+  const events = extractUniqueEvents(webhooks);
+  
+  // Registrar novos listeners
+  registerEventListeners(socket, companyId, connection.company?.name || companyId, events);
+}
+
 // Conectar ao socket 3C Plus
 async function connect3CPlusSocket(company, webhooks) {
   return new Promise((resolve, reject) => {
@@ -936,6 +1038,14 @@ async function connect3CPlusSocket(company, webhooks) {
           connection.status = 'connected';
         }
         
+        // 🚀 NOVO: Registrar listeners específicos para eventos dos webhooks
+        const events = extractUniqueEvents(webhooks);
+        if (events.length > 0) {
+          registerEventListeners(socket, company.id, company.name, events);
+        } else {
+          console.log(`⚠️ Nenhum evento configurado para empresa ${company.name}`);
+        }
+        
         resolve(socket);
       });
 
@@ -963,6 +1073,9 @@ async function connect3CPlusSocket(company, webhooks) {
         
         // 🧹 LIMPAR HEARTBEAT (único lugar)
         clearInterval(heartbeatInterval);
+        
+        // 🚀 NOVO: Remover listeners ao desconectar
+        removeEventListeners(socket, company.id);
         
         // Atualizar status
         const connection = activeConnections.get(company.id);
@@ -1009,19 +1122,8 @@ async function connect3CPlusSocket(company, webhooks) {
         reject(error);
       });
 
-      // Escutar TODOS os eventos com PROCESSAMENTO SEQUENCIAL
-      socket.onAny(async (eventName, eventData) => {
-        try {
-          // ✅ OTIMIZAÇÃO: Log apenas POST attempts conforme preferência do usuário
-          // Removido log para cada evento recebido (reduz 60% CPU)
-          
-          // Adicionar evento à fila de processamento sequencial
-          addEventToQueue(company.id, eventName, eventData, company.name);
-          
-        } catch (error) {
-          console.error(`❌ Erro ao processar evento ${eventName} para empresa ${company.name}:`, error);
-        }
-      });
+      // 🚀 OTIMIZAÇÃO: Listeners específicos serão registrados após conexão
+      // (movido para dentro do evento 'connect' para garantir que socket está pronto)
 
       // Timeout de conexão
       setTimeout(() => {
@@ -1661,6 +1763,8 @@ async function checkAndReconnectIfHasActiveWebhooks(companyId) {
     // Verificar se já está conectada
     if (activeConnections.has(companyId)) {
       console.log(`✅ Empresa ${companyId} já está conectada`);
+      // 🚀 NOVO: Atualizar listeners mesmo se já conectada (webhooks podem ter mudado)
+      await updateEventListeners(companyId);
       return;
     }
     
@@ -1695,6 +1799,8 @@ async function disconnectCompany(companyId) {
     
     const socket = socketInstances.get(companyId);
     if (socket) {
+      // 🚀 NOVO: Remover listeners antes de desconectar
+      removeEventListeners(socket, companyId);
       socket.disconnect();
       socketInstances.delete(companyId);
     }
@@ -1853,6 +1959,22 @@ function startConnectionMonitor() {
       await checkAndDisconnectInactiveCompanies();
       for (const [companyId] of activeConnections) {
         await checkAndDisconnectIfNoActiveWebhooks(companyId);
+      }
+      
+      // 🚀 NOVO: WATCHDOG 5: Atualizar listeners de empresas conectadas (migração de onAny para listeners específicos)
+      for (const [companyId, connection] of activeConnections.entries()) {
+        if (connection.status === 'connected') {
+          const socket = socketInstances.get(companyId);
+          if (socket && socket.connected) {
+            // Verificar se empresa tem listeners registrados
+            const listenersMap = eventListeners.get(companyId);
+            if (!listenersMap || listenersMap.size === 0) {
+              // Empresa conectada mas sem listeners - atualizar (migração de onAny antigo)
+              console.log(`🔄 WATCHDOG: Atualizando listeners para empresa ${connection.company?.name || companyId} (migração)`);
+              await updateEventListeners(companyId);
+            }
+          }
+        }
       }
       
       // 📊 Status resumido
