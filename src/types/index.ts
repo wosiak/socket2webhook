@@ -71,6 +71,7 @@ export interface ExecutionHistory {
   error_message?: string;
   last_attempt?: string;
   next_retry?: string;
+  phone_number?: string; // 🚀 NOVO: Número de telefone para call-history-was-created
   created_at: string;
   updated_at: string;
   company?: {

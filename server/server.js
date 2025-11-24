@@ -18,76 +18,30 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// 🚀 OTIMIZAÇÃO DISK IO: Cleanup em lote menos frequente
-const CLEANUP_BATCH = new Map(); // Acumular cleanups por empresa
-const CLEANUP_INTERVAL = 300000; // 5 minutos entre cleanups
+// 🚀 HISTÓRICO COMPLETO: Cleanup automático DESABILITADO
+// Agora mantemos todo o histórico de call-history-was-created
+// Cleanup manual pode ser feito via SQL quando necessário
+
+// FUNÇÕES DE CLEANUP DESABILITADAS - Mantidas para referência
+/*
+const CLEANUP_BATCH = new Map();
+const CLEANUP_INTERVAL = 300000;
 
 async function scheduleCleanup(companyId) {
-  // Só agendar se não há cleanup pendente
-  if (!CLEANUP_BATCH.has(companyId)) {
-    CLEANUP_BATCH.set(companyId, Date.now());
-    
-    // Executar cleanup em lote após 5 minutos
-    setTimeout(async () => {
-      await batchCleanupExecutions();
-    }, CLEANUP_INTERVAL);
-  }
+  // DESABILITADO - Não fazemos mais cleanup automático
+  return;
 }
 
 async function batchCleanupExecutions() {
-  try {
-    const companies = Array.from(CLEANUP_BATCH.keys());
-    CLEANUP_BATCH.clear();
-    
-    if (companies.length === 0) return;
-    
-    console.log(`🧹 BATCH CLEANUP: Limpando execuções de ${companies.length} empresas...`);
-    
-    // 🚀 OTIMIZAÇÃO: DELETE direto com subquery (1 operação vs N operações)
-    const { error } = await supabase.rpc('cleanup_old_executions_batch', {
-      company_ids: companies,
-      keep_count: 10
-    });
-    
-    if (error) {
-      console.error('❌ Erro no batch cleanup:', error);
-      // Fallback para método individual se RPC falhar
-      for (const companyId of companies) {
-        await cleanupOldExecutionsIndividual(companyId);
-      }
-    } else {
-      console.log(`✅ BATCH CLEANUP: ${companies.length} empresas processadas`);
-    }
-  } catch (error) {
-    console.error('❌ Erro no batch cleanup:', error);
-  }
+  // DESABILITADO - Histórico completo mantido
+  return;
 }
 
-// Fallback para cleanup individual (método antigo)
 async function cleanupOldExecutionsIndividual(companyId) {
-  try {
-    const { data: executions, error } = await supabase
-      .from('webhook_executions')
-      .select('id')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false })
-      .range(10, 1000); // Pegar apenas IDs das execuções antigas
-
-    if (error || !executions || executions.length === 0) return;
-
-    const idsToDelete = executions.map(exec => exec.id);
-    const { error: deleteError } = await supabase
-      .from('webhook_executions')
-      .delete()
-      .in('id', idsToDelete);
-
-    if (!deleteError) {
-      console.log(`🧹 Cleanup individual: ${idsToDelete.length} execuções removidas para empresa ${companyId}`);
-    }
-  } catch (error) {
-    console.error('❌ Erro no cleanup individual:', error);
-  }
+  // DESABILITADO - Histórico completo mantido
+  return;
 }
+*/
 
 // Conexões ativas por empresa (NUNCA hibernam!)
 const activeConnections = new Map();
@@ -555,8 +509,8 @@ async function flushCallHistoryLogs(companyId) {
     } else {
       console.log(`✅ BATCH INSERT concluído: ${logsToInsert.length} registros salvos`);
       
-      // Agendar cleanup das execuções antigas
-      scheduleCleanup(companyId);
+      // 🚀 HISTÓRICO COMPLETO: Não fazemos mais cleanup automático
+      // Histórico mantido permanentemente para análise
     }
   } catch (error) {
     console.error(`❌ Erro crítico no batch insert:`, error);
@@ -1923,9 +1877,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 
         if (executionError) {
           console.error('❌ Erro ao salvar execução do webhook:', executionError);
-        } else {
-          // 🚀 OTIMIZAÇÃO: Cleanup em lote menos frequente
-          scheduleCleanup(companyId);
         }
       } catch (dbError) {
         // ✅ SILENCIOSO: Não quebrar POST por erro de logging
@@ -1963,9 +1914,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
             error_message: error.message.length > 300 ? error.message.substring(0, 300) + '...' : error.message
           });
 
-        if (!failedExecutionError) {
-          scheduleCleanup(companyId);
-        }
+        // 🚀 HISTÓRICO COMPLETO: Não fazemos mais cleanup automático
       } catch (dbError) {
         // ✅ SILENCIOSO: Não quebrar por erro de logging
         console.error('⚠️ Erro no logging de falha (não crítico):', dbError);

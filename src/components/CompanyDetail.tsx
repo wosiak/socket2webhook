@@ -767,8 +767,9 @@ export function CompanyDetail({
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="font-semibold text-gray-900">Evento</TableHead>
+                    <TableHead className="font-semibold text-gray-900">Telefone</TableHead>
                     <TableHead className="font-semibold text-gray-900">Status</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Tentativas</TableHead>
+                    <TableHead className="font-semibold text-gray-900">Data</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -783,10 +784,24 @@ export function CompanyDetail({
                         </div>
                       </TableCell>
                       <TableCell>
+                        {execution?.phone_number ? (
+                          <code className="text-xs bg-blue-50 text-blue-800 px-2 py-1 rounded font-mono">
+                            {execution.phone_number}
+                          </code>
+                        ) : (
+                          <span className="text-xs text-gray-400">-</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
                         {getStatusBadge(execution?.status || 'pending')}
                       </TableCell>
-                      <TableCell className="text-sm text-gray-600">
-                        {execution?.attempts || 1} / {execution?.max_attempts || 3}
+                      <TableCell className="text-xs text-gray-600">
+                        {execution?.created_at ? new Date(execution.created_at).toLocaleString('pt-BR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        }) : '-'}
                       </TableCell>
                     </TableRow>
                   ))}

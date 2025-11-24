@@ -173,7 +173,9 @@ export const useWebhookManager = () => {
           webhook_name: execution.webhook?.name || 'Webhook',
           timestamp: execution.created_at || execution.executed_at,
           error_message: execution.error_message,
-          response_status: execution.response_status
+          response_status: execution.response_status,
+          phone_number: execution.phone_number, // 🚀 NOVO: Número de telefone
+          created_at: execution.created_at
         }))
         setExecutions(transformedExecutions)
         console.log('Executions transformed:', transformedExecutions.length)
