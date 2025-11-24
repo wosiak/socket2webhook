@@ -12,6 +12,7 @@ import { CompanyDetail } from "./components/CompanyDetail";
 import { CompanyFormModal } from "./components/CompanyFormModal";
 import { LoginScreen } from "./components/LoginScreen";
 import { UserManagement } from "./components/UserManagement";
+import { FullExecutionHistory } from "./components/FullExecutionHistory";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
 import { useAuth, usePermissions } from "./contexts/AuthContext";
@@ -277,6 +278,11 @@ export default function App() {
       <main className="max-w-7xl mx-auto p-6">
         {currentView === 'user-management' ? (
           <UserManagement />
+        ) : currentView === 'execution-history' && currentCompany ? (
+          <FullExecutionHistory
+            company={currentCompany}
+            onBack={() => navigateTo('company-detail', currentCompany.id)}
+          />
         ) : currentView === 'company-detail' && currentCompany ? (
           <>
             <CompanyDetail
@@ -290,6 +296,7 @@ export default function App() {
               onDeleteWebhook={handleDeleteWebhook}
               onCreateWebhook={handleAddWebhook}
               onRefreshData={refresh}
+              onViewFullHistory={() => navigateTo('execution-history', currentCompany.id)}
             />
           </>
         ) : (

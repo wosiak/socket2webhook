@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
+import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
@@ -36,6 +37,7 @@ interface CompanyDetailProps {
   onDeleteWebhook: (id: string) => Promise<void>;
   onCreateWebhook: (webhook: Omit<Webhook, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   onRefreshData?: () => Promise<void>; // Função para recarregar dados
+  onViewFullHistory?: () => void; // Função para navegar ao histórico completo
 }
 
 interface EventWithFilters {
@@ -61,7 +63,8 @@ export function CompanyDetail({
   onUpdateWebhook,
   onDeleteWebhook,
   onCreateWebhook,
-  onRefreshData
+  onRefreshData,
+  onViewFullHistory
 }: CompanyDetailProps) {
   const [isCompanyDialogOpen, setIsCompanyDialogOpen] = useState(false);
   const [isWebhookDialogOpen, setIsWebhookDialogOpen] = useState(false);
@@ -807,6 +810,20 @@ export function CompanyDetail({
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          
+          {/* Botão Ver todas as execuções */}
+          {companyExecutions.length > 0 && onViewFullHistory && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={onViewFullHistory}
+                className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200"
+              >
+                <History className="h-4 w-4 mr-2" />
+                Ver todas as execuções
+              </Button>
             </div>
           )}
         </CardContent>
