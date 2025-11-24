@@ -16,6 +16,7 @@ import { FullExecutionHistory } from "./components/FullExecutionHistory";
 import { useWebhookManager } from "./hooks/useWebhookManager";
 import { useRouter } from "./hooks/useRouter";
 import { useAuth, usePermissions } from "./contexts/AuthContext";
+import { apiService } from "./services/api";
 import { BarChart3, Building, Webhook, AlertCircle, Loader2, RefreshCw, Zap, WifiOff, ArrowLeft, Search, Filter, LogOut, User, Users } from "lucide-react";
 
 export default function App() {
@@ -71,11 +72,52 @@ export default function App() {
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [companyExecutions, setCompanyExecutions] = useState<any[]>([]);
+  const [loadingCompanyExecutions, setLoadingCompanyExecutions] = useState(false);
   // Edge Functions são agora inicializadas automaticamente pelo useWebhookManager
 
   const currentCompany = companies.find(c => c.id === currentCompanyId);
   const companyWebhooks = webhooks.filter(w => w.company_id === currentCompanyId);
-  const companyExecutions = executions.filter(e => e.company_id === currentCompanyId);
+
+  // Carregar execuções específicas da empresa quando entrar nos detalhes
+  useEffect(() => {
+    const loadCompanyExecutions = async () => {
+      if (currentCompanyId && (currentView === 'company-detail' || currentView === 'execution-history')) {
+        setLoadingCompanyExecutions(true);
+        try {
+          const result = await apiService.getExecutions(currentCompanyId, 10);
+          if (result.success) {
+            const transformed = (result.data || []).map((execution: any) => ({
+              id: execution.id,
+              company_id: execution.company_id,
+              company_name: execution.company?.name || 'Empresa desconhecida',
+              event_type: execution.event?.name || execution.event_id || 'Evento',
+              status: execution.status,
+              webhook_url: execution.webhook?.url || 'N/A',
+              webhook_name: execution.webhook?.name || 'Webhook',
+              timestamp: execution.created_at || execution.executed_at,
+              error_message: execution.error_message,
+              response_status: execution.response_status,
+              phone_number: execution.phone_number,
+              created_at: execution.created_at,
+              webhook: execution.webhook,
+              event: execution.event
+            }));
+            setCompanyExecutions(transformed);
+          }
+        } catch (error) {
+          console.error('Erro ao carregar execuções da empresa:', error);
+          setCompanyExecutions([]);
+        } finally {
+          setLoadingCompanyExecutions(false);
+        }
+      } else {
+        setCompanyExecutions([]);
+      }
+    };
+
+    loadCompanyExecutions();
+  }, [currentCompanyId, currentView]);
 
   // Filtrar empresas baseado no status e termo de pesquisa
   const filteredCompanies = companies.filter(company => {
