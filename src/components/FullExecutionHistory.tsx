@@ -169,6 +169,7 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                     <TableRow className="bg-gray-50">
                       <TableHead className="font-semibold text-gray-900">Evento</TableHead>
                       <TableHead className="font-semibold text-gray-900">Telefone</TableHead>
+                      <TableHead className="font-semibold text-gray-900">URL do Webhook</TableHead>
                       <TableHead className="font-semibold text-gray-900">Status</TableHead>
                       <TableHead className="font-semibold text-gray-900">HTTP</TableHead>
                       <TableHead className="font-semibold text-gray-900">Data/Hora</TableHead>
@@ -192,6 +193,21 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                             </code>
                           ) : (
                             <span className="text-xs text-gray-400">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="max-w-xs">
+                          {execution.webhook?.url ? (
+                            <a
+                              href={execution.webhook.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                              title={execution.webhook.url}
+                            >
+                              {execution.webhook.url}
+                            </a>
+                          ) : (
+                            <span className="text-xs text-gray-400">URL não disponível</span>
                           )}
                         </TableCell>
                         <TableCell>
