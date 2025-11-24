@@ -219,7 +219,7 @@ const MAX_POST_CACHE_SIZE = 1000;
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
 const processingTimestamps = new Map(); // Map de companyId -> timestamp (para timeout)
-const MAX_QUEUE_SIZE = 1000; // ✅ GARANTIA: 1000 eventos - NUNCA perder POSTs
+const MAX_QUEUE_SIZE = 1000;
 
 // ✅ THROTTLING: Rate limiting para prevenir picos de CPU
 const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
@@ -234,6 +234,12 @@ const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 const eventCache = new Map();
 const EVENT_CACHE_TTL = 5000; // 5 segundos - evita reprocessar eventos idênticos
 const MAX_EVENT_CACHE_SIZE = 2000;
+
+// 🚀 BATCH LOGGING: Sistema de logging em lote para call-history-was-created
+const callHistoryLogQueue = new Map(); // Map de companyId -> Array de logs
+const BATCH_SIZE = 50; // Escrever a cada 50 registros
+const BATCH_INTERVAL = 60000; // Ou a cada 1 minuto (o que vier primeiro)
+let batchFlushTimer = null;
 
 const IDENTIFIER_KEYS_PRIORITY = [
   'uuid',
@@ -447,6 +453,139 @@ function trimEventCacheIfNeeded() {
     eventCache.delete(keyToDelete);
   }
 }
+
+// 🚀 BATCH LOGGING: Funções para logging em lote de call-history-was-created
+
+/**
+ * Extrai número de telefone do payload de call-history-was-created
+ */
+function extractPhoneNumber(eventName, eventData) {
+  if (eventName !== 'call-history-was-created') {
+    return null;
+  }
+  
+  try {
+    // Extrair de callHistory.number (caminho principal)
+    if (eventData?.callHistory?.number) {
+      return String(eventData.callHistory.number);
+    }
+    
+    // Fallback: tentar outros campos comuns
+    if (eventData?.number) {
+      return String(eventData.number);
+    }
+    
+    if (eventData?.phone) {
+      return String(eventData.phone);
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Erro ao extrair número de telefone:', error);
+    return null;
+  }
+}
+
+/**
+ * Adiciona log à fila de batch para processamento posterior
+ */
+function queueCallHistoryLog(logData) {
+  const { companyId, webhookId, eventId, phoneNumber, status, responseStatus } = logData;
+  
+  // Validar dados mínimos
+  if (!companyId || !webhookId || !phoneNumber) {
+    return;
+  }
+  
+  // Inicializar fila se não existe
+  if (!callHistoryLogQueue.has(companyId)) {
+    callHistoryLogQueue.set(companyId, []);
+  }
+  
+  const queue = callHistoryLogQueue.get(companyId);
+  
+  // Adicionar log à fila
+  queue.push({
+    webhook_id: webhookId,
+    company_id: companyId,
+    event_id: eventId,
+    status: status,
+    response_status: responseStatus,
+    phone_number: phoneNumber,
+    request_payload: {
+      phone_number: phoneNumber,
+      event_type: 'call-history-was-created'
+    }
+  });
+  
+  // Verificar se deve fazer flush (atingiu batch size)
+  if (queue.length >= BATCH_SIZE) {
+    flushCallHistoryLogs(companyId);
+  }
+}
+
+/**
+ * Escreve logs em lote no banco de dados
+ */
+async function flushCallHistoryLogs(companyId) {
+  const queue = callHistoryLogQueue.get(companyId);
+  
+  if (!queue || queue.length === 0) {
+    return;
+  }
+  
+  // Copiar logs e limpar fila
+  const logsToInsert = [...queue];
+  callHistoryLogQueue.set(companyId, []);
+  
+  try {
+    console.log(`📊 BATCH INSERT: ${logsToInsert.length} logs de call-history para empresa ${companyId}`);
+    
+    // INSERT em lote (1 query para múltiplos registros)
+    const { error, data } = await supabase
+      .from('webhook_executions')
+      .insert(logsToInsert);
+    
+    if (error) {
+      console.error(`❌ Erro no batch insert de call-history logs:`, error);
+      
+      // Em caso de erro, tentar re-adicionar à fila para retry
+      const currentQueue = callHistoryLogQueue.get(companyId) || [];
+      callHistoryLogQueue.set(companyId, [...logsToInsert, ...currentQueue]);
+    } else {
+      console.log(`✅ BATCH INSERT concluído: ${logsToInsert.length} registros salvos`);
+      
+      // Agendar cleanup das execuções antigas
+      scheduleCleanup(companyId);
+    }
+  } catch (error) {
+    console.error(`❌ Erro crítico no batch insert:`, error);
+    
+    // Re-adicionar à fila para retry
+    const currentQueue = callHistoryLogQueue.get(companyId) || [];
+    callHistoryLogQueue.set(companyId, [...logsToInsert, ...currentQueue]);
+  }
+}
+
+/**
+ * Flush periódico de todas as filas (executado a cada 1 minuto)
+ */
+async function flushAllCallHistoryLogs() {
+  const companyIds = Array.from(callHistoryLogQueue.keys());
+  
+  if (companyIds.length === 0) {
+    return;
+  }
+  
+  console.log(`🔄 Flush periódico: processando ${companyIds.length} empresas com logs pendentes`);
+  
+  for (const companyId of companyIds) {
+    await flushCallHistoryLogs(companyId);
+  }
+}
+
+// Iniciar timer de flush periódico
+batchFlushTimer = setInterval(flushAllCallHistoryLogs, BATCH_INTERVAL);
 
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
@@ -1751,6 +1890,19 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // 🚀 NOVO: Marcar evento como processado APENAS se POST foi feito (sucesso ou falha, mas POST foi enviado)
     eventPostGuard.markAsProcessed(webhook.id, eventName, eventData);
 
+    // 🚀 BATCH LOGGING: Adicionar à fila de batch para call-history-was-created
+    const phoneNumber = extractPhoneNumber(eventName, eventData);
+    if (phoneNumber && eventName === 'call-history-was-created') {
+      queueCallHistoryLog({
+        companyId: companyId,
+        webhookId: webhook.id,
+        eventId: eventId,
+        phoneNumber: phoneNumber,
+        status: status,
+        responseStatus: response.status
+      });
+    }
+
     // 🚀 OTIMIZAÇÃO DISK IO: Logging opcional para não sobrecarregar banco
     const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true'; // Desabilitado por padrão
     const shouldSaveExecution = ENABLE_EXECUTION_LOGGING && (status === 'failed' || Math.random() < 0.05); // Apenas 5% se habilitado
@@ -2192,6 +2344,15 @@ process.on('SIGTERM', async () => {
   console.log('🛑 Recebido SIGTERM (shutdown automático do Render), desconectando empresas...');
   console.log('📋 Empresas ativas:', Array.from(activeConnections.keys()));
   
+  // Flush final de todos os logs pendentes
+  if (batchFlushTimer) {
+    clearInterval(batchFlushTimer);
+    console.log('⏱️ Timer de batch flush cancelado');
+  }
+  
+  console.log('💾 Fazendo flush final dos logs de call-history pendentes...');
+  await flushAllCallHistoryLogs();
+  
   for (const [companyId] of activeConnections) {
     await disconnectCompany(companyId);
   }
@@ -2202,6 +2363,15 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
   console.log('🛑 Recebido SIGINT, desconectando empresas...');
+  
+  // Flush final de todos os logs pendentes
+  if (batchFlushTimer) {
+    clearInterval(batchFlushTimer);
+    console.log('⏱️ Timer de batch flush cancelado');
+  }
+  
+  console.log('💾 Fazendo flush final dos logs de call-history pendentes...');
+  await flushAllCallHistoryLogs();
   
   for (const [companyId] of activeConnections) {
     await disconnectCompany(companyId);
