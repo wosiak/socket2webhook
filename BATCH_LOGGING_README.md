@@ -11,6 +11,8 @@ Sistema de logging em lote que armazena eficientemente os POSTs de `call-history
 - **Dados armazenados**: apenas número discado + status + timestamp
 - **Escopo**: somente eventos `call-history-was-created` que realmente tiveram POST enviado
 - **Redução de escritas**: ~98% (de 1000 INSERTs/hora para ~20 INSERTs/hora)
+- **Histórico completo**: MANTIDO permanentemente (sem cleanup automático)
+- **Frontend atualizado**: mostra número de telefone e data na tabela de execuções
 
 ## Estrutura do Banco
 
@@ -200,6 +202,34 @@ LIMIT 24;
 - ✅ Sistema de logging antigo (`ENABLE_EXECUTION_LOGGING`) continua funcionando
 - ✅ Coluna `phone_number` é NULL para outros eventos
 - ✅ Totalmente retrocompatível
+
+## Limpeza do Histórico Antigo
+
+### Executar uma única vez
+
+Antes de começar a usar o novo sistema, você deve limpar o histórico antigo executando no SQL Editor do Supabase:
+
+```sql
+-- Ver quantos registros existem
+SELECT COUNT(*) FROM webhook_executions;
+
+-- Limpar todo o histórico antigo
+DELETE FROM webhook_executions;
+
+-- Confirmar limpeza
+SELECT COUNT(*) FROM webhook_executions;
+-- Deve retornar: 0
+```
+
+Após esta limpeza única:
+- Sistema começará a acumular APENAS `call-history-was-created`
+- Histórico será mantido PERMANENTEMENTE (sem cleanup automático)
+- Cada registro terá o número de telefone visível no frontend
+
+### Script SQL
+
+Um script completo está disponível em:
+`supabase/migrations/cleanup_all_executions.sql`
 
 ## Troubleshooting
 
