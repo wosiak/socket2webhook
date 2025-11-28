@@ -13,7 +13,9 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
-  RefreshCw
+  RefreshCw,
+  Search,
+  X
 } from 'lucide-react';
 import { ExecutionHistory, Company } from '../types';
 import { apiService } from '../services/api';
@@ -28,25 +30,42 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [searchPhone, setSearchPhone] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
   const itemsPerPage = 50;
 
-  const loadExecutions = async (page: number = 1) => {
+  const loadExecutions = async (page: number = 1, phone?: string) => {
     try {
       setLoading(true);
       const offset = (page - 1) * itemsPerPage;
-      const result = await apiService.getExecutions(company.id, itemsPerPage, offset);
+      
+      // Se está buscando por telefone, não usa paginação
+      const result = await apiService.getExecutions(
+        company.id, 
+        itemsPerPage, 
+        offset,
+        phone || undefined
+      );
       
       if (result.success) {
         setExecutions(result.data || []);
         
-        // Calcular total de páginas (estimativa)
+        // Calcular total de páginas
         const totalItems = result.data?.length || 0;
-        if (totalItems === itemsPerPage) {
-          // Há mais páginas
-          setTotalPages(page + 1);
+        
+        // Se está buscando, desabilita paginação
+        if (phone && phone.trim()) {
+          setTotalPages(1);
+          setIsSearching(true);
         } else {
-          // Última página
-          setTotalPages(page);
+          setIsSearching(false);
+          if (totalItems === itemsPerPage) {
+            // Há mais páginas
+            setTotalPages(page + 1);
+          } else {
+            // Última página
+            setTotalPages(page);
+          }
         }
       }
     } catch (error) {
@@ -57,8 +76,27 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
   };
 
   useEffect(() => {
-    loadExecutions(currentPage);
+    loadExecutions(currentPage, searchPhone);
   }, [company.id, currentPage]);
+
+  // Busca com debounce quando o usuário digita
+  useEffect(() => {
+    // Reset para página 1 ao buscar
+    if (searchPhone !== '') {
+      setCurrentPage(1);
+    }
+    
+    const timer = setTimeout(() => {
+      loadExecutions(1, searchPhone);
+    }, 500); // Debounce de 500ms
+
+    return () => clearTimeout(timer);
+  }, [searchPhone]);
+
+  const handleClearSearch = () => {
+    setSearchPhone('');
+    setCurrentPage(1);
+  };
 
   const getStatusBadge = (status: string) => {
     const variants = {
@@ -127,7 +165,7 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
         </div>
         <Button
           variant="outline"
-          onClick={() => loadExecutions(currentPage)}
+          onClick={() => loadExecutions(currentPage, searchPhone)}
           className="flex items-center gap-2"
           disabled={loading}
         >
@@ -139,27 +177,64 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
       {/* Main Card */}
       <Card className="bg-white/80 backdrop-blur-sm border-white/20 shadow-sm">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
-            <History className="h-5 w-5 text-blue-600" />
-            Execuções de Webhooks
-          </CardTitle>
-          <CardDescription className="text-gray-600">
-            Histórico completo de todas as execuções de call-history-was-created
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2 text-xl font-semibold text-gray-900">
+                <History className="h-5 w-5 text-blue-600" />
+                Execuções de Webhooks
+              </CardTitle>
+              <CardDescription className="text-gray-600 mt-1">
+                Histórico completo de todas as execuções de call-history-was-created
+              </CardDescription>
+            </div>
+            
+            {/* Search Bar */}
+            <div className="w-full max-w-md">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Buscar por número de telefone..."
+                  value={searchPhone}
+                  onChange={(e) => setSearchPhone(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                />
+                {searchPhone && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+              {searchPhone && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {executions.length} resultado(s) encontrado(s)
+                </p>
+              )}
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
             <div className="text-center py-12">
               <RefreshCw className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
-              <p className="mt-4 text-gray-600">Carregando execuções...</p>
+              <p className="mt-4 text-gray-600">
+                {isSearching ? 'Buscando execuções...' : 'Carregando execuções...'}
+              </p>
             </div>
           ) : executions.length === 0 ? (
             <div className="text-center py-12">
               <History className="mx-auto h-16 w-16 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">Nenhuma execução registrada</h3>
-              <p className="text-gray-600 mt-2">
-                As execuções de call-history-was-created aparecerão aqui
-              </p>
+              <h3 className="mt-4 text-lg font-medium text-gray-900">
+                {searchPhone ? 'Nenhum resultado encontrado' : 'Nenhuma execução registrada'}
+              </h3>
+              {searchPhone && (
+                <p className="mt-2 text-gray-600">
+                  Nenhuma execução encontrada para o número "{searchPhone}". Tente buscar com um número diferente.
+                </p>
+              )}
             </div>
           ) : (
             <>
@@ -246,52 +321,60 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
               </div>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between mt-6">
-                <div className="text-sm text-gray-600">
-                  Página {currentPage} {totalPages > currentPage && `de ${totalPages}+`}
-                  {' '}• Mostrando {executions.length} registros
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(1)}
-                    disabled={currentPage === 1 || loading}
-                  >
-                    <ChevronsLeft className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1 || loading}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded font-medium text-sm">
-                    {currentPage}
+              {!isSearching && (
+                <div className="flex items-center justify-between mt-6">
+                  <div className="text-sm text-gray-600">
+                    Página {currentPage} {totalPages > currentPage && `de ${totalPages}+`}
+                    {' '}• Mostrando {executions.length} registros
                   </div>
                   
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={executions.length < itemsPerPage || loading}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => goToPage(totalPages)}
-                    disabled={currentPage === totalPages || loading}
-                  >
-                    <ChevronsRight className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(1)}
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronsLeft className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1 || loading}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    
+                    <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded font-medium text-sm">
+                      {currentPage}
+                    </div>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={executions.length < itemsPerPage || loading}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(totalPages)}
+                      disabled={currentPage === totalPages || loading}
+                    >
+                      <ChevronsRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
+              
+              {isSearching && executions.length > 0 && (
+                <div className="text-center mt-6 text-sm text-gray-600">
+                  Mostrando todos os {executions.length} resultado(s) para "{searchPhone}"
+                </div>
+              )}
             </>
           )}
         </CardContent>

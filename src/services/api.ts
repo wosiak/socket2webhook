@@ -497,7 +497,7 @@ class ApiService {
   }
 
   // Executions
-  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0) {
+  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, phoneNumber?: string) {
     try {
       let query = supabase
         .from('webhook_executions')
@@ -508,10 +508,23 @@ class ApiService {
           event:events(name, display_name)
         `)
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1)
       
       if (companyId) {
         query = query.eq('company_id', companyId)
+      }
+      
+      // 🔍 Filtro por número de telefone
+      if (phoneNumber && phoneNumber.trim()) {
+        // Remove caracteres não numéricos para busca
+        const cleanPhone = phoneNumber.replace(/\D/g, '');
+        // Busca com LIKE para match parcial
+        query = query.ilike('phone_number', `%${cleanPhone}%`)
+      }
+      
+      // Aplicar paginação apenas se não houver busca por telefone
+      // (quando busca, queremos todos os resultados)
+      if (!phoneNumber || !phoneNumber.trim()) {
+        query = query.range(offset, offset + limit - 1)
       }
       
       const { data, error } = await query
