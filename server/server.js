@@ -181,7 +181,7 @@ const MIN_REQUEST_INTERVAL = 100; // ✅ CORREÇÃO: 100ms para suportar 10 req/
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
-const WEBHOOK_CACHE_TTL = 300000; // 🚀 OTIMIZAÇÃO: 5 minutos (era 10s) - reduzir consultas DB
+const WEBHOOK_CACHE_TTL = 30000; // 🚀 FIX: 30 segundos (era 5min) - mudanças refletidas mais rápido
 const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
 // Cache de eventos para deduplicação (ADICIONADO para corrigir ReferenceError)
@@ -1468,27 +1468,31 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   
   const queue = processingQueue.get(companyId);
 
-  // 🚀 NOVO: Deduplicação simplificada - apenas evitar eventos idênticos na mesma janela de tempo
-  // A deduplicação real de POSTs será feita pela EventPostGuard antes de enviar
-  const eventKey = `${companyId}:${eventName}:${JSON.stringify(eventData).substring(0, 200)}`;
+  // 🚀 FIX: Deduplicação SOMENTE por ID único do evento (não por substring do JSON)
+  // A deduplicação antiga usava substring(0, 200) que bloqueava eventos DIFERENTES!
+  const eventIdentifier = eventPostGuard.findEventIdentifier(eventData);
   const now = Date.now();
-  const cachedEvent = eventCache.get(eventKey);
-
-  if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
-    // Evento duplicado na mesma janela de tempo - ignorar
-    return;
+  
+  // Só deduplica se encontrar um ID único E for o MESMO ID em janela curta
+  if (eventIdentifier) {
+    const eventKey = `${companyId}:${eventName}:${eventIdentifier}`;
+    const cachedEvent = eventCache.get(eventKey);
+    
+    if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
+      // Evento com MESMO ID na janela de tempo - realmente duplicado
+      console.log(`🔄 DUPLICADO NA FILA: ${eventName} (ID: ${eventIdentifier}) - ignorando`);
+      return;
+    }
+    
+    // Marcar evento como visto na fila
+    eventCache.set(eventKey, { timestamp: now, eventName });
+    
+    // Limpar cache se necessário
+    if (eventCache.size > MAX_EVENT_CACHE_SIZE) {
+      trimEventCacheIfNeeded();
+    }
   }
-
-  // Marcar evento como processado
-  eventCache.set(eventKey, {
-    timestamp: now,
-    eventName
-  });
-
-  // Limpar cache se necessário
-  if (eventCache.size > MAX_EVENT_CACHE_SIZE) {
-    trimEventCacheIfNeeded();
-  }
+  // Se não tem ID único, NÃO faz deduplicação na fila (deixa o EventPostGuard cuidar)
   
   // ✅ PROTEÇÃO: Só alertar quando fila fica muito grande, MAS NUNCA REMOVER
   if (queue.length >= MAX_QUEUE_SIZE * 0.8) { // 80% = 800 eventos
@@ -1662,22 +1666,16 @@ async function getActiveWebhooksForCompany(companyId) {
 
 // Função para aplicar filtros de eventos
 function applyEventFilters(eventData, filters) {
-  console.log(`🔍 applyEventFilters - eventData:`, typeof eventData, !!eventData);
-  console.log(`🔍 applyEventFilters - filters:`, filters);
-  
+  // Sem filtros = todos os eventos passam
   if (!filters || filters.length === 0) {
-    console.log(`🔍 Sem filtros configurados - evento aprovado`);
-    return true; // Sem filtros, passa todos os eventos
+    return true;
   }
 
   // Todos os filtros devem passar para o evento ser enviado
-  return filters.every((filter, index) => {
+  return filters.every((filter) => {
     try {
-      console.log(`🔍 Aplicando filtro ${index + 1}/${filters.length}:`, filter);
-      
       // Extrair valor do campo usando o path (ex: "callHistory.status")
       const fieldValue = getNestedValue(eventData, filter.field_path);
-      console.log(`🔍 Valor extraído de ${filter.field_path}:`, fieldValue, typeof fieldValue);
       
       let result = false;
       
@@ -1685,45 +1683,37 @@ function applyEventFilters(eventData, filters) {
       switch (filter.operator) {
         case 'equals':
           result = fieldValue == filter.value; // Usar == para comparação flexível
-          console.log(`🔍 EQUALS: ${fieldValue} == ${filter.value} → ${result}`);
           break;
         case 'not_equals':
           result = fieldValue != filter.value;
-          console.log(`🔍 NOT_EQUALS: ${fieldValue} != ${filter.value} → ${result}`);
           break;
         case 'greater_than':
           const numFieldValue = Number(fieldValue);
           const numFilterValue = Number(filter.value);
           result = !isNaN(numFieldValue) && !isNaN(numFilterValue) && numFieldValue > numFilterValue;
-          console.log(`🔍 GREATER_THAN: ${fieldValue} (${numFieldValue}) > ${filter.value} (${numFilterValue}) → ${result}`);
           break;
         case 'less_than':
           const numFieldValueLT = Number(fieldValue);
           const numFilterValueLT = Number(filter.value);
           result = !isNaN(numFieldValueLT) && !isNaN(numFilterValueLT) && numFieldValueLT < numFilterValueLT;
-          console.log(`🔍 LESS_THAN: ${fieldValue} (${numFieldValueLT}) < ${filter.value} (${numFilterValueLT}) → ${result}`);
           break;
         case 'contains':
           const strFieldValue = String(fieldValue || '').toLowerCase();
           const strFilterValue = String(filter.value || '').toLowerCase();
           result = strFieldValue.includes(strFilterValue);
-          console.log(`🔍 CONTAINS: "${fieldValue}" contains "${filter.value}" → ${result}`);
           break;
         case 'not_contains':
           const strFieldValueNC = String(fieldValue || '').toLowerCase();
           const strFilterValueNC = String(filter.value || '').toLowerCase();
           result = !strFieldValueNC.includes(strFilterValueNC);
-          console.log(`🔍 NOT_CONTAINS: "${fieldValue}" not contains "${filter.value}" → ${result}`);
           break;
         default:
-          console.warn(`🔍 Operador desconhecido: ${filter.operator}`);
           result = true; // Em caso de operador desconhecido, passa o evento
       }
       
-      console.log(`🔍 Filtro ${filter.field_path} ${filter.operator} ${filter.value}: ${fieldValue} -> ${result ? 'PASSOU' : 'NÃO PASSOU'}`);
       return result;
     } catch (error) {
-      console.warn(`🔍 Erro ao aplicar filtro ${filter.field_path}:`, error);
+      console.warn(`⚠️ Erro ao aplicar filtro ${filter.field_path}:`, error.message);
       return true; // Em caso de erro, passa o evento
     }
   });
@@ -1743,6 +1733,7 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
+      console.log(`⚠️ SEM WEBHOOKS: Empresa ${companyId} não tem webhooks ativos para ${eventName}`);
       // Se não há webhooks ativos, considerar desconectar a empresa
       await checkAndDisconnectIfNoActiveWebhooks(companyId);
       return;
@@ -1757,6 +1748,12 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     });
 
     if (relevantWebhooks.length === 0) {
+      // 🔍 DEBUG: Mostrar quais eventos esse webhook escuta
+      const allListenedEvents = currentWebhooks.flatMap(w => 
+        w.webhook_events?.map(we => we.event?.name) || []
+      );
+      const uniqueEvents = [...new Set(allListenedEvents)];
+      console.log(`⚠️ EVENTO NÃO MAPEADO: ${eventName} não configurado. Eventos configurados: [${uniqueEvents.join(', ')}]`);
       return;
     }
 
@@ -1806,7 +1803,10 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     
     // Aplicar filtros - se não passar, não enviar o webhook
     if (!applyEventFilters(eventData, eventFilters)) {
-      // ✅ LIMPO: Removido log verboso de filtros (muito spam)
+      // 🔍 DEBUG: Log quando filtro bloqueia (para diagnosticar problemas)
+      if (eventFilters.length > 0) {
+        console.log(`🚫 FILTRADO: ${eventName} bloqueado por filtro em ${webhook.url}`);
+      }
       // NÃO marcar como processado se não passou nos filtros (pode ser testado em outro webhook)
       return { success: false, reason: 'Event filtered out' };
     }
