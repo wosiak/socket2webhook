@@ -62,8 +62,8 @@ class EventPostGuard {
    * Usa: webhookId + eventName + identificador único do evento (uuid, id, etc)
    */
   generateKey(webhookId, eventName, eventData) {
-    // Tentar encontrar identificador único no evento
-    const identifier = this.findEventIdentifier(eventData);
+    // Tentar encontrar identificador único no evento (passando eventName para busca específica)
+    const identifier = this.findEventIdentifier(eventData, eventName);
     
     // Se não encontrar identificador, usar hash do payload completo
     if (!identifier) {
@@ -76,31 +76,78 @@ class EventPostGuard {
   }
 
   /**
-   * Busca identificador único no evento (uuid, id, etc)
+   * Busca identificador único no evento baseado no TIPO do evento
+   * 🚀 MAPEAMENTO ESPECÍFICO para eventos 3C Plus
    */
-  findEventIdentifier(eventData, depth = 0) {
-    if (!eventData || typeof eventData !== 'object' || depth > 4) {
+  findEventIdentifier(eventData, eventName = null) {
+    if (!eventData || typeof eventData !== 'object') {
       return null;
     }
 
-    // Prioridade: uuid > id > unique_id
-    const priorityKeys = ['uuid', 'id', 'unique_id', 'uniqueId', 'event_uuid', 'event_id', 'message_id', 'call_id'];
-    
-    for (const key of priorityKeys) {
-      if (eventData[key] !== undefined && eventData[key] !== null) {
-        return String(eventData[key]);
+    // 🎯 MAPEAMENTO ESPECÍFICO POR TIPO DE EVENTO 3C PLUS
+    // Cada evento tem seu ID único em lugar diferente!
+    const EVENT_ID_PATHS = {
+      // Eventos de ligação - ID único em callHistory._id
+      'call-history-was-created': 'callHistory._id',
+      'call-history-was-updated': 'callHistory._id',
+      'call-was-connected': 'callHistory._id',
+      'call-was-finished': 'callHistory._id',
+      'call-was-qualified': 'callHistory._id',
+      'call-was-transferred': 'callHistory._id',
+      
+      // Eventos de WhatsApp - ID único em message.id
+      'new-message-whatsapp': 'message.id',
+      'new-agent-message-whatsapp': 'message.id',
+      'message-ack-whatsapp': 'message.id',
+      
+      // Eventos de chat - ID único em chat.id
+      'chat-was-finished': 'chat.id',
+      'chat-was-created': 'chat.id',
+      'chat-was-transferred': 'chat.id',
+      
+      // Eventos de agente - combinar agent.id + timestamp (não tem ID único)
+      'agent-status-changed': null, // Usar fallback
+      'agent-logged-in': null,
+      'agent-logged-out': null
+    };
+
+    // Se temos o nome do evento, usar o path específico
+    if (eventName && EVENT_ID_PATHS[eventName]) {
+      const path = EVENT_ID_PATHS[eventName];
+      const value = this.getNestedValue(eventData, path);
+      if (value !== undefined && value !== null) {
+        return String(value);
       }
     }
 
-    // Buscar recursivamente em objetos aninhados
-    for (const value of Object.values(eventData)) {
-      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        const nested = this.findEventIdentifier(value, depth + 1);
-        if (nested) return nested;
+    // 🔄 FALLBACK: Tentar encontrar ID em locais conhecidos (na ordem de prioridade)
+    const FALLBACK_PATHS = [
+      'callHistory._id',      // Eventos de ligação
+      'message.id',           // Eventos de WhatsApp
+      'message.internal_id',  // Backup para WhatsApp
+      'chat.id',              // Eventos de chat
+      'telephony_id',         // ID de telefonia
+      '_id'                   // MongoDB ID genérico
+    ];
+
+    for (const path of FALLBACK_PATHS) {
+      const value = this.getNestedValue(eventData, path);
+      if (value !== undefined && value !== null) {
+        return String(value);
       }
     }
 
+    // ❌ NÃO usar id genérico (pode ser company.id, campaign.id, etc)
     return null;
+  }
+
+  /**
+   * Helper para extrair valor aninhado (ex: "callHistory._id")
+   */
+  getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : undefined;
+    }, obj);
   }
 
   /**
@@ -1469,9 +1516,14 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   const queue = processingQueue.get(companyId);
 
   // 🚀 FIX: Deduplicação SOMENTE por ID único do evento (não por substring do JSON)
-  // A deduplicação antiga usava substring(0, 200) que bloqueava eventos DIFERENTES!
-  const eventIdentifier = eventPostGuard.findEventIdentifier(eventData);
+  // Usa mapeamento específico por tipo de evento 3C Plus
+  const eventIdentifier = eventPostGuard.findEventIdentifier(eventData, eventName);
   const now = Date.now();
+  
+  // 🔍 DEBUG: Mostrar qual ID foi encontrado (ajuda a diagnosticar)
+  if (eventIdentifier) {
+    console.log(`🎯 EVENTO: ${eventName} | ID: ${eventIdentifier} | Empresa: ${companyName}`);
+  }
   
   // Só deduplica se encontrar um ID único E for o MESMO ID em janela curta
   if (eventIdentifier) {
@@ -1480,7 +1532,7 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     
     if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
       // Evento com MESMO ID na janela de tempo - realmente duplicado
-      console.log(`🔄 DUPLICADO NA FILA: ${eventName} (ID: ${eventIdentifier}) - ignorando`);
+      console.log(`🔄 DUPLICADO: ${eventName} (ID: ${eventIdentifier}) - mesmo evento em ${now - cachedEvent.timestamp}ms`);
       return;
     }
     
@@ -1491,8 +1543,10 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     if (eventCache.size > MAX_EVENT_CACHE_SIZE) {
       trimEventCacheIfNeeded();
     }
+  } else {
+    // 🔍 DEBUG: Evento sem ID único identificado
+    console.log(`⚠️ SEM ID: ${eventName} - processando sem deduplicação na fila`);
   }
-  // Se não tem ID único, NÃO faz deduplicação na fila (deixa o EventPostGuard cuidar)
   
   // ✅ PROTEÇÃO: Só alertar quando fila fica muito grande, MAS NUNCA REMOVER
   if (queue.length >= MAX_QUEUE_SIZE * 0.8) { // 80% = 800 eventos
