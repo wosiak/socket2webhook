@@ -53,8 +53,8 @@ const eventListeners = new Map(); // Map de companyId -> Map de eventName -> han
 class EventPostGuard {
   constructor() {
     this.processedEvents = new Map(); // Map de chave -> timestamp
-    this.TTL = 10000; // 10 segundos - janela para considerar duplicado
-    this.MAX_SIZE = 5000; // Máximo de eventos rastreados
+    this.TTL = 5000; // 🔧 OTIMIZADO: 5 segundos (era 10) - reduz uso de memória
+    this.MAX_SIZE = 1000; // 🔧 OTIMIZADO: 1000 (era 5000) - 80% menos memória
   }
 
   /**
@@ -220,7 +220,7 @@ const MAX_POST_CACHE_SIZE = 1000;
 const processingQueue = new Map(); // Map de companyId -> Array de eventos
 const isProcessing = new Map(); // Map de companyId -> boolean
 const processingTimestamps = new Map(); // Map de companyId -> timestamp (para timeout)
-const MAX_QUEUE_SIZE = 1000;
+const MAX_QUEUE_SIZE = 200; // 🔧 OTIMIZADO: 200 (era 1000) - 80% menos memória por empresa
 
 // ✅ THROTTLING: Rate limiting para prevenir picos de CPU
 const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
@@ -233,13 +233,13 @@ const MAX_WEBHOOK_CACHE_SIZE = 100; // ✅ LIMITE: Máximo 100 empresas em cache
 
 // Cache de eventos para deduplicação (ADICIONADO para corrigir ReferenceError)
 const eventCache = new Map();
-const EVENT_CACHE_TTL = 5000; // 5 segundos - evita reprocessar eventos idênticos
-const MAX_EVENT_CACHE_SIZE = 2000;
+const EVENT_CACHE_TTL = 3000; // 🔧 OTIMIZADO: 3 segundos (era 5) - menos memória
+const MAX_EVENT_CACHE_SIZE = 500; // 🔧 OTIMIZADO: 500 (era 2000) - 75% menos memória
 
 // 🚀 BATCH LOGGING: Sistema de logging em lote para call-history-was-created
 const callHistoryLogQueue = new Map(); // Map de companyId -> Array de logs
-const BATCH_SIZE = 50; // Escrever a cada 50 registros
-const BATCH_INTERVAL = 60000; // Ou a cada 1 minuto (o que vier primeiro)
+const BATCH_SIZE = 20; // 🔧 OTIMIZADO: 20 (era 50) - flush mais frequente, menos em memória
+const BATCH_INTERVAL = 30000; // 🔧 OTIMIZADO: 30s (era 60s) - flush mais frequente
 let batchFlushTimer = null;
 
 const IDENTIFIER_KEYS_PRIORITY = [
@@ -1564,7 +1564,7 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   });
   
   // ✅ PROCESSAMENTO ACELERADO: Se fila está grande, processar mais rápido
-  if (queue.length > 100) {
+  if (queue.length > 50) { // 🔧 OTIMIZADO: 50 (era 100)
     // Remover throttling temporariamente para acelerar processamento
     REQUEST_THROTTLE.delete(companyId);
   }
@@ -1574,13 +1574,13 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     cleanupMemory();
   }
   
-  // ✅ FORÇA RESET: Se fila > 1000 eventos OU processamento > 5 minutos, forçar reset
+  // ✅ FORÇA RESET: Se fila muito grande OU processamento > 3 minutos, forçar reset
   const currentQueueSize = queue.length;
   const processingStart = processingTimestamps.get(companyId);
-  const isStuck = processingStart && (Date.now() - processingStart) > 300000; // 5 minutos
+  const isStuck = processingStart && (Date.now() - processingStart) > 180000; // 🔧 3 minutos (era 5)
   
-  if ((currentQueueSize > 1000 || isStuck) && isProcessing.get(companyId)) {
-    const reason = isStuck ? 'TIMEOUT 5min' : `${currentQueueSize} eventos`;
+  if ((currentQueueSize > MAX_QUEUE_SIZE || isStuck) && isProcessing.get(companyId)) {
+    const reason = isStuck ? 'TIMEOUT 3min' : `${currentQueueSize} eventos`;
     console.log(`🔄 FORCE RESET: Empresa ${companyName} (${reason}) - FORÇANDO reset do processamento travado`);
     isProcessing.set(companyId, false);
     processingTimestamps.delete(companyId);
@@ -1618,8 +1618,8 @@ async function processEventQueue(companyId) {
       const lastExecution = REQUEST_THROTTLE.get(companyId) || 0;
       const timeSinceLastExecution = Date.now() - lastExecution;
       
-      // Se fila > 100 eventos, remover throttling para acelerar
-      const currentInterval = queueSize > 100 ? 0 : MIN_REQUEST_INTERVAL;
+      // Se fila > 50 eventos, remover throttling para acelerar (🔧 era 100)
+      const currentInterval = queueSize > 50 ? 0 : MIN_REQUEST_INTERVAL;
       
       if (timeSinceLastExecution < currentInterval) {
         const waitTime = currentInterval - timeSinceLastExecution;
@@ -1634,7 +1634,7 @@ async function processEventQueue(companyId) {
       
       // ✅ DELAY INTELIGENTE: Acelerar quando fila está grande
       const finalQueueSize = processingQueue.get(companyId)?.length || 0;
-      const delay = finalQueueSize > 100 ? 0 : 10; // Zero delay se fila grande
+      const delay = finalQueueSize > 50 ? 0 : 10; // Zero delay se fila grande (🔧 era 100)
       if (delay > 0) {
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -2284,10 +2284,11 @@ function startMemoryMonitor() {
         activeWebhooksCache.clear();
         
         // ⚠️ CUIDADO: NÃO limpar processingQueue (perderia eventos!)
-        // Apenas reduzir filas muito grandes (manter últimos 100)
+        // Apenas reduzir filas muito grandes (manter últimos MAX_QUEUE_SIZE/2)
         for (const [companyId, queue] of processingQueue.entries()) {
-          if (queue.length > 200) {
-            const keptEvents = queue.slice(-100); // Manter últimos 100
+          if (queue.length > MAX_QUEUE_SIZE) {
+            const keepCount = Math.floor(MAX_QUEUE_SIZE / 2);
+            const keptEvents = queue.slice(-keepCount); // Manter últimos 50%
             processingQueue.set(companyId, keptEvents);
             console.log(`🔧 REDUZINDO fila da empresa ${companyId}: ${queue.length} -> ${keptEvents.length} eventos`);
           }
