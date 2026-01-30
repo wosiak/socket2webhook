@@ -39,27 +39,6 @@ const supabase = createClient(
 // Agora mantemos todo o histórico de call-history-was-created
 // Cleanup manual pode ser feito via SQL quando necessário
 
-// FUNÇÕES DE CLEANUP DESABILITADAS - Mantidas para referência
-/*
-const CLEANUP_BATCH = new Map();
-const CLEANUP_INTERVAL = 300000;
-
-async function scheduleCleanup(companyId) {
-  // DESABILITADO - Não fazemos mais cleanup automático
-  return;
-}
-
-async function batchCleanupExecutions() {
-  // DESABILITADO - Histórico completo mantido
-  return;
-}
-
-async function cleanupOldExecutionsIndividual(companyId) {
-  // DESABILITADO - Histórico completo mantido
-  return;
-}
-*/
-
 // Conexões ativas por empresa (NUNCA hibernam!)
 const activeConnections = new Map();
 const socketInstances = new Map();
@@ -262,11 +241,6 @@ function getOrCreateQueue(companyId) {
   
   return processingQueues.get(companyId);
 }
-
-// Cache para deduplicação de POSTs (LEGADO - mantido para compatibilidade, mas não usado)
-const postCache = new Map();
-const POST_CACHE_TTL = 3000; // 3 segundos - janela razoável para prevenir duplicatas
-const MAX_POST_CACHE_SIZE = 1000;
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -670,8 +644,6 @@ app.get('/health', (req, res) => {
     cache_size: eventPostGuard.processedEvents.size,
     connections: Array.from(activeConnections.keys())
   };
-  
-  // ✅ LIMPO: Removido log de health check (desnecessário)
   
   // ✅ RENDER AUTO-SCALING: Status code baseado na saúde
   const statusCode = healthStatus === 'critical' ? 503 : 200;
@@ -1153,11 +1125,8 @@ async function connectCompany(companyId, options = {}) {
     }
 
     if (!webhooks || webhooks.length === 0) {
-      // ✅ LIMPO: Empresa sem webhooks é normal, não precisa log
       return;
     }
-
-    // ✅ LIMPO: Removido log verboso de webhooks encontrados
 
     // Conectar ao socket 3C Plus
     const socket = await connect3CPlusSocket(company, webhooks);
@@ -1178,8 +1147,6 @@ async function connectCompany(companyId, options = {}) {
     });
 
     socketInstances.set(companyId, socket);
-    
-    // ✅ LIMPO: Removido log de conexão bem-sucedida
     
   } catch (error) {
     console.error(`❌ Erro ao conectar empresa ${companyId}:`, error);
@@ -1333,8 +1300,6 @@ async function connect3CPlusSocket(company, webhooks) {
       });
 
       socket.on('connect', () => {
-        // ✅ LIMPO: Sem logs desnecessários
-        
         // 🔓 LIBERAR LOCK - Conexão estabelecida com sucesso
         connectionLocks.set(company.id, false);
         
@@ -1494,8 +1459,6 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
   }
 }
 
-// ✅ REMOVIDO: Sistema de deduplicação incorreto que estava filtrando eventos legítimos
-
 // ✅ FUNÇÃO: Limpeza agressiva de memória para evitar crashes
 function cleanupMemory() {
   try {
@@ -1507,34 +1470,25 @@ function cleanupMemory() {
       // Remove 70% dos mais antigos (mais agressivo)
       const toRemove = entries.slice(0, Math.floor(entries.length * 0.7));
       toRemove.forEach(([key]) => eventCache.delete(key));
-      
-        // ✅ LIMPO: Removido log verboso de limpeza
-      }
-      
-      // ✅ GARANTIA ABSOLUTA: NUNCA limpar filas - 100% dos eventos devem ser processados!
-      // REMOVIDO: Lógica que removia eventos antigos da fila (CAUSAVA PERDA DE EVENTOS!)
-      // Agora o autoscaling do Render resolve automaticamente a sobrecarga
-      
-      // 3. Limpar cache de webhooks se muito grande
+    }
+    
+    // ✅ GARANTIA: NUNCA limpar filas - 100% dos eventos devem ser processados!
+    // Autoscaling do Render resolve automaticamente a sobrecarga
+    
+    // 3. Limpar cache de webhooks se muito grande
       if (activeWebhooksCache.size > MAX_WEBHOOK_CACHE_SIZE) {
         const entries = Array.from(activeWebhooksCache.entries());
         entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
         
-        // Remove 30% dos mais antigos
-        const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
-        toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
-        
-        // ✅ LIMPO: Removido log verboso de cache
-      }
-      
-      // 4. Force garbage collection se disponível
-      if (global.gc) {
-        global.gc();
-        // ✅ LIMPO: Removido log de GC
-      }
+      // Remove 30% dos mais antigos
+      const toRemove = entries.slice(0, Math.floor(entries.length * 0.3));
+      toRemove.forEach(([key]) => activeWebhooksCache.delete(key));
+    }
     
-    // ✅ LIMPO: Removido log de uso de memória (desnecessário)
-    
+    // 4. Force garbage collection se disponível
+    if (global.gc) {
+      global.gc();
+    }
   } catch (error) {
     console.error('❌ Erro na limpeza de memória:', error);
   }
@@ -1669,7 +1623,48 @@ async function getActiveWebhooksForCompany(companyId) {
   return webhooks;
 }
 
-// Função para aplicar filtros de eventos
+// ========================================
+// 🔧 SISTEMA DE FILTROS ROBUSTO (REFATORADO)
+// ========================================
+// Suporta:
+// ✅ Tipos primitivos: null, undefined, boolean, number, string
+// ✅ Arrays: tags[0], users[1].name
+// ✅ Normalização: "null" → null, "true" → true, "105" → 105
+// ✅ Comparação de arrays: contains "vip" em ["vip", "premium"]
+// ✅ Logs de debug quando filtro falha
+//
+// Exemplos de uso:
+// - { field_path: "agent.id", operator: "equals", value: "105" } ✅ Match com event.agent.id = 105
+// - { field_path: "tags", operator: "contains", value: "vip" } ✅ Match com event.tags = ["vip", "urgent"]
+// - { field_path: "tags[0]", operator: "equals", value: "vip" } ✅ Match com primeiro item do array
+// - { field_path: "queueId", operator: "equals", value: "null" } ✅ Match com event.queueId = null
+// ========================================
+
+// 🔧 FUNÇÃO HELPER: Normaliza valores para comparação consistente
+function normalizeValue(value) {
+  // Se for string, tentar converter para tipo primitivo
+  if (typeof value === 'string') {
+    const lower = value.toLowerCase();
+    
+    if (lower === 'null') return null;
+    if (lower === 'undefined') return undefined;
+    if (lower === 'true') return true;
+    if (lower === 'false') return false;
+    
+    // Tentar converter para número se parecer número
+    const num = Number(value);
+    if (!isNaN(num) && value.trim() !== '') {
+      // Só converter se a string original for numérica (evitar "123abc" → 123)
+      if (/^-?\d+\.?\d*$/.test(value.trim())) {
+        return num;
+      }
+    }
+  }
+  
+  return value;
+}
+
+// 🚀 FUNÇÃO PRINCIPAL: Aplica filtros de eventos (REFATORADA - Robusta)
 function applyEventFilters(eventData, filters) {
   // Sem filtros = todos os eventos passam
   if (!filters || filters.length === 0) {
@@ -1679,56 +1674,168 @@ function applyEventFilters(eventData, filters) {
   // Todos os filtros devem passar para o evento ser enviado
   return filters.every((filter) => {
     try {
-      // Extrair valor do campo usando o path (ex: "callHistory.status")
-      const fieldValue = getNestedValue(eventData, filter.field_path);
+      // Extrair valor do campo usando o path (ex: "callHistory.status", "tags[0]")
+      const rawFieldValue = getNestedValue(eventData, filter.field_path);
+      
+      // ⚠️ CASO ESPECIAL: Campo não existe no evento
+      if (rawFieldValue === undefined) {
+        // Se o filtro espera "undefined" ou "null", considerar match
+        const normalizedFilterValue = normalizeValue(filter.value);
+        
+        if (normalizedFilterValue === undefined || normalizedFilterValue === null) {
+          return filter.operator === 'equals';
+        }
+        
+        // Campo não existe - log de debug e rejeitar
+        console.log(`🚫 Filtro falhou: Campo '${filter.field_path}' não existe no evento`);
+        return false;
+      }
+      
+      // Normalizar valores para comparação consistente
+      const fieldValue = normalizeValue(rawFieldValue);
+      const filterValue = normalizeValue(filter.value);
       
       let result = false;
       
       // Aplicar operador
       switch (filter.operator) {
         case 'equals':
-          result = fieldValue == filter.value; // Usar == para comparação flexível
+          result = fieldValue === filterValue;
+          
+          if (!result) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} (${JSON.stringify(fieldValue)}) !== ${JSON.stringify(filterValue)}`);
+          }
           break;
+          
         case 'not_equals':
-          result = fieldValue != filter.value;
+          result = fieldValue !== filterValue;
+          
+          if (!result) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} (${JSON.stringify(fieldValue)}) === ${JSON.stringify(filterValue)} (esperava diferente)`);
+          }
           break;
+          
         case 'greater_than':
           const numFieldValue = Number(fieldValue);
-          const numFilterValue = Number(filter.value);
-          result = !isNaN(numFieldValue) && !isNaN(numFilterValue) && numFieldValue > numFilterValue;
+          const numFilterValue = Number(filterValue);
+          
+          if (isNaN(numFieldValue) || isNaN(numFilterValue)) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} - valores não numéricos (${fieldValue} > ${filterValue})`);
+            return false;
+          }
+          
+          result = numFieldValue > numFilterValue;
+          
+          if (!result) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} (${numFieldValue}) <= ${numFilterValue}`);
+          }
           break;
+          
         case 'less_than':
           const numFieldValueLT = Number(fieldValue);
-          const numFilterValueLT = Number(filter.value);
-          result = !isNaN(numFieldValueLT) && !isNaN(numFilterValueLT) && numFieldValueLT < numFilterValueLT;
+          const numFilterValueLT = Number(filterValue);
+          
+          if (isNaN(numFieldValueLT) || isNaN(numFilterValueLT)) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} - valores não numéricos (${fieldValue} < ${filterValue})`);
+            return false;
+          }
+          
+          result = numFieldValueLT < numFilterValueLT;
+          
+          if (!result) {
+            console.log(`🚫 Filtro falhou: ${filter.field_path} (${numFieldValueLT}) >= ${numFilterValueLT}`);
+          }
           break;
+          
         case 'contains':
-          const strFieldValue = String(fieldValue || '').toLowerCase();
-          const strFilterValue = String(filter.value || '').toLowerCase();
-          result = strFieldValue.includes(strFilterValue);
+          // 🚀 NOVO: Suporte a arrays
+          if (Array.isArray(fieldValue)) {
+            // Se for array, verificar se contém o valor (case-insensitive para strings)
+            result = fieldValue.some(item => {
+              const normalizedItem = String(item).toLowerCase();
+              const normalizedFilter = String(filterValue).toLowerCase();
+              return normalizedItem === normalizedFilter || normalizedItem.includes(normalizedFilter);
+            });
+            
+            if (!result) {
+              console.log(`🚫 Filtro falhou: Array ${filter.field_path} [${fieldValue.join(', ')}] não contém '${filterValue}'`);
+            }
+          } else {
+            // Comparação normal de strings
+            const strFieldValue = String(fieldValue || '').toLowerCase();
+            const strFilterValue = String(filterValue || '').toLowerCase();
+            result = strFieldValue.includes(strFilterValue);
+            
+            if (!result) {
+              console.log(`🚫 Filtro falhou: ${filter.field_path} ('${fieldValue}') não contém '${filterValue}'`);
+            }
+          }
           break;
+          
         case 'not_contains':
-          const strFieldValueNC = String(fieldValue || '').toLowerCase();
-          const strFilterValueNC = String(filter.value || '').toLowerCase();
-          result = !strFieldValueNC.includes(strFilterValueNC);
+          // 🚀 NOVO: Suporte a arrays
+          if (Array.isArray(fieldValue)) {
+            result = !fieldValue.some(item => {
+              const normalizedItem = String(item).toLowerCase();
+              const normalizedFilter = String(filterValue).toLowerCase();
+              return normalizedItem === normalizedFilter || normalizedItem.includes(normalizedFilter);
+            });
+            
+            if (!result) {
+              console.log(`🚫 Filtro falhou: Array ${filter.field_path} [${fieldValue.join(', ')}] contém '${filterValue}' (esperava NÃO conter)`);
+            }
+          } else {
+            const strFieldValueNC = String(fieldValue || '').toLowerCase();
+            const strFilterValueNC = String(filterValue || '').toLowerCase();
+            result = !strFieldValueNC.includes(strFilterValueNC);
+            
+            if (!result) {
+              console.log(`🚫 Filtro falhou: ${filter.field_path} ('${fieldValue}') contém '${filterValue}' (esperava NÃO conter)`);
+            }
+          }
           break;
+          
         default:
-          result = true; // Em caso de operador desconhecido, passa o evento
+          console.warn(`⚠️ Operador desconhecido '${filter.operator}' para filtro ${filter.field_path} - REJEITANDO evento por segurança`);
+          return false; // 🔒 SEGURANÇA: Rejeitar em vez de passar silenciosamente
       }
       
       return result;
     } catch (error) {
-      console.warn(`⚠️ Erro ao aplicar filtro ${filter.field_path}:`, error.message);
-      return true; // Em caso de erro, passa o evento
+      console.error(`❌ ERRO ao aplicar filtro ${filter.field_path}:`, error.message);
+      // 🛡️ SEGURANÇA: Em caso de erro crítico, passar o evento (evitar perda de dados)
+      return true;
     }
   });
 }
 
-// Função helper para extrair valores aninhados (ex: "callHistory.status")
+// 🔧 FUNÇÃO HELPER: Extrai valores aninhados com suporte a arrays
+// Exemplos: "callHistory.status", "tags[0]", "users[1].name", "metadata.items[2].id"
 function getNestedValue(obj, path) {
-  return path.split('.').reduce((current, key) => {
-    return current && current[key] !== undefined ? current[key] : undefined;
-  }, obj);
+  try {
+    // Regex para detectar índices de array: "tags[0]" ou "users[1].name"
+    const parts = path.split('.');
+    
+    return parts.reduce((current, part) => {
+      if (!current) return undefined;
+      
+      // Verificar se tem índice de array: "tags[0]"
+      const arrayMatch = part.match(/^(\w+)\[(\d+)\]$/);
+      
+      if (arrayMatch) {
+        const [, key, index] = arrayMatch;
+        const array = current[key];
+        
+        if (!Array.isArray(array)) return undefined;
+        return array[parseInt(index, 10)];
+      }
+      
+      // Acesso normal
+      return current[part] !== undefined ? current[part] : undefined;
+    }, obj);
+  } catch (error) {
+    return undefined;
+  }
 }
 
 // Processar evento através dos webhooks
@@ -2271,8 +2378,6 @@ function startMemoryMonitor() {
       const memMB = Math.round(memUsage.rss / 1024 / 1024);
       const heapMB = Math.round(memUsage.heapUsed / 1024 / 1024);
       const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
-      
-      // ✅ LIMPO: Removido log de memória (desnecessário para usuário)
       
       // ⚠️ ALERTA: Memória alta - limpeza preventiva (STANDARD: 80%)
       if (heapPercent > 80) {
