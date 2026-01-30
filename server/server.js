@@ -3,7 +3,7 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const { io } = require('socket.io-client');
 const crypto = require('crypto');
-const { PQueue } = require('p-queue');
+const { default: PQueue } = require('p-queue');
 const axios = require('axios');
 const axiosRetry = require('axios-retry').default;
 require('dotenv').config();
