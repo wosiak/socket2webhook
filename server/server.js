@@ -2320,13 +2320,15 @@ function startConnectionMonitor() {
         await checkAndDisconnectIfNoActiveWebhooks(companyId);
       }
       
-      // 🚀 NOVO: WATCHDOG 5: Atualizar listeners de empresas conectadas (migração de onAny para listeners específicos)
+      // 🚀 WATCHDOG 5: Atualizar listeners de empresas conectadas
+      // Atualiza periodicamente para detectar novos webhooks cadastrados (HOT RELOAD)
       for (const [companyId, connection] of activeConnections.entries()) {
         if (connection.status === 'connected') {
           const socket = socketInstances.get(companyId);
           if (socket && socket.connected) {
             // Verificar se empresa tem listeners registrados
             const listenersMap = eventListeners.get(companyId);
+            
             if (!listenersMap || listenersMap.size === 0) {
               // Empresa conectada mas sem listeners - atualizar (migração de onAny antigo)
               console.log(`🔄 WATCHDOG: Atualizando listeners para empresa ${connection.company?.name || companyId} (migração)`);
@@ -2417,6 +2419,68 @@ function startMemoryMonitor() {
   }, 30000); // A cada 30 segundos
 }
 
+// 🚀 NOVO: HOT RELOAD de Listeners - Atualização automática de webhooks
+// Detecta novos webhooks cadastrados sem reiniciar o servidor
+function startListenerHotReload() {
+  console.log('🔄 Iniciando HOT RELOAD de listeners (atualização automática a cada 2 minutos)...');
+  
+  setInterval(async () => {
+    try {
+      let updatedCount = 0;
+      
+      for (const [companyId, connection] of activeConnections.entries()) {
+        // Apenas empresas conectadas e ativas
+        if (connection.status === 'connected') {
+          const socket = socketInstances.get(companyId);
+          
+          if (socket && socket.connected) {
+            // 🔑 CHAVE: Invalidar cache para forçar busca de novos webhooks
+            activeWebhooksCache.delete(companyId);
+            
+            // Buscar webhooks atualizados
+            const webhooks = await getActiveWebhooksForCompany(companyId);
+            
+            if (webhooks && webhooks.length > 0) {
+              // Extrair eventos dos webhooks atualizados
+              const newEvents = extractUniqueEvents(webhooks);
+              
+              // Comparar com listeners atuais
+              const listenersMap = eventListeners.get(companyId);
+              const currentEvents = listenersMap ? Array.from(listenersMap.keys()) : [];
+              
+              // Verificar se há diferença
+              const newEventsSet = new Set(newEvents);
+              const currentEventsSet = new Set(currentEvents);
+              
+              const hasChanges = 
+                newEvents.length !== currentEvents.length ||
+                newEvents.some(e => !currentEventsSet.has(e)) ||
+                currentEvents.some(e => !newEventsSet.has(e));
+              
+              if (hasChanges) {
+                console.log(`🔄 HOT RELOAD: Detectadas mudanças em webhooks para ${connection.company?.name || companyId}`);
+                console.log(`   Eventos anteriores: [${currentEvents.join(', ')}]`);
+                console.log(`   Eventos novos: [${newEvents.join(', ')}]`);
+                
+                // Atualizar listeners
+                await updateEventListeners(companyId);
+                updatedCount++;
+              }
+            }
+          }
+        }
+      }
+      
+      if (updatedCount > 0) {
+        console.log(`✅ HOT RELOAD: ${updatedCount} empresa(s) com listeners atualizados`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Erro no HOT RELOAD de listeners:', error);
+    }
+  }, 120000); // 🔥 A cada 2 minutos (120 segundos)
+}
+
 // Inicialização do servidor
 async function startServer() {
   try {
@@ -2432,12 +2496,16 @@ async function startServer() {
     // ✅ Iniciar monitor de memória para prevenir crashes
     startMemoryMonitor();
     
+    // 🔥 NOVO: Iniciar HOT RELOAD de listeners (atualização automática de webhooks)
+    startListenerHotReload();
+    
     // Iniciar servidor HTTP
     app.listen(PORT, () => {
       console.log(`🚀 Servidor rodando na porta ${PORT}`);
       console.log(`🌐 Health check: http://localhost:${PORT}/health`);
       console.log(`📊 Status: http://localhost:${PORT}/status`);
       console.log(`✅ Sistema 24/7 iniciado com sucesso!`);
+      console.log(`🔥 HOT RELOAD ativo - novos webhooks detectados automaticamente a cada 2min`);
     });
     
   } catch (error) {
