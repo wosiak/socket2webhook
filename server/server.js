@@ -634,6 +634,14 @@ batchFlushTimer = setInterval(flushAllCallHistoryLogs, BATCH_INTERVAL);
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
 console.log('📅 Timestamp:', new Date().toISOString());
 
+// 🚨 VERIFICAR MODO DE OPERAÇÃO (Produção vs Staging)
+if (process.env.DISABLE_WEBHOOK_DISPATCH === 'true') {
+  console.log('⚠️  MODO STAGING ATIVADO: Webhooks serão SIMULADOS (não enviados aos clientes)');
+  console.log('⚠️  Para desativar, remova a variável DISABLE_WEBHOOK_DISPATCH ou defina como "false"');
+} else {
+  console.log('✅ MODO PRODUÇÃO ATIVADO: Webhooks serão enviados normalmente aos clientes');
+}
+
 // Healthcheck endpoint para Render com proteção Standard
 app.get('/health', (req, res) => {
   const memUsage = process.memoryUsage();
@@ -683,6 +691,8 @@ app.get('/status', (req, res) => {
 
   res.json({
     server_status: 'running',
+    operation_mode: process.env.DISABLE_WEBHOOK_DISPATCH === 'true' ? 'staging' : 'production',
+    webhook_dispatch_enabled: process.env.DISABLE_WEBHOOK_DISPATCH !== 'true',
     timestamp: new Date().toISOString(),
     uptime_seconds: process.uptime(),
     active_companies: activeConnections.size,
@@ -1817,39 +1827,68 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       data: eventData
     };
 
+    // 🚨 TRAVA DE SEGURANÇA PARA STAGING
+    // Verifica se deve simular webhook ao invés de enviar (ambiente de teste/dev)
+    const isStaging = process.env.DISABLE_WEBHOOK_DISPATCH === 'true';
+    
     // 🚀 USAR AXIOS COM RETRY AUTOMÁTICO (3 tentativas configuradas globalmente)
     let response;
     let status;
     let errorMessage = null;
     
-    try {
-      response = await axios.post(webhook.url, webhookPayload, {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': '3C-Plus-Webhook-Proxy-Render/1.0'
-        },
-        timeout: 30000, // 30 segundos timeout
-        validateStatus: (status) => status < 600 // Não lançar erro para status < 600
-      });
+    if (isStaging) {
+      // 🚫 MODO STAGING: Simular webhook sem enviar para clientes
+      console.log(`🚫 STAGING (Simulação): Webhook ${webhook.id} para ${webhook.url} não enviado.`);
       
-      status = response.status >= 200 && response.status < 300 ? 'success' : 'failed';
+      // Simular latência real de rede (100-200ms aleatório)
+      const simulatedLatency = 100 + Math.random() * 100;
+      await new Promise(resolve => setTimeout(resolve, simulatedLatency));
       
-      if (status === 'failed') {
-        errorMessage = `HTTP ${response.status}: ${JSON.stringify(response.data).substring(0, 300)}`;
-      }
-      
-    } catch (error) {
-      // Erro após 3 retries automáticos
-      status = 'failed';
-      errorMessage = `FALHA APÓS RETRIES: ${error.message}`;
-      
-      console.error(`❌ Erro ao executar webhook ${webhook.id} após retries:`, error);
-      
-      // Criar response mock para logging
+      // Resposta fake simulando sucesso
       response = {
-        status: error.response?.status || 0,
-        data: error.message
+        status: 200,
+        statusText: 'OK [STAGING SIMULATION]',
+        data: { 
+          simulated: true,
+          message: 'Webhook não enviado - ambiente staging'
+        }
       };
+      
+      status = 'success';
+      
+      console.log(`✅ STAGING (Simulação): Webhook simulado com sucesso em ${Math.round(simulatedLatency)}ms`);
+      
+    } else {
+      // 🚀 MODO PRODUÇÃO: Enviar webhook real com retry
+      try {
+        response = await axios.post(webhook.url, webhookPayload, {
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': '3C-Plus-Webhook-Proxy-Render/1.0'
+          },
+          timeout: 30000, // 30 segundos timeout
+          validateStatus: (status) => status < 600 // Não lançar erro para status < 600
+        });
+        
+        status = response.status >= 200 && response.status < 300 ? 'success' : 'failed';
+        
+        if (status === 'failed') {
+          errorMessage = `HTTP ${response.status}: ${JSON.stringify(response.data).substring(0, 300)}`;
+        }
+        
+      } catch (error) {
+        // Erro após 3 retries automáticos
+        status = 'failed';
+        errorMessage = `FALHA APÓS RETRIES: ${error.message}`;
+        
+        console.error(`❌ Erro ao executar webhook ${webhook.id} após retries:`, error);
+        
+        // Criar response mock para logging
+        response = {
+          status: error.response?.status || 0,
+          data: error.message
+        };
+      }
     }
 
     // 🚀 NOVO: Marcar evento como processado APENAS se POST foi feito (sucesso ou falha, mas POST foi enviado)
