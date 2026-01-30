@@ -3,7 +3,24 @@ const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
 const { io } = require('socket.io-client');
 const crypto = require('crypto');
+const { PQueue } = require('p-queue');
+const axios = require('axios');
+const axiosRetry = require('axios-retry').default;
 require('dotenv').config();
+
+// 🚀 CONFIGURAÇÃO GLOBAL DE RETRY PARA AXIOS
+axiosRetry(axios, {
+  retries: 3,
+  retryDelay: axiosRetry.exponentialDelay,
+  retryCondition: (error) => {
+    // Retry em erros de rede, timeouts ou 5xx
+    return axiosRetry.isNetworkOrIdempotentRequestError(error) || 
+           (error.response?.status >= 500 && error.response?.status < 600);
+  },
+  onRetry: (retryCount, error, requestConfig) => {
+    console.log(`🔄 RETRY ${retryCount}/3: ${requestConfig.url} - ${error.message}`);
+  }
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -211,20 +228,45 @@ class EventPostGuard {
 // Instância global do guard
 const eventPostGuard = new EventPostGuard();
 
+// 🚀 NOVO SISTEMA DE FILAS COM P-QUEUE (Substitui sistema manual volátil)
+// Cada empresa tem sua própria fila com concorrência controlada
+const processingQueues = new Map(); // Map de companyId -> PQueue instance
+const QUEUE_CONCURRENCY = 5; // Processa 5 eventos simultaneamente por empresa
+
+/**
+ * Obtém ou cria uma PQueue para uma empresa específica
+ */
+function getOrCreateQueue(companyId) {
+  if (!processingQueues.has(companyId)) {
+    const queue = new PQueue({
+      concurrency: QUEUE_CONCURRENCY,
+      autoStart: true,
+      throwOnTimeout: false
+    });
+    
+    // Logging de eventos da fila para debug
+    queue.on('active', () => {
+      console.log(`🔄 Fila ${companyId}: Processando evento (${queue.size} pendentes, ${queue.pending} ativos)`);
+    });
+    
+    queue.on('idle', () => {
+      console.log(`✅ Fila ${companyId}: Todos eventos processados`);
+    });
+    
+    queue.on('error', (error) => {
+      console.error(`❌ Erro na fila ${companyId}:`, error);
+    });
+    
+    processingQueues.set(companyId, queue);
+  }
+  
+  return processingQueues.get(companyId);
+}
+
 // Cache para deduplicação de POSTs (LEGADO - mantido para compatibilidade, mas não usado)
 const postCache = new Map();
 const POST_CACHE_TTL = 3000; // 3 segundos - janela razoável para prevenir duplicatas
 const MAX_POST_CACHE_SIZE = 1000;
-
-// Fila de processamento sequencial para evitar race conditions
-const processingQueue = new Map(); // Map de companyId -> Array de eventos
-const isProcessing = new Map(); // Map de companyId -> boolean
-const processingTimestamps = new Map(); // Map de companyId -> timestamp (para timeout)
-const MAX_QUEUE_SIZE = 200; // 🔧 OTIMIZADO: 200 (era 1000) - 80% menos memória por empresa
-
-// ✅ THROTTLING: Rate limiting para prevenir picos de CPU
-const REQUEST_THROTTLE = new Map(); // Map de companyId -> última execução
-const MIN_REQUEST_INTERVAL = 100; // ✅ CORREÇÃO: 100ms para suportar 10 req/s (era 500ms = só 2 req/s)
 
 // Cache para webhooks ativos por empresa (evita consultas múltiplas)
 const activeWebhooksCache = new Map();
@@ -1488,164 +1530,63 @@ function cleanupMemory() {
   }
 }
 
-// SISTEMA DE FILA SEQUENCIAL (ELIMINA RACE CONDITIONS)
+// 🚀 NOVO SISTEMA DE FILA COM P-QUEUE (Substitui sistema manual)
 function addEventToQueue(companyId, eventName, eventData, companyName) {
-  // Inicializar fila se não existe
-  if (!processingQueue.has(companyId)) {
-    processingQueue.set(companyId, []);
-  }
+  // Obter ou criar fila para esta empresa
+  const queue = getOrCreateQueue(companyId);
   
-  // 🔥 PROTEÇÃO EXTRA: Verificar memória ANTES de adicionar eventos
-  const memUsage = process.memoryUsage();
-  const heapPercent = Math.round((memUsage.heapUsed / memUsage.heapTotal) * 100);
-  const rssPercent = Math.round((memUsage.rss / (2 * 1024 * 1024 * 1024)) * 100); // 2GB Standard plan
-  
-  // ✅ PROTEÇÃO CRÍTICA INTELIGENTE: Só descartar se realmente crítico
-  if (heapPercent > 95 || rssPercent > 95) {
-    console.log(`🚫 MEMÓRIA EXTREMA: Heap:${heapPercent}% RSS:${rssPercent}% - Descartando ${eventName} para evitar crash`);
-    cleanupMemory(); // Forçar limpeza agressiva
-    return; // Não adicionar o evento apenas em casos EXTREMOS
-  }
-  
-  // ✅ ALERTA PREVENTIVO: Alertar mas continuar processando
-  if (heapPercent > 85 || rssPercent > 90) {
-    console.log(`⚠️ MEMÓRIA ALTA: Heap:${heapPercent}% RSS:${rssPercent}% - Limpeza preventiva`);
-    cleanupMemory(); // Limpeza preventiva mas continua processando
-  }
-  
-  const queue = processingQueue.get(companyId);
-
-  // 🚀 FIX: Deduplicação SOMENTE por ID único do evento (não por substring do JSON)
-  // Usa mapeamento específico por tipo de evento 3C Plus
+  // 🔍 DEBUG: Verificar ID único do evento para deduplicação
   const eventIdentifier = eventPostGuard.findEventIdentifier(eventData, eventName);
   const now = Date.now();
   
-  // 🔍 DEBUG: Mostrar qual ID foi encontrado (ajuda a diagnosticar)
   if (eventIdentifier) {
     console.log(`🎯 EVENTO: ${eventName} | ID: ${eventIdentifier} | Empresa: ${companyName}`);
+  } else {
+    console.log(`⚠️ SEM ID: ${eventName} - processando sem deduplicação na fila`);
   }
   
-  // Só deduplica se encontrar um ID único E for o MESMO ID em janela curta
+  // Deduplicação: verificar se evento já foi adicionado recentemente
   if (eventIdentifier) {
     const eventKey = `${companyId}:${eventName}:${eventIdentifier}`;
     const cachedEvent = eventCache.get(eventKey);
     
     if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
-      // Evento com MESMO ID na janela de tempo - realmente duplicado
       console.log(`🔄 DUPLICADO: ${eventName} (ID: ${eventIdentifier}) - mesmo evento em ${now - cachedEvent.timestamp}ms`);
       return;
     }
     
-    // Marcar evento como visto na fila
+    // Marcar evento como visto
     eventCache.set(eventKey, { timestamp: now, eventName });
     
     // Limpar cache se necessário
     if (eventCache.size > MAX_EVENT_CACHE_SIZE) {
       trimEventCacheIfNeeded();
     }
-  } else {
-    // 🔍 DEBUG: Evento sem ID único identificado
-    console.log(`⚠️ SEM ID: ${eventName} - processando sem deduplicação na fila`);
   }
   
-  // ✅ PROTEÇÃO: Só alertar quando fila fica muito grande, MAS NUNCA REMOVER
-  if (queue.length >= MAX_QUEUE_SIZE * 0.8) { // 80% = 800 eventos
-    console.log(`⚠️ ALERTA: Fila da empresa ${companyName} com ${queue.length} eventos - sistema pode estar sobrecarregado`);
-  }
-  
-  // ✅ GARANTIA UNIVERSAL: NUNCA remover eventos da fila - TODAS as empresas têm 100% dos POSTs garantidos!
-  
-  // Adicionar evento à fila
-  queue.push({
-    eventName,
-    eventData,
-    companyName,
-    timestamp: Date.now()
+  // ✅ ADICIONAR À FILA P-QUEUE (gerencia concorrência automaticamente)
+  queue.add(async () => {
+    try {
+      console.log(`🎯 EVENTO: ${eventName} recebido de ${companyName}`);
+      
+      // Processar evento através dos webhooks
+      await processEventThroughWebhooks(companyId, eventName, eventData, null);
+      
+    } catch (error) {
+      console.error(`❌ Erro ao processar evento ${eventName} da empresa ${companyName}:`, error);
+      // P-Queue não interrompe processamento em caso de erro - continua com próximo
+    }
+  }).catch(error => {
+    // Captura erros não tratados na promise
+    console.error(`❌ Erro não capturado ao adicionar evento à fila:`, error);
   });
   
-  // ✅ PROCESSAMENTO ACELERADO: Se fila está grande, processar mais rápido
-  if (queue.length > 50) { // 🔧 OTIMIZADO: 50 (era 100)
-    // Remover throttling temporariamente para acelerar processamento
-    REQUEST_THROTTLE.delete(companyId);
-  }
-  
-  // ✅ PROTEÇÃO: Executar limpeza de memória se necessário
-  if (queue.length > MAX_QUEUE_SIZE * 0.8) {
-    cleanupMemory();
-  }
-  
-  // ✅ FORÇA RESET: Se fila muito grande OU processamento > 3 minutos, forçar reset
-  const currentQueueSize = queue.length;
-  const processingStart = processingTimestamps.get(companyId);
-  const isStuck = processingStart && (Date.now() - processingStart) > 180000; // 🔧 3 minutos (era 5)
-  
-  if ((currentQueueSize > MAX_QUEUE_SIZE || isStuck) && isProcessing.get(companyId)) {
-    const reason = isStuck ? 'TIMEOUT 3min' : `${currentQueueSize} eventos`;
-    console.log(`🔄 FORCE RESET: Empresa ${companyName} (${reason}) - FORÇANDO reset do processamento travado`);
-    isProcessing.set(companyId, false);
-    processingTimestamps.delete(companyId);
-  }
-  
-  // Iniciar processamento se não está processando
-  if (!isProcessing.get(companyId)) {
-    processEventQueue(companyId);
-  }
+  console.log(`📥 Evento ${eventName} adicionado à fila de ${companyName} (${queue.size} pendentes, ${queue.pending} processando)`);
 }
 
-async function processEventQueue(companyId) {
-  if (isProcessing.get(companyId)) {
-    return; // Já está processando
-  }
-  
-  isProcessing.set(companyId, true);
-  processingTimestamps.set(companyId, Date.now()); // ✅ TIMEOUT: Marcar início
-  
-  try {
-    while (processingQueue.get(companyId)?.length > 0) {
-      const event = processingQueue.get(companyId).shift();
-      
-      // ✅ LOG ESSENCIAL: Evento desejado recebido (conforme pedido do usuário)
-      console.log(`🎯 EVENTO: ${event.eventName} recebido de ${event.companyName}`);
-      
-      // Atualizar última atividade
-      const connection = activeConnections.get(companyId);
-      if (connection) {
-        connection.lastActivity = new Date().toISOString();
-      }
-
-      // ✅ THROTTLING INTELIGENTE: Acelerar quando fila está grande
-      const queueSize = processingQueue.get(companyId)?.length || 0;
-      const lastExecution = REQUEST_THROTTLE.get(companyId) || 0;
-      const timeSinceLastExecution = Date.now() - lastExecution;
-      
-      // Se fila > 50 eventos, remover throttling para acelerar (🔧 era 100)
-      const currentInterval = queueSize > 50 ? 0 : MIN_REQUEST_INTERVAL;
-      
-      if (timeSinceLastExecution < currentInterval) {
-        const waitTime = currentInterval - timeSinceLastExecution;
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-
-      // Processar evento através dos webhooks (SEQUENCIAL)
-      await processEventThroughWebhooks(companyId, event.eventName, event.eventData, null);
-      
-      // Atualizar timestamp da última execução
-      REQUEST_THROTTLE.set(companyId, Date.now());
-      
-      // ✅ DELAY INTELIGENTE: Acelerar quando fila está grande
-      const finalQueueSize = processingQueue.get(companyId)?.length || 0;
-      const delay = finalQueueSize > 50 ? 0 : 10; // Zero delay se fila grande (🔧 era 100)
-      if (delay > 0) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  } catch (error) {
-    console.error(`❌ Erro no processamento sequencial para empresa ${companyId}:`, error);
-  } finally {
-    isProcessing.set(companyId, false);
-    processingTimestamps.delete(companyId); // ✅ TIMEOUT: Limpar timestamp
-  }
-}
+// 🚀 FUNÇÃO REMOVIDA: processEventQueue
+// P-Queue gerencia automaticamente o processamento de eventos
+// Não precisamos mais do loop while manual
 
 // ✅ REMOVIDAS: Funções de deduplicação incorretas que estavam bloqueando eventos legítimos
 
@@ -1868,8 +1809,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
     console.log(`📤 POST: ${webhook.url} - ${eventName}`);
     
-    // ✅ OTIMIZAÇÃO: Log reduzido (já logamos POST attempt acima)
-    
     // Preparar payload do webhook
     const webhookPayload = {
       event_type: eventName,
@@ -1878,22 +1817,40 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       data: eventData
     };
 
-    // Headers da requisição
-    const headers = {
-      'Content-Type': 'application/json',
-      'User-Agent': '3C-Plus-Webhook-Proxy-Render/1.0'
-    };
-
-    // Fazer POST para o webhook
-    const response = await fetch(webhook.url, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(webhookPayload)
-    });
-
-    const responseText = await response.text();
-    const status = response.ok ? 'success' : 'failed';
-    const errorMessage = response.ok ? null : `HTTP ${response.status}: ${responseText}`;
+    // 🚀 USAR AXIOS COM RETRY AUTOMÁTICO (3 tentativas configuradas globalmente)
+    let response;
+    let status;
+    let errorMessage = null;
+    
+    try {
+      response = await axios.post(webhook.url, webhookPayload, {
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': '3C-Plus-Webhook-Proxy-Render/1.0'
+        },
+        timeout: 30000, // 30 segundos timeout
+        validateStatus: (status) => status < 600 // Não lançar erro para status < 600
+      });
+      
+      status = response.status >= 200 && response.status < 300 ? 'success' : 'failed';
+      
+      if (status === 'failed') {
+        errorMessage = `HTTP ${response.status}: ${JSON.stringify(response.data).substring(0, 300)}`;
+      }
+      
+    } catch (error) {
+      // Erro após 3 retries automáticos
+      status = 'failed';
+      errorMessage = `FALHA APÓS RETRIES: ${error.message}`;
+      
+      console.error(`❌ Erro ao executar webhook ${webhook.id} após retries:`, error);
+      
+      // Criar response mock para logging
+      response = {
+        status: error.response?.status || 0,
+        data: error.message
+      };
+    }
 
     // 🚀 NOVO: Marcar evento como processado APENAS se POST foi feito (sucesso ou falha, mas POST foi enviado)
     eventPostGuard.markAsProcessed(webhook.id, eventName, eventData);
@@ -1911,12 +1868,15 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       });
     }
 
-    // 🚀 OTIMIZAÇÃO DISK IO: Logging opcional para não sobrecarregar banco
-    const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true'; // Desabilitado por padrão
-    const shouldSaveExecution = ENABLE_EXECUTION_LOGGING && (status === 'failed' || Math.random() < 0.05); // Apenas 5% se habilitado
+    // 🚀 LOGGING MELHORADO: Sempre salvar falhas + 10% dos sucessos para auditoria
+    const shouldSaveExecution = status === 'failed' || Math.random() < 0.10;
     
     if (shouldSaveExecution) {
       try {
+        const responseBody = typeof response.data === 'string' 
+          ? response.data 
+          : JSON.stringify(response.data);
+          
         const { error: executionError } = await supabase
           .from('webhook_executions')
           .insert({
@@ -1925,7 +1885,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
             event_id: eventId,
             status: status,
             response_status: response.status,
-            response_body: responseText.length > 300 ? responseText.substring(0, 300) + '...' : responseText, // Payload ainda menor
+            response_body: responseBody.length > 300 ? responseBody.substring(0, 300) + '...' : responseBody,
             error_message: errorMessage?.length > 300 ? errorMessage.substring(0, 300) + '...' : errorMessage
           });
 
@@ -1940,7 +1900,9 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 
     // ✅ LOG ESSENCIAL: Apenas falhas são importantes
     if (status === 'failed') {
-      console.log(`❌ POST falhou: ${webhook.url} - ${response.status}`);
+      console.log(`❌ POST falhou: ${webhook.url} - ${response.status} - ${errorMessage}`);
+    } else {
+      console.log(`✅ POST sucesso: ${webhook.url} - ${response.status}`);
     }
     
     return {
@@ -1951,28 +1913,23 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     };
 
   } catch (error) {
-    console.error(`❌ Erro ao executar webhook ${webhook.id}:`, error);
+    // Captura erros inesperados que não foram tratados acima
+    console.error(`❌ Erro crítico inesperado ao processar webhook ${webhook.id}:`, error);
     
-    // 🚀 OTIMIZAÇÃO DISK IO: Logging de falhas também opcional
-    const ENABLE_EXECUTION_LOGGING = process.env.ENABLE_EXECUTION_LOGGING === 'true';
-    
-    if (ENABLE_EXECUTION_LOGGING) {
-      try {
-        const { error: failedExecutionError } = await supabase
-          .from('webhook_executions')
-          .insert({
-            webhook_id: webhook.id,
-            company_id: companyId,
-            event_id: eventId,
-            status: 'failed',
-            error_message: error.message.length > 300 ? error.message.substring(0, 300) + '...' : error.message
-          });
-
-        // 🚀 HISTÓRICO COMPLETO: Não fazemos mais cleanup automático
-      } catch (dbError) {
-        // ✅ SILENCIOSO: Não quebrar por erro de logging
-        console.error('⚠️ Erro no logging de falha (não crítico):', dbError);
-      }
+    // Tentar salvar log de falha crítica
+    try {
+      await supabase
+        .from('webhook_executions')
+        .insert({
+          webhook_id: webhook.id,
+          company_id: companyId,
+          event_id: eventId,
+          status: 'failed',
+          response_status: 0,
+          error_message: `ERRO CRÍTICO: ${error.message.substring(0, 300)}`
+        });
+    } catch (dbError) {
+      console.error('⚠️ Erro ao salvar log de falha crítica:', dbError);
     }
 
     throw error;
@@ -2195,16 +2152,19 @@ function startConnectionMonitor() {
         }
       }
       
-      // 🛡️ WATCHDOG 3: Verificar filas travadas
-      for (const [companyId, queue] of processingQueue.entries()) {
-        if (queue.length > 50 && isProcessing.get(companyId)) {
-          const processingStart = processingTimestamps.get(companyId);
-          if (processingStart && (now - processingStart) > 300000) { // 5 minutos
-            console.log(`🚨 WATCHDOG: Fila da empresa ${companyId} travada há 5min+ - DESTRAVANDO!`);
-            isProcessing.set(companyId, false);
-            processingTimestamps.delete(companyId);
-            processEventQueue(companyId);
-          }
+      // 🛡️ WATCHDOG 3: Verificar filas p-queue travadas ou muito grandes
+      for (const [companyId, queue] of processingQueues.entries()) {
+        const queueSize = queue.size;
+        const queuePending = queue.pending;
+        
+        if (queueSize > 100) {
+          console.log(`⚠️ WATCHDOG: Fila da empresa ${companyId} com ${queueSize} eventos pendentes e ${queuePending} processando`);
+        }
+        
+        // Se fila está muito grande mas nada processando, pode estar travada
+        if (queueSize > 50 && queuePending === 0) {
+          console.log(`🚨 WATCHDOG: Fila da empresa ${companyId} parece travada (${queueSize} pendentes, 0 processando)`);
+          // P-Queue deve auto-resolver, mas logamos para monitorar
         }
       }
       
@@ -2235,7 +2195,15 @@ function startConnectionMonitor() {
       const connected = connections.filter(c => c.status === 'connected').length;
       const disconnected = connections.filter(c => c.status === 'disconnected').length;
       
-      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${eventPostGuard.processedEvents.size} eventos rastreados`);
+      // Total de eventos em todas as filas
+      let totalQueuedEvents = 0;
+      let totalProcessingEvents = 0;
+      for (const queue of processingQueues.values()) {
+        totalQueuedEvents += queue.size;
+        totalProcessingEvents += queue.pending;
+      }
+      
+      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${totalQueuedEvents} na fila, ${totalProcessingEvents} processando`);
       
     } catch (error) {
       console.error('❌ Erro no watchdog:', error);
@@ -2277,22 +2245,13 @@ function startMemoryMonitor() {
       if (heapPercent > 90) {
         console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
-        // 🛡️ LIMPEZA SEGURA: NÃO limpar filas de processamento (pode perder eventos!)
-        // eventCache.clear(); // ✅ REMOVIDO: Era referência antiga
+        // 🛡️ LIMPEZA SEGURA: NÃO limpar filas de processamento (P-Queue gerencia)
         
         // Limpar apenas caches seguros
         activeWebhooksCache.clear();
+        eventCache.clear();
         
-        // ⚠️ CUIDADO: NÃO limpar processingQueue (perderia eventos!)
-        // Apenas reduzir filas muito grandes (manter últimos MAX_QUEUE_SIZE/2)
-        for (const [companyId, queue] of processingQueue.entries()) {
-          if (queue.length > MAX_QUEUE_SIZE) {
-            const keepCount = Math.floor(MAX_QUEUE_SIZE / 2);
-            const keptEvents = queue.slice(-keepCount); // Manter últimos 50%
-            processingQueue.set(companyId, keptEvents);
-            console.log(`🔧 REDUZINDO fila da empresa ${companyId}: ${queue.length} -> ${keptEvents.length} eventos`);
-          }
-        }
+        // P-Queue gerencia memória automaticamente, não precisamos intervir
         
         if (global.gc) global.gc();
         
