@@ -160,22 +160,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  // Auto-refresh session every 5 minutes
+  // 🚀 OTIMIZADO: Auto-refresh session a cada 15 minutos (reduzido de 5min)
   useEffect(() => {
     if (!isAuthenticated) return;
 
     const interval = setInterval(() => {
+      console.log('🔄 Auto-refresh da sessão (15min)');
       refreshSession();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, 15 * 60 * 1000); // 15 minutos - reduz 66% das requisições
 
     return () => clearInterval(interval);
   }, [isAuthenticated]);
 
-  // Cleanup expired sessions on window focus
+  // 🚀 OTIMIZADO: Refresh no window focus com debounce (previne spam de requisições)
   useEffect(() => {
+    if (!isAuthenticated) return;
+
+    let lastFocusRefresh = 0;
+    const MIN_REFRESH_INTERVAL = 60000; // 1 minuto mínimo entre refreshes
+
     const handleFocus = () => {
-      if (isAuthenticated) {
+      const now = Date.now();
+      const timeSinceLastRefresh = now - lastFocusRefresh;
+      
+      if (timeSinceLastRefresh > MIN_REFRESH_INTERVAL) {
+        console.log('🔄 Refresh da sessão (window focus)');
+        lastFocusRefresh = now;
         refreshSession();
+      } else {
+        const waitTime = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / 1000);
+        console.log(`⏭️ Refresh ignorado (aguarde ${waitTime}s desde último refresh)`);
       }
     };
 
