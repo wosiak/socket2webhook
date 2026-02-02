@@ -19,17 +19,17 @@ RETURNS TABLE (
   company_id UUID,
   webhook_id UUID,
   event_id UUID,
-  event_type TEXT,
-  status TEXT,
+  event_type VARCHAR,
+  status VARCHAR,
   response_status INTEGER,
   error_message TEXT,
   request_payload JSONB,
   created_at TIMESTAMPTZ,
-  webhook_name TEXT,
+  webhook_name VARCHAR,
   webhook_url TEXT,
-  company_name TEXT,
-  event_name TEXT,
-  event_display_name TEXT
+  company_name VARCHAR,
+  event_name VARCHAR,
+  event_display_name VARCHAR
 )
 LANGUAGE plpgsql
 SECURITY DEFINER -- Bypassa RLS
@@ -81,16 +81,16 @@ RETURNS TABLE (
   id UUID,
   company_id UUID,
   webhook_id UUID,
-  event_type TEXT,
-  status TEXT,
+  event_type VARCHAR,
+  status VARCHAR,
   response_status INTEGER,
   error_message TEXT,
   request_payload JSONB,
   created_at TIMESTAMPTZ,
-  webhook_name TEXT,
+  webhook_name VARCHAR,
   webhook_url TEXT,
-  company_name TEXT,
-  event_name TEXT
+  company_name VARCHAR,
+  event_name VARCHAR
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
