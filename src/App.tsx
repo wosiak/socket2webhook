@@ -360,6 +360,11 @@ export default function App() {
                 companyMetrics={companyMetrics}
                 executions={executions}
                 mostUsedEvents={mostUsedEvents}
+                onRefresh={async () => {
+                  console.log('🔄 [App] Refresh manual do Dashboard solicitado');
+                  await getMetrics();
+                  await getMostUsedEvents();
+                }}
               />
             </TabsContent>
 

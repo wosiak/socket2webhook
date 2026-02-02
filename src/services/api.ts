@@ -596,76 +596,98 @@ class ApiService {
   // Metrics
   async getMetrics() {
     try {
-      console.log('📊 Buscando métricas...')
+      console.log('📊 [getMetrics] Iniciando busca de métricas...')
       
       // Get total companies
-      const { count: companiesCount } = await supabase
+      const { count: companiesCount, error: companiesError } = await supabase
         .from('companies')
         .select('*', { count: 'exact', head: true })
       
+      if (companiesError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de companies:', companiesError)
+      }
+      console.log('📊 [getMetrics] Total de empresas:', companiesCount)
+      
       // Get total webhooks
-      const { count: webhooksCount } = await supabase
+      const { count: webhooksCount, error: webhooksError } = await supabase
         .from('webhooks')
         .select('*', { count: 'exact', head: true })
       
-      // Get total executions and success/failure counts
-      console.log('📊 Buscando TODAS as execuções para métricas...');
+      if (webhooksError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de webhooks:', webhooksError)
+      }
+      console.log('📊 [getMetrics] Total de webhooks:', webhooksCount)
       
-      // Primeiro, verificar o count total usando head: true
+      // Get total executions and success/failure counts
+      console.log('📊 [getMetrics] Buscando execuções de webhooks...');
+      
+      // Count total de execuções
       const { count: totalExecutionsCount, error: countError } = await supabase
         .from('webhook_executions')
         .select('*', { count: 'exact', head: true })
       
-      console.log('📊 COUNT DIRETO DO BANCO:', totalExecutionsCount);
-      
-      const { data: executionsData, error: executionsError } = await supabase
-        .from('webhook_executions')
-        .select('status')
-        .order('created_at', { ascending: false })
-        .limit(10000) // Aumentar limite para garantir que busque todos
-      
-      if (executionsError) {
-        console.error('❌ Erro ao buscar execuções:', executionsError)
+      if (countError) {
+        console.error('❌ [getMetrics] ERRO ao buscar count total de execuções:', countError)
+        console.error('❌ [getMetrics] Detalhes do erro:', JSON.stringify(countError, null, 2))
+        
+        // Se houver erro de RLS, retornar métricas zeradas
         return { success: true, data: {
           totalCompanies: companiesCount || 0,
           totalWebhooks: webhooksCount || 0,
           activeWebhooks: 0,
           totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
           successRate: 0,
           averageResponseTime: 0
         }}
       }
       
-      // Usar count direto do banco para total
-      const totalExecutions = totalExecutionsCount || 0;
+      console.log('✅ [getMetrics] COUNT total de execuções:', totalExecutionsCount);
       
       // Buscar counts específicos por status
-      const { count: successCount } = await supabase
+      const { count: successCount, error: successError } = await supabase
         .from('webhook_executions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'success')
       
-      const { count: failedCount } = await supabase
+      if (successError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de sucessos:', successError)
+      }
+      console.log('✅ [getMetrics] COUNT de sucessos:', successCount);
+      
+      const { count: failedCount, error: failedError } = await supabase
         .from('webhook_executions')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'failed')
       
+      if (failedError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de falhas:', failedError)
+      }
+      console.log('✅ [getMetrics] COUNT de falhas:', failedCount);
+      
+      const totalExecutions = totalExecutionsCount || 0;
       const successfulExecutions = successCount || 0;
       const failedExecutions = failedCount || 0;
       const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0
       
-      console.log('📊 DADOS DAS EXECUÇÕES PARA MÉTRICAS:');
-      console.log('📊 COUNT total do banco:', totalExecutions);
-      console.log('📊 Execuções de sucesso (count):', successfulExecutions);
-      console.log('📊 Execuções falharam (count):', failedExecutions);
-      console.log('📊 Taxa de sucesso:', successRate.toFixed(2) + '%');
+      console.log('📊 [getMetrics] === RESUMO DAS MÉTRICAS ===');
+      console.log('📊 [getMetrics] Total de execuções:', totalExecutions);
+      console.log('📊 [getMetrics] Sucessos:', successfulExecutions);
+      console.log('📊 [getMetrics] Falhas:', failedExecutions);
+      console.log('📊 [getMetrics] Taxa de sucesso:', successRate.toFixed(2) + '%');
       
       // Get active webhooks (não deletados)
-      const { count: activeWebhooksCount } = await supabase
+      const { count: activeWebhooksCount, error: activeError } = await supabase
         .from('webhooks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active')
         .eq('deleted', false)
+      
+      if (activeError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de webhooks ativos:', activeError)
+      }
+      console.log('📊 [getMetrics] Webhooks ativos:', activeWebhooksCount)
       
       const metrics = {
         totalCompanies: companiesCount || 0,
@@ -678,11 +700,27 @@ class ApiService {
         averageResponseTime: 250 // Mock response time in ms
       }
       
-      console.log('✅ Métricas carregadas:', metrics)
+      console.log('✅ [getMetrics] Métricas carregadas com sucesso:', metrics)
       return { success: true, data: metrics }
     } catch (error) {
-      console.error('❌ Erro ao carregar métricas:', error)
-      throw error
+      console.error('❌ [getMetrics] ERRO CRÍTICO ao carregar métricas:', error)
+      console.error('❌ [getMetrics] Stack trace:', error.stack)
+      
+      // Retornar métricas zeradas em caso de erro crítico
+      return { 
+        success: false, 
+        error: error.message,
+        data: {
+          totalCompanies: 0,
+          totalWebhooks: 0,
+          activeWebhooks: 0,
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+          successRate: 0,
+          averageResponseTime: 0
+        }
+      }
     }
   }
 
