@@ -499,6 +499,72 @@ class ApiService {
   // Executions
   async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, phoneNumber?: string) {
     try {
+      console.log('📊 [getExecutions] Iniciando busca de execuções...', { companyId, limit, offset, phoneNumber });
+      
+      // Se tem companyId, usar função RPC que bypassa RLS
+      if (companyId) {
+        // Se tem busca por telefone, usar função específica
+        if (phoneNumber && phoneNumber.trim()) {
+          console.log('📞 [getExecutions] Buscando por telefone via RPC:', phoneNumber);
+          
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('search_executions_by_phone', {
+              company_uuid: companyId,
+              phone_search: phoneNumber.replace(/\D/g, '') // Remove não-numéricos
+            })
+          
+          if (rpcError) {
+            console.error('❌ [getExecutions] Erro ao chamar RPC search_executions_by_phone:', rpcError);
+            // Fallback para query direta
+            console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
+          } else {
+            console.log('✅ [getExecutions] Dados da função RPC (telefone):', rpcData?.length || 0, 'registros');
+            
+            // Transformar dados para formato esperado
+            const transformedData = (rpcData || []).map((exec: any) => ({
+              ...exec,
+              webhook: { name: exec.webhook_name, url: exec.webhook_url },
+              company: { name: exec.company_name },
+              event: { name: exec.event_name }
+            }));
+            
+            return { success: true, data: transformedData };
+          }
+        } else {
+          // Busca normal por empresa
+          console.log('🏢 [getExecutions] Buscando execuções da empresa via RPC');
+          
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_company_executions', {
+              company_uuid: companyId,
+              result_limit: limit,
+              result_offset: offset
+            })
+          
+          if (rpcError) {
+            console.error('❌ [getExecutions] Erro ao chamar RPC get_company_executions:', rpcError);
+            console.error('❌ [getExecutions] Detalhes:', JSON.stringify(rpcError, null, 2));
+            // Fallback para query direta
+            console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
+          } else {
+            console.log('✅ [getExecutions] Dados da função RPC:', rpcData?.length || 0, 'registros');
+            
+            // Transformar dados para formato esperado
+            const transformedData = (rpcData || []).map((exec: any) => ({
+              ...exec,
+              webhook: { name: exec.webhook_name, url: exec.webhook_url },
+              company: { name: exec.company_name },
+              event: { name: exec.event_name, display_name: exec.event_display_name }
+            }));
+            
+            return { success: true, data: transformedData };
+          }
+        }
+      }
+      
+      // Fallback ou busca sem companyId: usar query direta
+      console.log('📄 [getExecutions] Usando query direta (fallback ou sem companyId)');
+      
       let query = supabase
         .from('webhook_executions')
         .select(`
@@ -515,25 +581,27 @@ class ApiService {
       
       // 🔍 Filtro por número de telefone
       if (phoneNumber && phoneNumber.trim()) {
-        // Remove caracteres não numéricos para busca
         const cleanPhone = phoneNumber.replace(/\D/g, '');
-        // Busca com LIKE para match parcial
-        query = query.ilike('phone_number', `%${cleanPhone}%`)
+        // Buscar tanto no phone_number quanto no request_payload
+        query = query.or(`phone_number.ilike.%${cleanPhone}%,request_payload::text.ilike.%${cleanPhone}%`)
       }
       
       // Aplicar paginação apenas se não houver busca por telefone
-      // (quando busca, queremos todos os resultados)
       if (!phoneNumber || !phoneNumber.trim()) {
         query = query.range(offset, offset + limit - 1)
       }
       
       const { data, error } = await query
       
-      if (error) throw error
+      if (error) {
+        console.error('❌ [getExecutions] Erro na query direta:', error);
+        throw error;
+      }
       
+      console.log('✅ [getExecutions] Query direta retornou:', data?.length || 0, 'registros');
       return { success: true, data: data || [] }
     } catch (error) {
-      console.error('API Request Failed: getExecutions', error)
+      console.error('❌ [getExecutions] Erro crítico:', error)
       throw error
     }
   }
