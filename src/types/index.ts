@@ -63,6 +63,7 @@ export interface ExecutionHistory {
   event_id: string;
   event_type?: string; // Nome do evento para exibição
   payload: any;
+  request_payload?: any; // 🚀 NOVO: JSONB com todos os dados do evento extraídos pelo backend
   status: 'pending' | 'success' | 'failed' | 'retrying';
   attempts: number;
   max_attempts: number;
@@ -79,6 +80,7 @@ export interface ExecutionHistory {
   };
   webhook?: {
     url: string;
+    name?: string;
   };
   event?: {
     name: string;

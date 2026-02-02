@@ -14,8 +14,10 @@ import {
   Globe,
   ArrowUpRight,
   ArrowDownRight,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from "lucide-react";
+import { useEffect } from "react";
 
 interface Metrics {
   company_id: string;
@@ -52,9 +54,26 @@ interface DashboardProps {
   companyMetrics: any[];
   executions: Execution[];
   mostUsedEvents: MostUsedEvent[];
+  onRefresh?: () => Promise<void>;
 }
 
-export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents }: DashboardProps) {
+export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents, onRefresh }: DashboardProps) {
+  
+  // Debug: Log metrics recebidas
+  useEffect(() => {
+    console.log('📊 [Dashboard] Métricas recebidas:', metrics);
+    console.log('📊 [Dashboard] Número de métricas:', metrics?.length || 0);
+    console.log('📊 [Dashboard] Execuções recebidas:', executions?.length || 0);
+    
+    // Se as métricas estiverem zeradas ao montar, tentar fazer refresh
+    if (metrics.length === 0 || metrics[0]?.total_events === 0) {
+      console.log('⚠️ [Dashboard] Métricas zeradas, tentando refresh automático...');
+      if (onRefresh) {
+        onRefresh();
+      }
+    }
+  }, [metrics, executions, onRefresh]);
+  
   // Calculate totals
   const totalExecutions = metrics.reduce((sum, metric) => sum + metric.total_events, 0);
   const totalSuccessful = metrics.reduce((sum, metric) => sum + metric.successful_events, 0);
@@ -122,7 +141,16 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents 
                 Visão geral do sistema de webhooks e métricas de execução
               </p>
             </div>
-
+            {onRefresh && (
+              <button
+                onClick={onRefresh}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors duration-200"
+                title="Atualizar métricas"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Atualizar
+              </button>
+            )}
           </div>
         </div>
 

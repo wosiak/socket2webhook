@@ -497,8 +497,74 @@ class ApiService {
   }
 
   // Executions
-  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, phoneNumber?: string) {
+  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, searchTerm?: string) {
     try {
+      console.log('📊 [getExecutions] Iniciando busca de execuções...', { companyId, limit, offset, searchTerm });
+      
+      // Se tem companyId, usar função RPC que bypassa RLS
+      if (companyId) {
+        // Se tem busca, usar função específica
+        if (searchTerm && searchTerm.trim()) {
+          console.log('🔍 [getExecutions] Buscando com termo via RPC:', searchTerm);
+          
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('search_executions_by_phone', {
+              company_uuid: companyId,
+              phone_search: searchTerm.trim() // Passar o termo exatamente como o usuário digitou
+            })
+          
+          if (rpcError) {
+            console.error('❌ [getExecutions] Erro ao chamar RPC search_executions_by_phone:', rpcError);
+            // Fallback para query direta
+            console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
+          } else {
+            console.log('✅ [getExecutions] Dados da função RPC (busca):', rpcData?.length || 0, 'registros');
+            
+            // Transformar dados para formato esperado
+            const transformedData = (rpcData || []).map((exec: any) => ({
+              ...exec,
+              webhook: { name: exec.webhook_name, url: exec.webhook_url },
+              company: { name: exec.company_name },
+              event: { name: exec.event_name }
+            }));
+            
+            return { success: true, data: transformedData };
+          }
+        } else {
+          // Busca normal por empresa
+          console.log('🏢 [getExecutions] Buscando execuções da empresa via RPC');
+          
+          const { data: rpcData, error: rpcError } = await supabase
+            .rpc('get_company_executions', {
+              company_uuid: companyId,
+              result_limit: limit,
+              result_offset: offset
+            })
+          
+          if (rpcError) {
+            console.error('❌ [getExecutions] Erro ao chamar RPC get_company_executions:', rpcError);
+            console.error('❌ [getExecutions] Detalhes:', JSON.stringify(rpcError, null, 2));
+            // Fallback para query direta
+            console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
+          } else {
+            console.log('✅ [getExecutions] Dados da função RPC:', rpcData?.length || 0, 'registros');
+            
+            // Transformar dados para formato esperado
+            const transformedData = (rpcData || []).map((exec: any) => ({
+              ...exec,
+              webhook: { name: exec.webhook_name, url: exec.webhook_url },
+              company: { name: exec.company_name },
+              event: { name: exec.event_name, display_name: exec.event_display_name }
+            }));
+            
+            return { success: true, data: transformedData };
+          }
+        }
+      }
+      
+      // Fallback ou busca sem companyId: usar query direta
+      console.log('📄 [getExecutions] Usando query direta (fallback ou sem companyId)');
+      
       let query = supabase
         .from('webhook_executions')
         .select(`
@@ -513,27 +579,30 @@ class ApiService {
         query = query.eq('company_id', companyId)
       }
       
-      // 🔍 Filtro por número de telefone
-      if (phoneNumber && phoneNumber.trim()) {
-        // Remove caracteres não numéricos para busca
-        const cleanPhone = phoneNumber.replace(/\D/g, '');
-        // Busca com LIKE para match parcial
-        query = query.ilike('phone_number', `%${cleanPhone}%`)
+      // 🔍 Filtro por termo de busca (busca em qualquer campo do JSON)
+      if (searchTerm && searchTerm.trim()) {
+        // Buscar no phone_number (campo legado)
+        // Nota: PostgREST não suporta JSONB::text casting em filtros OR diretamente
+        // A busca completa no JSON só funciona via RPC function
+        query = query.ilike('phone_number', `%${searchTerm}%`)
       }
       
-      // Aplicar paginação apenas se não houver busca por telefone
-      // (quando busca, queremos todos os resultados)
-      if (!phoneNumber || !phoneNumber.trim()) {
+      // Aplicar paginação apenas se não houver busca
+      if (!searchTerm || !searchTerm.trim()) {
         query = query.range(offset, offset + limit - 1)
       }
       
       const { data, error } = await query
       
-      if (error) throw error
+      if (error) {
+        console.error('❌ [getExecutions] Erro na query direta:', error);
+        throw error;
+      }
       
+      console.log('✅ [getExecutions] Query direta retornou:', data?.length || 0, 'registros');
       return { success: true, data: data || [] }
     } catch (error) {
-      console.error('API Request Failed: getExecutions', error)
+      console.error('❌ [getExecutions] Erro crítico:', error)
       throw error
     }
   }
@@ -596,76 +665,106 @@ class ApiService {
   // Metrics
   async getMetrics() {
     try {
-      console.log('📊 Buscando métricas...')
+      console.log('📊 [getMetrics] Iniciando busca de métricas...')
       
       // Get total companies
-      const { count: companiesCount } = await supabase
+      const { count: companiesCount, error: companiesError } = await supabase
         .from('companies')
         .select('*', { count: 'exact', head: true })
       
+      if (companiesError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de companies:', companiesError)
+      }
+      console.log('📊 [getMetrics] Total de empresas:', companiesCount)
+      
       // Get total webhooks
-      const { count: webhooksCount } = await supabase
+      const { count: webhooksCount, error: webhooksError } = await supabase
         .from('webhooks')
         .select('*', { count: 'exact', head: true })
       
+      if (webhooksError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de webhooks:', webhooksError)
+      }
+      console.log('📊 [getMetrics] Total de webhooks:', webhooksCount)
+      
       // Get total executions and success/failure counts
-      console.log('📊 Buscando TODAS as execuções para métricas...');
+      console.log('📊 [getMetrics] Buscando execuções de webhooks...');
       
-      // Primeiro, verificar o count total usando head: true
-      const { count: totalExecutionsCount, error: countError } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
+      // 🚀 USAR FUNÇÃO SQL QUE BYPASSA RLS
+      console.log('📊 [getMetrics] Chamando função SQL get_webhook_execution_metrics()...');
       
-      console.log('📊 COUNT DIRETO DO BANCO:', totalExecutionsCount);
+      const { data: metricsData, error: metricsError } = await supabase
+        .rpc('get_webhook_execution_metrics')
       
-      const { data: executionsData, error: executionsError } = await supabase
-        .from('webhook_executions')
-        .select('status')
-        .order('created_at', { ascending: false })
-        .limit(10000) // Aumentar limite para garantir que busque todos
-      
-      if (executionsError) {
-        console.error('❌ Erro ao buscar execuções:', executionsError)
-        return { success: true, data: {
+      if (metricsError) {
+        console.error('❌ [getMetrics] ERRO ao chamar função RPC:', metricsError)
+        console.error('❌ [getMetrics] Detalhes do erro:', JSON.stringify(metricsError, null, 2))
+        
+        // Fallback: tentar método antigo com COUNT direto
+        console.warn('⚠️ [getMetrics] Tentando fallback com COUNT direto...');
+        
+        const { count: totalExecutionsCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+        
+        const { count: successCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'success')
+        
+        const { count: failedCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'failed')
+        
+        const totalExecutions = totalExecutionsCount || 0;
+        const successfulExecutions = successCount || 0;
+        const failedExecutions = failedCount || 0;
+        
+        console.log('⚠️ [getMetrics] Fallback - Total:', totalExecutions, 'Sucessos:', successfulExecutions, 'Falhas:', failedExecutions);
+        
+        const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
+        
+        const metrics = {
           totalCompanies: companiesCount || 0,
           totalWebhooks: webhooksCount || 0,
-          activeWebhooks: 0,
-          totalExecutions: 0,
-          successRate: 0,
-          averageResponseTime: 0
-        }}
+          activeWebhooks: activeWebhooksCount || 0,
+          totalExecutions: totalExecutions,
+          successfulExecutions: successfulExecutions,
+          failedExecutions: failedExecutions,
+          successRate: Math.round(successRate * 10) / 10,
+          averageResponseTime: 250
+        }
+        
+        console.log('✅ [getMetrics] Métricas carregadas via fallback:', metrics);
+        return { success: true, data: metrics }
       }
       
-      // Usar count direto do banco para total
-      const totalExecutions = totalExecutionsCount || 0;
+      // Sucesso ao chamar a função RPC
+      console.log('✅ [getMetrics] Dados da função RPC:', metricsData);
       
-      // Buscar counts específicos por status
-      const { count: successCount } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'success')
-      
-      const { count: failedCount } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'failed')
-      
-      const successfulExecutions = successCount || 0;
-      const failedExecutions = failedCount || 0;
+      const totalExecutions = metricsData?.totalExecutions || 0;
+      const successfulExecutions = metricsData?.successfulExecutions || 0;
+      const failedExecutions = metricsData?.failedExecutions || 0;
       const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0
       
-      console.log('📊 DADOS DAS EXECUÇÕES PARA MÉTRICAS:');
-      console.log('📊 COUNT total do banco:', totalExecutions);
-      console.log('📊 Execuções de sucesso (count):', successfulExecutions);
-      console.log('📊 Execuções falharam (count):', failedExecutions);
-      console.log('📊 Taxa de sucesso:', successRate.toFixed(2) + '%');
+      console.log('📊 [getMetrics] === RESUMO DAS MÉTRICAS ===');
+      console.log('📊 [getMetrics] Total de execuções:', totalExecutions);
+      console.log('📊 [getMetrics] Sucessos:', successfulExecutions);
+      console.log('📊 [getMetrics] Falhas:', failedExecutions);
+      console.log('📊 [getMetrics] Taxa de sucesso:', successRate.toFixed(2) + '%');
       
       // Get active webhooks (não deletados)
-      const { count: activeWebhooksCount } = await supabase
+      const { count: activeWebhooksCount, error: activeError } = await supabase
         .from('webhooks')
         .select('*', { count: 'exact', head: true })
         .eq('status', 'active')
         .eq('deleted', false)
+      
+      if (activeError) {
+        console.error('❌ [getMetrics] Erro ao buscar count de webhooks ativos:', activeError)
+      }
+      console.log('📊 [getMetrics] Webhooks ativos:', activeWebhooksCount)
       
       const metrics = {
         totalCompanies: companiesCount || 0,
@@ -678,11 +777,27 @@ class ApiService {
         averageResponseTime: 250 // Mock response time in ms
       }
       
-      console.log('✅ Métricas carregadas:', metrics)
+      console.log('✅ [getMetrics] Métricas carregadas com sucesso:', metrics)
       return { success: true, data: metrics }
     } catch (error) {
-      console.error('❌ Erro ao carregar métricas:', error)
-      throw error
+      console.error('❌ [getMetrics] ERRO CRÍTICO ao carregar métricas:', error)
+      console.error('❌ [getMetrics] Stack trace:', error.stack)
+      
+      // Retornar métricas zeradas em caso de erro crítico
+      return { 
+        success: false, 
+        error: error.message,
+        data: {
+          totalCompanies: 0,
+          totalWebhooks: 0,
+          activeWebhooks: 0,
+          totalExecutions: 0,
+          successfulExecutions: 0,
+          failedExecutions: 0,
+          successRate: 0,
+          averageResponseTime: 0
+        }
+      }
     }
   }
 
