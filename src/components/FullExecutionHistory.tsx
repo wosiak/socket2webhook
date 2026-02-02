@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
+import { ScrollArea } from './ui/scroll-area';
 import { 
   History, 
   CheckCircle2,
@@ -15,7 +17,8 @@ import {
   ChevronsRight,
   RefreshCw,
   Search,
-  X
+  X,
+  Eye
 } from 'lucide-react';
 import { ExecutionHistory, Company } from '../types';
 import { apiService } from '../services/api';
@@ -30,22 +33,70 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [searchPhone, setSearchPhone] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [selectedExecution, setSelectedExecution] = useState<ExecutionHistory | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const itemsPerPage = 50;
 
-  const loadExecutions = async (page: number = 1, phone?: string) => {
+  // Função para extrair telefone do request_payload JSONB
+  const extractPhoneFromPayload = (execution: ExecutionHistory): string | null => {
+    // Primeiro tenta o campo phone_number legado
+    if (execution.phone_number) {
+      return execution.phone_number;
+    }
+
+    // Depois tenta extrair do request_payload
+    const payload = execution.request_payload;
+    if (!payload || typeof payload !== 'object') {
+      return null;
+    }
+
+    // Lista de campos possíveis onde o telefone pode estar
+    const phoneFields = [
+      'phone_phoneNumber',
+      'phone_from',
+      'phone_to',
+      'phone_number',
+      'phoneNumber',
+      'from',
+      'to',
+      'phone',
+      'telefone'
+    ];
+
+    for (const field of phoneFields) {
+      const value = payload[field];
+      if (value && typeof value === 'string') {
+        return value;
+      }
+    }
+
+    // Tenta buscar em objetos aninhados
+    if (payload.callHistory?.number) return payload.callHistory.number;
+    if (payload.phone?.phoneNumber) return payload.phone.phoneNumber;
+    if (payload.phone?.from) return payload.phone.from;
+    if (payload.phone?.to) return payload.phone.to;
+
+    return null;
+  };
+
+  const loadExecutions = async (page: number = 1, searchQuery?: string) => {
     try {
       setLoading(true);
       const offset = (page - 1) * itemsPerPage;
       
-      // Se está buscando por telefone, não usa paginação
+      console.log('🔍 [FullExecutionHistory] Buscando execuções:', { page, searchQuery, companyId: company.id });
+      
+      // Se está buscando, passa o termo de busca
       const result = await apiService.getExecutions(
         company.id, 
         itemsPerPage, 
         offset,
-        phone || undefined
+        searchQuery || undefined
       );
+      
+      console.log('✅ [FullExecutionHistory] Resultado:', result);
       
       if (result.success) {
         setExecutions(result.data || []);
@@ -54,7 +105,7 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
         const totalItems = result.data?.length || 0;
         
         // Se está buscando, desabilita paginação
-        if (phone && phone.trim()) {
+        if (searchQuery && searchQuery.trim()) {
           setTotalPages(1);
           setIsSearching(true);
         } else {
@@ -75,27 +126,37 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
     }
   };
 
+  // Carregar execuções quando a empresa ou página mudar (SEM busca)
   useEffect(() => {
-    loadExecutions(currentPage, searchPhone);
+    if (!searchTerm || searchTerm.trim() === '') {
+      loadExecutions(currentPage, undefined);
+    }
   }, [company.id, currentPage]);
 
   // Busca com debounce quando o usuário digita
   useEffect(() => {
-    // Reset para página 1 ao buscar
-    if (searchPhone !== '') {
+    if (searchTerm && searchTerm.trim() !== '') {
+      // Reset para página 1 ao buscar
       setCurrentPage(1);
-    }
-    
-    const timer = setTimeout(() => {
-      loadExecutions(1, searchPhone);
-    }, 500); // Debounce de 500ms
+      
+      const timer = setTimeout(() => {
+        loadExecutions(1, searchTerm);
+      }, 500); // Debounce de 500ms
 
-    return () => clearTimeout(timer);
-  }, [searchPhone]);
+      return () => clearTimeout(timer);
+    }
+  }, [searchTerm]);
 
   const handleClearSearch = () => {
-    setSearchPhone('');
+    setSearchTerm('');
     setCurrentPage(1);
+    // Recarregar sem busca
+    loadExecutions(1, undefined);
+  };
+
+  const handleViewData = (execution: ExecutionHistory) => {
+    setSelectedExecution(execution);
+    setIsModalOpen(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -165,7 +226,7 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
         </div>
         <Button
           variant="outline"
-          onClick={() => loadExecutions(currentPage, searchPhone)}
+          onClick={() => loadExecutions(currentPage, searchTerm)}
           className="flex items-center gap-2"
           disabled={loading}
         >
@@ -184,7 +245,7 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                 Execuções de Webhooks
               </CardTitle>
               <CardDescription className="text-gray-600 mt-1">
-                Histórico completo de todas as execuções de call-history-was-created
+                Busque por telefone, list ID, ou qualquer campo presente no evento
               </CardDescription>
             </div>
             
@@ -194,46 +255,52 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Buscar por número de telefone..."
-                  value={searchPhone}
-                  onChange={(e) => setSearchPhone(e.target.value)}
-                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  placeholder="Buscar em qualquer campo: telefone, ID, mensagem..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
-                {searchPhone && (
+                {searchTerm && (
                   <button
                     onClick={handleClearSearch}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 )}
               </div>
-              {searchPhone && (
-                <p className="text-xs text-gray-500 mt-1">
-                  {executions.length} resultado(s) encontrado(s)
+              {isSearching && (
+                <p className="text-xs text-blue-600 mt-1">
+                  🔍 Mostrando resultados para: "{searchTerm}"
                 </p>
               )}
             </div>
           </div>
         </CardHeader>
+        
         <CardContent>
           {loading ? (
-            <div className="text-center py-12">
-              <RefreshCw className="mx-auto h-12 w-12 text-blue-600 animate-spin" />
-              <p className="mt-4 text-gray-600">
-                {isSearching ? 'Buscando execuções...' : 'Carregando execuções...'}
-              </p>
+            <div className="flex items-center justify-center py-12">
+              <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+              <span className="ml-3 text-gray-600">Carregando execuções...</span>
             </div>
           ) : executions.length === 0 ? (
             <div className="text-center py-12">
-              <History className="mx-auto h-16 w-16 text-gray-400" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">
-                {searchPhone ? 'Nenhum resultado encontrado' : 'Nenhuma execução registrada'}
-              </h3>
-              {searchPhone && (
-                <p className="mt-2 text-gray-600">
-                  Nenhuma execução encontrada para o número "{searchPhone}". Tente buscar com um número diferente.
-                </p>
+              <History className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-600 font-medium">
+                {isSearching ? 'Nenhum resultado encontrado' : 'Nenhuma execução encontrada'}
+              </p>
+              <p className="text-sm text-gray-500 mt-1">
+                {isSearching ? 'Tente outro termo de busca' : 'As execuções aparecerão aqui quando os webhooks forem disparados'}
+              </p>
+              {isSearching && (
+                <Button
+                  variant="outline"
+                  onClick={handleClearSearch}
+                  className="mt-4"
+                >
+                  Limpar busca
+                </Button>
               )}
             </div>
           ) : (
@@ -243,11 +310,11 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                   <TableHeader>
                     <TableRow className="bg-gray-50">
                       <TableHead className="font-semibold text-gray-900">Evento</TableHead>
-                      <TableHead className="font-semibold text-gray-900">Telefone</TableHead>
                       <TableHead className="font-semibold text-gray-900">URL do Webhook</TableHead>
                       <TableHead className="font-semibold text-gray-900">Status</TableHead>
                       <TableHead className="font-semibold text-gray-900">HTTP</TableHead>
                       <TableHead className="font-semibold text-gray-900">Data/Hora</TableHead>
+                      <TableHead className="font-semibold text-gray-900 text-center">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -260,15 +327,6 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                               {execution.event_type || execution.event?.name || 'call-history'}
                             </code>
                           </div>
-                        </TableCell>
-                        <TableCell>
-                          {execution.phone_number ? (
-                            <code className="text-xs bg-blue-50 text-blue-800 px-2 py-1 rounded font-mono">
-                              {execution.phone_number}
-                            </code>
-                          ) : (
-                            <span className="text-xs text-gray-400">-</span>
-                          )}
                         </TableCell>
                         <TableCell className="max-w-xs">
                           {execution.webhook?.url ? (
@@ -314,6 +372,17 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                             second: '2-digit'
                           }) : '-'}
                         </TableCell>
+                        <TableCell className="text-center">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleViewData(execution)}
+                            className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Ver Dados
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -345,11 +414,9 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                     >
                       <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    
-                    <div className="px-4 py-2 bg-blue-50 text-blue-700 rounded font-medium text-sm">
+                    <span className="px-4 py-2 text-sm text-gray-700 bg-gray-50 rounded border">
                       {currentPage}
-                    </div>
-                    
+                    </span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -362,24 +429,84 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
                       variant="outline"
                       size="sm"
                       onClick={() => goToPage(totalPages)}
-                      disabled={currentPage === totalPages || loading}
+                      disabled={currentPage >= totalPages || loading}
                     >
                       <ChevronsRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
               )}
-              
-              {isSearching && executions.length > 0 && (
-                <div className="text-center mt-6 text-sm text-gray-600">
-                  Mostrando todos os {executions.length} resultado(s) para "{searchPhone}"
-                </div>
-              )}
             </>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal para visualizar dados completos */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600" />
+              Dados Completos do Evento
+            </DialogTitle>
+            <DialogDescription>
+              Todos os campos recebidos no evento {selectedExecution?.event_type}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            {/* Informações básicas */}
+            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase">Evento</p>
+                <p className="text-sm text-gray-900 mt-1">{selectedExecution?.event_type || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase">Status</p>
+                <div className="mt-1">
+                  {selectedExecution && getStatusBadge(selectedExecution.status)}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase">Data/Hora</p>
+                <p className="text-sm text-gray-900 mt-1">
+                  {selectedExecution?.created_at ? new Date(selectedExecution.created_at).toLocaleString('pt-BR') : '-'}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-gray-600 uppercase">Telefone</p>
+                <p className="text-sm text-gray-900 mt-1">
+                  {selectedExecution ? extractPhoneFromPayload(selectedExecution) || '-' : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* JSON Completo */}
+            <div>
+              <p className="text-sm font-semibold text-gray-700 mb-2">📦 Payload Completo (JSON)</p>
+              <ScrollArea className="h-96 w-full border rounded-lg p-4 bg-gray-900">
+                <pre className="text-xs text-green-400 font-mono">
+                  {selectedExecution?.request_payload 
+                    ? JSON.stringify(selectedExecution.request_payload, null, 2)
+                    : selectedExecution?.payload
+                    ? JSON.stringify(selectedExecution.payload, null, 2)
+                    : 'Nenhum dado disponível'}
+                </pre>
+              </ScrollArea>
+            </div>
+
+            {/* Erro (se houver) */}
+            {selectedExecution?.error_message && (
+              <div>
+                <p className="text-sm font-semibold text-red-700 mb-2">⚠️ Mensagem de Erro</p>
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <code className="text-xs text-red-800">{selectedExecution.error_message}</code>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

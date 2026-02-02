@@ -770,7 +770,6 @@ export function CompanyDetail({
                 <TableHeader>
                   <TableRow className="bg-gray-50">
                     <TableHead className="font-semibold text-gray-900">Evento</TableHead>
-                    <TableHead className="font-semibold text-gray-900">Telefone</TableHead>
                     <TableHead className="font-semibold text-gray-900">Status</TableHead>
                     <TableHead className="font-semibold text-gray-900">Data</TableHead>
                   </TableRow>
@@ -785,15 +784,6 @@ export function CompanyDetail({
                             {execution?.event_type || execution?.event?.name || execution?.event_id || 'Evento'}
                           </code>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        {execution?.phone_number ? (
-                          <code className="text-xs bg-blue-50 text-blue-800 px-2 py-1 rounded font-mono">
-                            {execution.phone_number}
-                          </code>
-                        ) : (
-                          <span className="text-xs text-gray-400">-</span>
-                        )}
                       </TableCell>
                       <TableCell>
                         {getStatusBadge(execution?.status || 'pending')}

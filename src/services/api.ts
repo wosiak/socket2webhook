@@ -497,20 +497,20 @@ class ApiService {
   }
 
   // Executions
-  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, phoneNumber?: string) {
+  async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, searchTerm?: string) {
     try {
-      console.log('📊 [getExecutions] Iniciando busca de execuções...', { companyId, limit, offset, phoneNumber });
+      console.log('📊 [getExecutions] Iniciando busca de execuções...', { companyId, limit, offset, searchTerm });
       
       // Se tem companyId, usar função RPC que bypassa RLS
       if (companyId) {
-        // Se tem busca por telefone, usar função específica
-        if (phoneNumber && phoneNumber.trim()) {
-          console.log('📞 [getExecutions] Buscando por telefone via RPC:', phoneNumber);
+        // Se tem busca, usar função específica
+        if (searchTerm && searchTerm.trim()) {
+          console.log('🔍 [getExecutions] Buscando com termo via RPC:', searchTerm);
           
           const { data: rpcData, error: rpcError } = await supabase
             .rpc('search_executions_by_phone', {
               company_uuid: companyId,
-              phone_search: phoneNumber.replace(/\D/g, '') // Remove não-numéricos
+              phone_search: searchTerm.trim() // Passar o termo exatamente como o usuário digitou
             })
           
           if (rpcError) {
@@ -518,7 +518,7 @@ class ApiService {
             // Fallback para query direta
             console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
           } else {
-            console.log('✅ [getExecutions] Dados da função RPC (telefone):', rpcData?.length || 0, 'registros');
+            console.log('✅ [getExecutions] Dados da função RPC (busca):', rpcData?.length || 0, 'registros');
             
             // Transformar dados para formato esperado
             const transformedData = (rpcData || []).map((exec: any) => ({
@@ -579,15 +579,16 @@ class ApiService {
         query = query.eq('company_id', companyId)
       }
       
-      // 🔍 Filtro por número de telefone
-      if (phoneNumber && phoneNumber.trim()) {
-        const cleanPhone = phoneNumber.replace(/\D/g, '');
-        // Buscar tanto no phone_number quanto no request_payload
-        query = query.or(`phone_number.ilike.%${cleanPhone}%,request_payload::text.ilike.%${cleanPhone}%`)
+      // 🔍 Filtro por termo de busca (busca em qualquer campo do JSON)
+      if (searchTerm && searchTerm.trim()) {
+        // Buscar no phone_number (campo legado)
+        // Nota: PostgREST não suporta JSONB::text casting em filtros OR diretamente
+        // A busca completa no JSON só funciona via RPC function
+        query = query.ilike('phone_number', `%${searchTerm}%`)
       }
       
-      // Aplicar paginação apenas se não houver busca por telefone
-      if (!phoneNumber || !phoneNumber.trim()) {
+      // Aplicar paginação apenas se não houver busca
+      if (!searchTerm || !searchTerm.trim()) {
         query = query.range(offset, offset + limit - 1)
       }
       
