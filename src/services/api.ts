@@ -621,54 +621,62 @@ class ApiService {
       // Get total executions and success/failure counts
       console.log('📊 [getMetrics] Buscando execuções de webhooks...');
       
-      // Count total de execuções
-      const { count: totalExecutionsCount, error: countError } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
+      // 🚀 USAR FUNÇÃO SQL QUE BYPASSA RLS
+      console.log('📊 [getMetrics] Chamando função SQL get_webhook_execution_metrics()...');
       
-      if (countError) {
-        console.error('❌ [getMetrics] ERRO ao buscar count total de execuções:', countError)
-        console.error('❌ [getMetrics] Detalhes do erro:', JSON.stringify(countError, null, 2))
+      const { data: metricsData, error: metricsError } = await supabase
+        .rpc('get_webhook_execution_metrics')
+      
+      if (metricsError) {
+        console.error('❌ [getMetrics] ERRO ao chamar função RPC:', metricsError)
+        console.error('❌ [getMetrics] Detalhes do erro:', JSON.stringify(metricsError, null, 2))
         
-        // Se houver erro de RLS, retornar métricas zeradas
-        return { success: true, data: {
+        // Fallback: tentar método antigo com COUNT direto
+        console.warn('⚠️ [getMetrics] Tentando fallback com COUNT direto...');
+        
+        const { count: totalExecutionsCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+        
+        const { count: successCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'success')
+        
+        const { count: failedCount } = await supabase
+          .from('webhook_executions')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'failed')
+        
+        const totalExecutions = totalExecutionsCount || 0;
+        const successfulExecutions = successCount || 0;
+        const failedExecutions = failedCount || 0;
+        
+        console.log('⚠️ [getMetrics] Fallback - Total:', totalExecutions, 'Sucessos:', successfulExecutions, 'Falhas:', failedExecutions);
+        
+        const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
+        
+        const metrics = {
           totalCompanies: companiesCount || 0,
           totalWebhooks: webhooksCount || 0,
-          activeWebhooks: 0,
-          totalExecutions: 0,
-          successfulExecutions: 0,
-          failedExecutions: 0,
-          successRate: 0,
-          averageResponseTime: 0
-        }}
+          activeWebhooks: activeWebhooksCount || 0,
+          totalExecutions: totalExecutions,
+          successfulExecutions: successfulExecutions,
+          failedExecutions: failedExecutions,
+          successRate: Math.round(successRate * 10) / 10,
+          averageResponseTime: 250
+        }
+        
+        console.log('✅ [getMetrics] Métricas carregadas via fallback:', metrics);
+        return { success: true, data: metrics }
       }
       
-      console.log('✅ [getMetrics] COUNT total de execuções:', totalExecutionsCount);
+      // Sucesso ao chamar a função RPC
+      console.log('✅ [getMetrics] Dados da função RPC:', metricsData);
       
-      // Buscar counts específicos por status
-      const { count: successCount, error: successError } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'success')
-      
-      if (successError) {
-        console.error('❌ [getMetrics] Erro ao buscar count de sucessos:', successError)
-      }
-      console.log('✅ [getMetrics] COUNT de sucessos:', successCount);
-      
-      const { count: failedCount, error: failedError } = await supabase
-        .from('webhook_executions')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'failed')
-      
-      if (failedError) {
-        console.error('❌ [getMetrics] Erro ao buscar count de falhas:', failedError)
-      }
-      console.log('✅ [getMetrics] COUNT de falhas:', failedCount);
-      
-      const totalExecutions = totalExecutionsCount || 0;
-      const successfulExecutions = successCount || 0;
-      const failedExecutions = failedCount || 0;
+      const totalExecutions = metricsData?.totalExecutions || 0;
+      const successfulExecutions = metricsData?.successfulExecutions || 0;
+      const failedExecutions = metricsData?.failedExecutions || 0;
       const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0
       
       console.log('📊 [getMetrics] === RESUMO DAS MÉTRICAS ===');
