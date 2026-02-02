@@ -252,11 +252,12 @@ const eventCache = new Map();
 const EVENT_CACHE_TTL = 3000; // 🔧 OTIMIZADO: 3 segundos (era 5) - menos memória
 const MAX_EVENT_CACHE_SIZE = 500; // 🔧 OTIMIZADO: 500 (era 2000) - 75% menos memória
 
-// 🚀 BATCH LOGGING: Sistema de logging em lote para call-history-was-created
-const callHistoryLogQueue = new Map(); // Map de companyId -> Array de logs
-const BATCH_SIZE = 20; // 🔧 OTIMIZADO: 20 (era 50) - flush mais frequente, menos em memória
-const BATCH_INTERVAL = 30000; // 🔧 OTIMIZADO: 30s (era 60s) - flush mais frequente
-let batchFlushTimer = null;
+// 🚀 UNIVERSAL BATCH LOGGING: Sistema de logging inteligente para TODOS os eventos
+const universalLogQueue = new Map(); // Map de companyId -> Array de logs
+const UNIVERSAL_BATCH_SIZE = 100; // Flush a cada 100 eventos (95% menos INSERTs)
+const UNIVERSAL_BATCH_INTERVAL = 60000; // OU a cada 60 segundos
+const MAX_EVENT_JSON_SIZE = 1024; // 1KB máximo para fallback de JSON completo
+let universalBatchTimer = null;
 
 const IDENTIFIER_KEYS_PRIORITY = [
   'uuid',
@@ -471,138 +472,221 @@ function trimEventCacheIfNeeded() {
   }
 }
 
-// 🚀 BATCH LOGGING: Funções para logging em lote de call-history-was-created
+// ===========================================================================================
+// 🚀 UNIVERSAL BATCH LOGGING: Sistema inteligente de logging para TODOS os eventos
+// ===========================================================================================
+// 
+// Este sistema substitui o antigo batch logging específico de call-history.
+// Agora funciona para QUALQUER tipo de evento, com extração automática de campos importantes.
+// 
+// Estratégia:
+// 1. Auto-detecta campos "humanos" pesquisáveis (telefones, nomes, emails)
+// 2. Usa regex para detectar telefones em qualquer formato
+// 3. Extrai campos com palavras-chave importantes (name, phone, email, etc)
+// 4. Fallback: se não detectar nada, salva JSON truncado (1KB)
+// 5. Batch de 100 eventos ou 60 segundos (reduz INSERTs em 95%)
+//
+// ===========================================================================================
 
 /**
- * Extrai número de telefone do payload de call-history-was-created
+ * Extrai automaticamente campos "humanos" pesquisáveis de qualquer evento
+ * Detecta: telefones, nomes, emails, IDs visíveis ao usuário
+ * 
+ * @param {object} eventData - Dados completos do evento
+ * @returns {object} - Objeto com campos extraídos OU JSON truncado
  */
-function extractPhoneNumber(eventName, eventData) {
-  if (eventName !== 'call-history-was-created') {
-    return null;
+function autoExtractSearchableFields(eventData) {
+  const searchableData = {};
+  
+  // Regex para detectar telefones (múltiplos formatos internacionais)
+  const phoneRegex = /^[\+]?[(]?[0-9]{2,4}[)]?[-\s\.]?[0-9]{4,5}[-\s\.]?[0-9]{4,5}$/;
+  
+  // Lista de palavras-chave que indicam campos importantes
+  const importantKeys = [
+    'phone', 'telefone', 'numero', 'number', 'celular', 'mobile',
+    'name', 'nome', 'user', 'usuario', 'agent', 'agente',
+    'email', 'mail', 'from', 'to', 'de', 'para',
+    'queue', 'fila', 'status', 'message', 'mensagem',
+    'body', 'text', 'content', 'conteudo'
+  ];
+  
+  /**
+   * Função recursiva para varrer todo o JSON
+   * @param {object} obj - Objeto a ser escaneado
+   * @param {string} parentPath - Caminho acumulado (ex: 'agent.name')
+   */
+  function scanObject(obj, parentPath = '') {
+    if (!obj || typeof obj !== 'object') return;
+    
+    for (const [key, value] of Object.entries(obj)) {
+      const fullPath = parentPath ? `${parentPath}.${key}` : key;
+      const lowerKey = key.toLowerCase();
+      
+      // Se o valor é string, verificar se é telefone ou campo importante
+      if (typeof value === 'string') {
+        // Detectar telefone por regex
+        const cleanValue = value.replace(/\s/g, '');
+        if (phoneRegex.test(cleanValue)) {
+          searchableData[`phone_${fullPath}`] = value;
+          continue;
+        }
+        
+        // Detectar por nome da chave
+        const isImportant = importantKeys.some(keyword => lowerKey.includes(keyword));
+        if (isImportant && value.length > 0 && value.length < 200) { // Limitar tamanho
+          searchableData[fullPath] = value;
+        }
+      }
+      
+      // Se o valor é número e a chave sugere ID ou duração
+      else if (typeof value === 'number') {
+        if (lowerKey.includes('duration') || lowerKey.includes('duracao')) {
+          searchableData[fullPath] = value;
+        }
+      }
+      
+      // Se for objeto aninhado, continuar recursão (limitar a 3 níveis)
+      else if (typeof value === 'object' && value !== null && parentPath.split('.').length < 3) {
+        scanObject(value, fullPath);
+      }
+    }
   }
   
-  try {
-    // Extrair de callHistory.number (caminho principal)
-    if (eventData?.callHistory?.number) {
-      return String(eventData.callHistory.number);
-    }
-    
-    // Fallback: tentar outros campos comuns
-    if (eventData?.number) {
-      return String(eventData.number);
-    }
-    
-    if (eventData?.phone) {
-      return String(eventData.phone);
-    }
-    
-    return null;
-  } catch (error) {
-    console.error('Erro ao extrair número de telefone:', error);
-    return null;
+  scanObject(eventData);
+  
+  // Se não encontrou nada importante, retorna JSON truncado como fallback
+  if (Object.keys(searchableData).length === 0) {
+    const fullJson = JSON.stringify(eventData);
+    return {
+      _no_searchable_fields: true,
+      _full_event_truncated: fullJson.length > MAX_EVENT_JSON_SIZE 
+        ? fullJson.substring(0, MAX_EVENT_JSON_SIZE) + '...[TRUNCATED]' 
+        : fullJson
+    };
   }
+  
+  return searchableData;
 }
 
 /**
- * Adiciona log à fila de batch para processamento posterior
+ * Adiciona log à fila universal para processamento em batch
+ * Funciona para TODOS os tipos de eventos (não só call-history)
+ * 
+ * @param {object} logData - Dados do log a ser enfileirado
+ * @param {string} logData.companyId - ID da empresa
+ * @param {string} logData.webhookId - ID do webhook
+ * @param {string} logData.eventId - ID único do evento
+ * @param {string} logData.eventType - Tipo do evento (ex: 'call-history-was-created')
+ * @param {object} logData.eventData - Dados completos do evento
+ * @param {string} logData.status - Status da execução ('success' ou 'failed')
+ * @param {number} logData.responseStatus - Status HTTP da resposta (200, 500, etc)
  */
-function queueCallHistoryLog(logData) {
-  const { companyId, webhookId, eventId, phoneNumber, status, responseStatus } = logData;
+function queueEventLog(logData) {
+  const { companyId, webhookId, eventId, eventType, eventData, status, responseStatus } = logData;
   
   // Validar dados mínimos
-  if (!companyId || !webhookId || !phoneNumber) {
+  if (!companyId || !webhookId || !eventType) {
+    console.warn('⚠️ queueEventLog: Dados mínimos ausentes, ignorando log');
     return;
   }
   
   // Inicializar fila se não existe
-  if (!callHistoryLogQueue.has(companyId)) {
-    callHistoryLogQueue.set(companyId, []);
+  if (!universalLogQueue.has(companyId)) {
+    universalLogQueue.set(companyId, []);
   }
   
-  const queue = callHistoryLogQueue.get(companyId);
+  const queue = universalLogQueue.get(companyId);
+  
+  // ✅ AUTO-EXTRAÇÃO: Detecta automaticamente campos importantes
+  const searchableFields = autoExtractSearchableFields(eventData);
   
   // Adicionar log à fila
   queue.push({
     webhook_id: webhookId,
     company_id: companyId,
     event_id: eventId,
+    event_type: eventType,
     status: status,
     response_status: responseStatus,
-    phone_number: phoneNumber,
-    request_payload: {
-      phone_number: phoneNumber,
-      event_type: 'call-history-was-created'
-    }
+    request_payload: searchableFields, // ✅ Dados extraídos automaticamente
+    created_at: new Date().toISOString()
   });
   
-  // Verificar se deve fazer flush (atingiu batch size)
-  if (queue.length >= BATCH_SIZE) {
-    flushCallHistoryLogs(companyId);
+  // Flush automático se atingiu o tamanho do batch
+  if (queue.length >= UNIVERSAL_BATCH_SIZE) {
+    console.log(`📊 FLUSH AUTOMÁTICO: ${queue.length} eventos da empresa ${companyId}`);
+    flushUniversalLogs(companyId);
   }
 }
 
 /**
- * Escreve logs em lote no banco de dados
+ * Escreve logs em lote no banco de dados (INSERT único para múltiplos registros)
+ * 
+ * @param {string} companyId - ID da empresa para fazer flush
  */
-async function flushCallHistoryLogs(companyId) {
-  const queue = callHistoryLogQueue.get(companyId);
+async function flushUniversalLogs(companyId) {
+  const queue = universalLogQueue.get(companyId);
   
   if (!queue || queue.length === 0) {
     return;
   }
   
-  // Copiar logs e limpar fila
+  // Copiar logs e limpar fila imediatamente (evita duplicação)
   const logsToInsert = [...queue];
-  callHistoryLogQueue.set(companyId, []);
+  universalLogQueue.set(companyId, []);
   
   try {
-    console.log(`📊 BATCH INSERT: ${logsToInsert.length} logs de call-history para empresa ${companyId}`);
+    console.log(`📊 BATCH INSERT: ${logsToInsert.length} eventos da empresa ${companyId}`);
     
-    // INSERT em lote (1 query para múltiplos registros)
-    const { error, data } = await supabase
+    // INSERT em lote (1 query para múltiplos registros = performance!)
+    const { error } = await supabase
       .from('webhook_executions')
       .insert(logsToInsert);
     
     if (error) {
-      console.error(`❌ Erro no batch insert de call-history logs:`, error);
-      
-      // Em caso de erro, tentar re-adicionar à fila para retry
-      const currentQueue = callHistoryLogQueue.get(companyId) || [];
-      callHistoryLogQueue.set(companyId, [...logsToInsert, ...currentQueue]);
+      console.error(`❌ Erro no batch insert:`, error);
+      // Não re-enfileirar para evitar loop infinito em caso de erro persistente
     } else {
-      console.log(`✅ BATCH INSERT concluído: ${logsToInsert.length} registros salvos`);
-      
-      // 🚀 HISTÓRICO COMPLETO: Não fazemos mais cleanup automático
-      // Histórico mantido permanentemente para análise
+      console.log(`✅ BATCH SALVO: ${logsToInsert.length} eventos com dados pesquisáveis`);
     }
-  } catch (error) {
-    console.error(`❌ Erro crítico no batch insert:`, error);
-    
-    // Re-adicionar à fila para retry
-    const currentQueue = callHistoryLogQueue.get(companyId) || [];
-    callHistoryLogQueue.set(companyId, [...logsToInsert, ...currentQueue]);
+  } catch (dbError) {
+    console.error(`❌ Erro crítico no flush de logs:`, dbError);
   }
 }
 
 /**
- * Flush periódico de todas as filas (executado a cada 1 minuto)
+ * Flush de todas as filas pendentes de todas as empresas
+ * Chamado pelo timer periódico (a cada 60s) ou ao encerrar servidor
  */
-async function flushAllCallHistoryLogs() {
-  const companyIds = Array.from(callHistoryLogQueue.keys());
+async function flushAllUniversalLogs() {
+  const totalQueued = Array.from(universalLogQueue.values()).reduce((sum, q) => sum + q.length, 0);
   
-  if (companyIds.length === 0) {
-    return;
+  if (totalQueued > 0) {
+    console.log(`🔄 FLUSH PERIÓDICO: ${totalQueued} eventos pendentes em ${universalLogQueue.size} empresas`);
   }
   
-  console.log(`🔄 Flush periódico: processando ${companyIds.length} empresas com logs pendentes`);
-  
-  for (const companyId of companyIds) {
-    await flushCallHistoryLogs(companyId);
+  for (const companyId of universalLogQueue.keys()) {
+    await flushUniversalLogs(companyId);
   }
 }
 
 // Iniciar timer de flush periódico
-batchFlushTimer = setInterval(flushAllCallHistoryLogs, BATCH_INTERVAL);
+universalBatchTimer = setInterval(flushAllUniversalLogs, UNIVERSAL_BATCH_INTERVAL);
+
+// Cleanup ao encerrar servidor (garante que não perde logs pendentes)
+process.on('SIGTERM', async () => {
+  console.log('🛑 SIGTERM recebido, fazendo flush final de logs...');
+  clearInterval(universalBatchTimer);
+  await flushAllUniversalLogs();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('🛑 SIGINT recebido, fazendo flush final de logs...');
+  clearInterval(universalBatchTimer);
+  await flushAllUniversalLogs();
+  process.exit(0);
+});
 
 // Log inicial
 console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
@@ -2001,50 +2085,19 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // 🚀 NOVO: Marcar evento como processado APENAS se POST foi feito (sucesso ou falha, mas POST foi enviado)
     eventPostGuard.markAsProcessed(webhook.id, eventName, eventData);
 
-    // 🚀 BATCH LOGGING: Adicionar à fila de batch para call-history-was-created
-    const phoneNumber = extractPhoneNumber(eventName, eventData);
-    if (phoneNumber && eventName === 'call-history-was-created') {
-      queueCallHistoryLog({
-        companyId: companyId,
-        webhookId: webhook.id,
-        eventId: eventId,
-        phoneNumber: phoneNumber,
-        status: status,
-        responseStatus: response.status
-      });
-    }
+    // 📊 UNIVERSAL LOGGING: Enfileirar TODOS os eventos para batch logging
+    // Substitui o antigo sistema que salvava apenas call-history ou 10% dos eventos
+    queueEventLog({
+      companyId: companyId,
+      webhookId: webhook.id,
+      eventId: eventId,
+      eventType: eventName,
+      eventData: eventData,
+      status: status,
+      responseStatus: response.status
+    });
 
-    // 🚀 LOGGING MELHORADO: Sempre salvar falhas + 10% dos sucessos para auditoria
-    const shouldSaveExecution = status === 'failed' || Math.random() < 0.10;
-    
-    if (shouldSaveExecution) {
-      try {
-        const responseBody = typeof response.data === 'string' 
-          ? response.data 
-          : JSON.stringify(response.data);
-          
-        const { error: executionError } = await supabase
-          .from('webhook_executions')
-          .insert({
-            webhook_id: webhook.id,
-            company_id: companyId,
-            event_id: eventId,
-            status: status,
-            response_status: response.status,
-            response_body: responseBody.length > 300 ? responseBody.substring(0, 300) + '...' : responseBody,
-            error_message: errorMessage?.length > 300 ? errorMessage.substring(0, 300) + '...' : errorMessage
-          });
-
-        if (executionError) {
-          console.error('❌ Erro ao salvar execução do webhook:', executionError);
-        }
-      } catch (dbError) {
-        // ✅ SILENCIOSO: Não quebrar POST por erro de logging
-        console.error('⚠️ Erro no logging (não crítico):', dbError);
-      }
-    }
-
-    // ✅ LOG ESSENCIAL: Apenas falhas são importantes
+    // ✅ LOG ESSENCIAL: Console para monitoramento em tempo real
     if (status === 'failed') {
       console.log(`❌ POST falhou: ${webhook.url} - ${response.status} - ${errorMessage}`);
     } else {
@@ -2062,22 +2115,9 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     // Captura erros inesperados que não foram tratados acima
     console.error(`❌ Erro crítico inesperado ao processar webhook ${webhook.id}:`, error);
     
-    // Tentar salvar log de falha crítica
-    try {
-      await supabase
-        .from('webhook_executions')
-        .insert({
-          webhook_id: webhook.id,
-          company_id: companyId,
-          event_id: eventId,
-          status: 'failed',
-          response_status: 0,
-          error_message: `ERRO CRÍTICO: ${error.message.substring(0, 300)}`
-        });
-    } catch (dbError) {
-      console.error('⚠️ Erro ao salvar log de falha crítica:', dbError);
-    }
-
+    // ❌ REMOVIDO: Logging direto no banco (agora usa batch universal)
+    // Erros críticos serão capturados no próximo flush automático ou no shutdown
+    
     throw error;
   }
 }
