@@ -666,6 +666,92 @@ const SAMPLE_EVENT_BODIES = {
       "buttons": []
     }
   },
+  "message-ack-whatsapp": {
+    "message": {
+      "id": "3EB0DDD9D9E4B88E3EB56A",
+      "internal_id": "fd725996-c54b-400b-b616-538ce0f05554",
+      "message_from": "Eduardo Wosiak | Gestor",
+      "number": "5542999601808",
+      "type": "chat",
+      "body": "teste",
+      "instance_id": "4a99f31a06bc3737d6d3b2f04d51c342",
+      "instance": {
+        "id": "4a99f31a06bc3737d6d3b2f04d51c342",
+        "name": "Professional Service",
+        "team_id": 14849,
+        "company_id": 11943,
+        "group_channel_id": 5539,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "whatsapp-3c",
+        "phone": "5542936180583"
+      },
+      "chat_id": 4158188,
+      "agent_id": 185899,
+      "agent": {
+        "id": 185899,
+        "name": "Eduardo Wosiak | Gestor",
+        "extension": {
+          "id": 233136,
+          "extension_number": 1001,
+          "type": "user",
+          "company_id": 11943,
+          "created_at": "2025-11-16 21:43:16",
+          "updated_at": "2025-11-16 21:43:16"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 185899,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "time_whatsapp": 1774635502,
+      "time": 1774635502,
+      "audio_transcription": null,
+      "from": "5542936180583",
+      "to": "5542999601808",
+      "author": "Eduardo Wosiak | Gestor",
+      "ack": "server",
+      "media": null,
+      "media_name": null,
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": true,
+      "self": false,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": false,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": null,
+      "from_chatbot": false,
+      "waba_template_data": null,
+      "inter_message_data": null,
+      "internal": false,
+      "index_order": 384,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": [],
+      "buttons": [],
+      "from_ai_assistant": false,
+      "has_error": false,
+      "original_error_message": null,
+      "translated_error_message": null
+    }
+  },
   "new-whatsapp-internal-message": {
     "chat": {
       "id": 1,
@@ -2389,6 +2475,8 @@ export function InteractiveEventFilter({
       finalPath = path.replace('call-history-was-created.', '');
     } else if (path.includes('new-message-whatsapp.')) {
       finalPath = path.replace('new-message-whatsapp.', '');
+    } else if (path.includes('message-ack-whatsapp.')) {
+      finalPath = path.replace('message-ack-whatsapp.', '');
     } else if (path.includes('call-was-created.')) {
       finalPath = path.replace('call-was-created.', '');
     } else if (path.includes('call-is-trying.')) {
