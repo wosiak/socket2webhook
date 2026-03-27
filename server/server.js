@@ -95,6 +95,7 @@ class EventPostGuard {
       'new-message-whatsapp': 'message.id',
       'new-agent-message-whatsapp': 'message.id',
       'message-ack-whatsapp': 'message.id',
+      'message-error-whatsapp': 'message.id',
       
       // Eventos de chat - ID único em chat.id
       'chat-was-finished': 'chat.id',

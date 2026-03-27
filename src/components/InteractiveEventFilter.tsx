@@ -666,6 +666,325 @@ const SAMPLE_EVENT_BODIES = {
       "buttons": []
     }
   },
+  "message-ack-whatsapp": {
+    "message": {
+      "id": "3EB0DDD9D9E4B88E3EB56A",
+      "internal_id": "fd725996-c54b-400b-b616-538ce0f05554",
+      "message_from": "Eduardo Wosiak | Gestor",
+      "number": "5542999601808",
+      "type": "chat",
+      "body": "teste",
+      "instance_id": "4a99f31a06bc3737d6d3b2f04d51c342",
+      "instance": {
+        "id": "4a99f31a06bc3737d6d3b2f04d51c342",
+        "name": "Professional Service",
+        "team_id": 14849,
+        "company_id": 11943,
+        "group_channel_id": 5539,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "whatsapp-3c",
+        "phone": "5542936180583"
+      },
+      "chat_id": 4158188,
+      "agent_id": 185899,
+      "agent": {
+        "id": 185899,
+        "name": "Eduardo Wosiak | Gestor",
+        "extension": {
+          "id": 233136,
+          "extension_number": 1001,
+          "type": "user",
+          "company_id": 11943,
+          "created_at": "2025-11-16 21:43:16",
+          "updated_at": "2025-11-16 21:43:16"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 185899,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "time_whatsapp": 1774635502,
+      "time": 1774635502,
+      "audio_transcription": null,
+      "from": "5542936180583",
+      "to": "5542999601808",
+      "author": "Eduardo Wosiak | Gestor",
+      "ack": "server",
+      "media": null,
+      "media_name": null,
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": true,
+      "self": false,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": false,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": null,
+      "from_chatbot": false,
+      "waba_template_data": null,
+      "inter_message_data": null,
+      "internal": false,
+      "index_order": 384,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": [],
+      "buttons": [],
+      "from_ai_assistant": false,
+      "has_error": false,
+      "original_error_message": null,
+      "translated_error_message": null
+    }
+  },
+  "message-error-whatsapp": {
+    "chat": {
+      "id": 4589836,
+      "name": null,
+      "protocol_number": null,
+      "contact": {
+        "id": 2519440,
+        "name": "Eduardo Wosiak",
+        "name_alias": null,
+        "image": "",
+        "is_blocked": false,
+        "company_id": 64,
+        "number": "5542999601808"
+      },
+      "instance_id": "a29278f5f2763fe249f7181b6646be58",
+      "instance": {
+        "id": "a29278f5f2763fe249f7181b6646be58",
+        "name": "SDR IA - LUIZA",
+        "team_id": 17106,
+        "company_id": 64,
+        "group_channel_id": 5107,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "waba",
+        "phone": null
+      },
+      "number": "5542999601808",
+      "team_id": 17106,
+      "last_message": "Oi! Aqui é o Gabriel, da 3C Plus. Acabamos de falar e esse é o meu número para continuarmos nosso contato.",
+      "last_message_data": {
+        "body": "Oi! Aqui é o Gabriel, da 3C Plus. Acabamos de falar e esse é o meu número para continuarmos nosso contato.",
+        "type": "template",
+        "date": 1774636171,
+        "send_by_me": true
+      },
+      "internal_message": {
+        "client_initiated_chat": false,
+        "agent_name": "Gestor",
+        "message": "Conversa aceita por: Gestor"
+      },
+      "company_id": 64,
+      "agent_id": 34181,
+      "agent": {
+        "id": 34181,
+        "name": "Gestor",
+        "extension": {
+          "id": 63819,
+          "extension_number": 6969,
+          "type": "user",
+          "company_id": 64,
+          "created_at": "2022-08-05 16:10:27",
+          "updated_at": "2022-08-05 16:10:27"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 34181,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "unread": 0,
+      "quantity_of_messages": 1,
+      "finished": false,
+      "type": "chat",
+      "from_me": true,
+      "group_owner": null,
+      "allow_all_agents": false,
+      "is_read_only": false,
+      "time": null,
+      "oldest_unanswered_message_date": 1774636140,
+      "is_group": false,
+      "most_older_unanswered_message": 1774636140,
+      "most_older_received_message": 1774636172,
+      "transferred": false,
+      "transfered_from_group_channel_id": null,
+      "lag_to_response": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_to_be_answer": null
+      },
+      "queue_response_is_late": {
+        "response_is_late": false,
+        "late_since": null,
+        "max_time_waiting_agent_answer": 0
+      },
+      "waba_message_received": {
+        "sended_message_template": true,
+        "message_received": false,
+        "end_message_cycle": 1774722542,
+        "templates_sent_recently": [
+          {
+            "template_id": "1546674803190304",
+            "created_at": "2026-03-27T15:29:31-03:00"
+          },
+          {
+            "template_id": "1393632685467138",
+            "created_at": "2026-03-27T15:29:22-03:00"
+          },
+          {
+            "template_id": "1834132654140538",
+            "created_at": "2026-03-27T15:29:14-03:00"
+          },
+          {
+            "template_id": "1159837506108190",
+            "created_at": "2026-03-27T15:29:02-03:00"
+          }
+        ]
+      },
+      "chatbot_id": null,
+      "chatbot": {
+        "is_active": false,
+        "last_action_id": null,
+        "start_chatbot": null
+      },
+      "updated_at": "2026-03-27T18:29:31.000000Z",
+      "created_at": "2026-02-04T14:25:05.000000Z",
+      "end_snooze": 1774636172,
+      "in_snooze": false,
+      "message_from": null,
+      "contact_tags": [],
+      "color": "#28CC39",
+      "mood": null,
+      "by_active_ivr": false,
+      "is_trigger_chat": false,
+      "messages": [],
+      "from_trigger": false
+    },
+    "message": {
+      "id": "wamid.HBgMNTU0Mjk5NjAxODA4FQIAERgSQTcyMEVCRDhENUExNkIyNTYyAA==",
+      "internal_id": "true_5542999601808@c_5107_1774636171_e55a492c-2a0a-11f1-9056-5ee596da15c1",
+      "message_from": "Gestor",
+      "number": "5542999601808",
+      "type": "template",
+      "body": null,
+      "instance_id": "a29278f5f2763fe249f7181b6646be58",
+      "instance": {
+        "id": "a29278f5f2763fe249f7181b6646be58",
+        "name": "SDR IA - LUIZA",
+        "team_id": 17106,
+        "company_id": 64,
+        "group_channel_id": 5107,
+        "open_ai": false,
+        "status": "connected",
+        "first_connection": false,
+        "type": "waba",
+        "phone": null
+      },
+      "chat_id": 4589836,
+      "agent_id": 34181,
+      "agent": {
+        "id": 34181,
+        "name": "Gestor",
+        "extension": {
+          "id": 63819,
+          "extension_number": 6969,
+          "type": "user",
+          "company_id": 64,
+          "created_at": "2022-08-05 16:10:27",
+          "updated_at": "2022-08-05 16:10:27"
+        },
+        "role": {
+          "id": 2,
+          "name": "manager",
+          "created_at": "2018-06-28 11:58:40",
+          "updated_at": "2018-06-28 11:58:40",
+          "pivot": {
+            "user_id": 34181,
+            "role_id": 2
+          }
+        },
+        "teams": []
+      },
+      "time_whatsapp": 1774636171,
+      "time": 1774636171,
+      "audio_transcription": null,
+      "from": null,
+      "to": "5542999601808",
+      "author": "Gestor",
+      "ack": null,
+      "media": null,
+      "media_name": null,
+      "media_original_name": null,
+      "size": 0,
+      "fromMe": true,
+      "self": false,
+      "isForwarded": false,
+      "isMentioned": false,
+      "is_deleted": false,
+      "is_external": false,
+      "quoted_msg": {
+        "body": null,
+        "id": null,
+        "media": null,
+        "type": null
+      },
+      "reference_id": null,
+      "from_chatbot": false,
+      "waba_template_data": {
+        "name": "ola_acabamos_de_falar",
+        "parameter_format": "POSITIONAL",
+        "components": [
+          {
+            "type": "BODY",
+            "text": "Oi! Aqui é o Gabriel, da 3C Plus. Acabamos de falar e esse é o meu número para continuarmos nosso contato."
+          }
+        ],
+        "language": "pt_BR",
+        "status": "APPROVED",
+        "category": "MARKETING",
+        "sub_category": "CUSTOM",
+        "is_primary_device_delivery_only": false,
+        "id": "1546674803190304"
+      },
+      "inter_message_data": null,
+      "internal": false,
+      "index_order": 13,
+      "is_deleted_at": null,
+      "context": "historic",
+      "page": null,
+      "button_response": [],
+      "buttons": [],
+      "from_ai_assistant": false,
+      "has_error": true,
+      "original_error_message": "In order to maintain a healthy ecosystem engagement, the message failed to be delivered.",
+      "translated_error_message": "Mensagem bloqueada por segurança, revise o conteúdo para evitar que seja marcado como spam."
+    }
+  },
   "new-whatsapp-internal-message": {
     "chat": {
       "id": 1,
@@ -2389,6 +2708,10 @@ export function InteractiveEventFilter({
       finalPath = path.replace('call-history-was-created.', '');
     } else if (path.includes('new-message-whatsapp.')) {
       finalPath = path.replace('new-message-whatsapp.', '');
+    } else if (path.includes('message-ack-whatsapp.')) {
+      finalPath = path.replace('message-ack-whatsapp.', '');
+    } else if (path.includes('message-error-whatsapp.')) {
+      finalPath = path.replace('message-error-whatsapp.', '');
     } else if (path.includes('call-was-created.')) {
       finalPath = path.replace('call-was-created.', '');
     } else if (path.includes('call-is-trying.')) {
