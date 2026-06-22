@@ -8,20 +8,22 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from './ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Switch } from './ui/switch';
-import { 
-  Users, 
-  UserPlus, 
-  Edit3, 
-  Trash2, 
-  Shield, 
-  ShieldCheck, 
-  AlertCircle, 
+import {
+  Users,
+  UserPlus,
+  Edit3,
+  Trash2,
+  Shield,
+  ShieldCheck,
+  AlertCircle,
   CheckCircle,
   Clock,
   User as UserIcon,
   Mail,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Copy,
+  Key
 } from 'lucide-react';
 import { useUserManager } from '../hooks/useUserManager';
 import { useAuth } from '../contexts/AuthContext';
@@ -44,6 +46,7 @@ export function UserManagement() {
   } = useUserManager();
 
   // Modals state
+  const [copiedTokenId, setCopiedTokenId] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -400,6 +403,39 @@ export function UserManagement() {
                 </div>
               )}
               
+              {/* API Token */}
+              {(currentUser?.role === 'super_admin' || user.id === currentUser?.id) && user.api_token && (
+                <div className="pt-3 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-500 flex items-center gap-1">
+                      <Key className="w-3 h-3" />
+                      Token API
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono text-gray-700">
+                        {user.api_token.substring(0, 8)}...
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(user.api_token!);
+                          setCopiedTokenId(user.id);
+                          setTimeout(() => setCopiedTokenId(null), 2000);
+                        }}
+                        className="h-6 w-6 p-0 hover:bg-gray-100"
+                        title="Copiar token completo"
+                      >
+                        {copiedTokenId === user.id
+                          ? <CheckCircle className="w-3 h-3 text-green-500" />
+                          : <Copy className="w-3 h-3 text-gray-500" />
+                        }
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
