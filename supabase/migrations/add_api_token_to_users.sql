@@ -19,7 +19,14 @@ ALTER TABLE users ALTER COLUMN api_token SET NOT NULL;
 ALTER TABLE users ALTER COLUMN api_token SET DEFAULT encode(gen_random_bytes(32), 'hex');
 
 -- 5. Garantir unicidade
-ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS users_api_token_unique UNIQUE (api_token);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'users_api_token_unique'
+  ) THEN
+    ALTER TABLE users ADD CONSTRAINT users_api_token_unique UNIQUE (api_token);
+  END IF;
+END $$;
 
 -- 6. Índice para lookup rápido no middleware de autenticação
 CREATE INDEX IF NOT EXISTS idx_users_api_token ON users(api_token);
