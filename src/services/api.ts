@@ -1104,7 +1104,7 @@ class ApiService {
       
       const { data, error } = await supabase
         .from('users')
-        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at, last_login')
+        .select('id, email, name, role, avatar_url, is_active, api_token, created_at, updated_at, last_login')
         .order('created_at', { ascending: false })
       
       if (error) throw error
@@ -1133,7 +1133,7 @@ class ApiService {
           password_hash: passwordHash,
           role: userData.role
         })
-        .select('id, email, name, role, avatar_url, is_active, created_at, updated_at')
+        .select('id, email, name, role, avatar_url, is_active, api_token, created_at, updated_at')
         .single()
       
       if (error) {

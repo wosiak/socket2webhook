@@ -1160,6 +1160,200 @@ app.post('/force-reconnect', async (req, res) => {
   }
 });
 
+// =============================================
+// 🔐 API TOKEN AUTHENTICATION MIDDLEWARE
+// =============================================
+
+async function requireApiToken(req, res, next) {
+  try {
+    const authHeader = req.headers['authorization'];
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({
+        success: false,
+        error: 'Token de autenticação ausente. Use: Authorization: Bearer <seu_token>'
+      });
+    }
+
+    const token = authHeader.slice(7).trim();
+
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Token inválido' });
+    }
+
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, name, role, is_active')
+      .eq('api_token', token)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !user) {
+      return res.status(401).json({ success: false, error: 'Token inválido ou usuário inativo' });
+    }
+
+    req.apiUser = user;
+    next();
+  } catch (error) {
+    console.error('❌ Erro na autenticação por token:', error);
+    res.status(500).json({ success: false, error: 'Erro interno na autenticação' });
+  }
+}
+
+// =============================================
+// 🌐 PUBLIC API ENDPOINTS (autenticados por token)
+// =============================================
+
+// GET /api/companies — listar empresas
+app.get('/api/companies', requireApiToken, async (req, res) => {
+  try {
+    const { data: companies, error } = await supabase
+      .from('companies')
+      .select('id, name, company_3c_id, status, cluster_type, created_at, updated_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    res.json({ success: true, data: companies || [] });
+  } catch (error) {
+    console.error('❌ GET /api/companies:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/companies — criar empresa
+// Body: { name, api_token, company_3c_id?, cluster_type?, status? }
+app.post('/api/companies', requireApiToken, async (req, res) => {
+  try {
+    const { name, api_token, company_3c_id, cluster_type, status } = req.body;
+
+    if (!name || !api_token) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campos obrigatórios: name, api_token'
+      });
+    }
+
+    const { data: company, error } = await supabase
+      .from('companies')
+      .insert({
+        name,
+        company_3c_id: company_3c_id || '',
+        api_token,
+        cluster_type: cluster_type || 'cluster1',
+        status: status || 'active',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select('id, name, company_3c_id, status, cluster_type, created_at, updated_at')
+      .single();
+
+    if (error) throw error;
+
+    console.log(`✅ API: Empresa "${name}" criada por ${req.apiUser.email}`);
+    res.status(201).json({ success: true, data: company });
+  } catch (error) {
+    console.error('❌ POST /api/companies:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST /api/companies/:companyId/webhooks — criar webhook para empresa
+// Body: { url, event_names[], name?, status? }
+// event_names: array de nomes de eventos (ex: ["call-history-was-created", "new-message-whatsapp"])
+app.post('/api/companies/:companyId/webhooks', requireApiToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { name, url, event_names, status } = req.body;
+
+    if (!url || !Array.isArray(event_names) || event_names.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Campos obrigatórios: url, event_names (array com nomes dos eventos)'
+      });
+    }
+
+    // Verificar empresa
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('id, name')
+      .eq('id', companyId)
+      .single();
+
+    if (companyError || !company) {
+      return res.status(404).json({ success: false, error: 'Empresa não encontrada' });
+    }
+
+    // Criar webhook
+    const { data: webhook, error: webhookError } = await supabase
+      .from('webhooks')
+      .insert({
+        company_id: companyId,
+        name: name || `Webhook ${Date.now()}`,
+        url,
+        status: status || 'active',
+        deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (webhookError) throw webhookError;
+
+    // Buscar IDs dos eventos pelos nomes
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('id, name')
+      .in('name', event_names);
+
+    if (eventsError) throw eventsError;
+
+    const foundNames = (events || []).map(e => e.name);
+    const notFound = event_names.filter(n => !foundNames.includes(n));
+
+    if (notFound.length > 0) {
+      console.warn(`⚠️ API: Eventos não encontrados: ${notFound.join(', ')}`);
+    }
+
+    // Criar relacionamentos webhook_events
+    if (events && events.length > 0) {
+      const { error: weError } = await supabase
+        .from('webhook_events')
+        .insert(events.map(event => ({
+          webhook_id: webhook.id,
+          event_id: event.id,
+          filters: [],
+          created_at: new Date().toISOString()
+        })));
+
+      if (weError) throw weError;
+    }
+
+    // Disparar conexão/atualização de listeners para a empresa
+    await checkAndReconnectIfHasActiveWebhooks(companyId);
+
+    console.log(`✅ API: Webhook criado para "${company.name}" por ${req.apiUser.email}`);
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: webhook.id,
+        company_id: webhook.company_id,
+        name: webhook.name,
+        url: webhook.url,
+        status: webhook.status,
+        event_names: foundNames,
+        events_not_found: notFound,
+        created_at: webhook.created_at
+      }
+    });
+  } catch (error) {
+    console.error('❌ POST /api/companies/:companyId/webhooks:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Conectar empresa específica
 async function connectCompany(companyId, options = {}) {
   const { force = false } = options;

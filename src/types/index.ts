@@ -157,6 +157,7 @@ export interface User {
   role: UserRole;
   avatar_url?: string;
   is_active: boolean;
+  api_token?: string;
   created_at: string;
   updated_at: string;
   last_login?: string;
