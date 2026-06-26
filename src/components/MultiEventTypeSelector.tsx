@@ -40,9 +40,6 @@ export function MultiEventTypeSelector({
   const safeSelectedEventIds = Array.isArray(selectedEventIds) ? selectedEventIds : [];
   
   // Debug: verificar se eventos estão chegando no seletor
-  console.log('MultiEventTypeSelector - Events recebidos:', events);
-  console.log('MultiEventTypeSelector - SafeEvents:', safeEvents);
-  console.log('MultiEventTypeSelector - SafeEvents length:', safeEvents.length);
 
   const handleToggleEvent = (eventId: string) => {
     let newSelection;

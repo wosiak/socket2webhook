@@ -8,7 +8,6 @@ interface CompanyFormProps {
 }
 
 export function CompanyForm({ onBack, onSave, onCompanyCreated }: CompanyFormProps) {
-  console.log("🔍 CompanyForm renderizando...");
 
   const [cluster, setCluster] = useState<'cluster1' | 'cluster2'>('cluster1');
 

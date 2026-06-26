@@ -54,7 +54,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Check if session is still valid
       if (new Date(session.expires_at) <= new Date()) {
-        console.log('🔐 Sessão expirada, removendo...');
         localStorage.removeItem(SESSION_STORAGE_KEY);
         setIsLoading(false);
         return;
@@ -63,10 +62,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Validate session with server
       const response = await apiService.validateSession(session.token);
       if (response.success && response.data) {
-        console.log('✅ Sessão válida, usuário autenticado:', response.data.email);
         setUser(response.data);
       } else {
-        console.log('❌ Sessão inválida no servidor, removendo...');
         localStorage.removeItem(SESSION_STORAGE_KEY);
       }
     } catch (error) {
@@ -88,10 +85,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
         localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(response.data));
         setUser(response.data.user);
         
-        console.log('✅ Login realizado com sucesso:', response.data.user.email);
         return { success: true };
       } else {
-        console.log('❌ Falha no login:', response.error);
         return { success: false, error: response.error || 'Erro desconhecido' };
       }
     } catch (error) {
@@ -119,7 +114,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
       localStorage.removeItem(SESSION_STORAGE_KEY);
       setUser(null);
       
-      console.log('✅ Logout realizado com sucesso');
     } catch (error) {
       console.error('❌ Erro durante logout:', error);
       // Always clear local session even if server request fails
@@ -165,7 +159,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!isAuthenticated) return;
 
     const interval = setInterval(() => {
-      console.log('🔄 Auto-refresh da sessão (15min)');
       refreshSession();
     }, 15 * 60 * 1000); // 15 minutos - reduz 66% das requisições
 
@@ -184,12 +177,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const timeSinceLastRefresh = now - lastFocusRefresh;
       
       if (timeSinceLastRefresh > MIN_REFRESH_INTERVAL) {
-        console.log('🔄 Refresh da sessão (window focus)');
         lastFocusRefresh = now;
         refreshSession();
       } else {
         const waitTime = Math.ceil((MIN_REFRESH_INTERVAL - timeSinceLastRefresh) / 1000);
-        console.log(`⏭️ Refresh ignorado (aguarde ${waitTime}s desde último refresh)`);
       }
     };
 

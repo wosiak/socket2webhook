@@ -16,7 +16,6 @@ interface CompanyFormData {
 }
 
 export function CompanyFormModal({ isOpen, onClose, onSubmit }: CompanyFormModalProps) {
-  console.log("🔍 CompanyFormModal renderizando... isOpen:", isOpen);
 
   const [formData, setFormData] = useState<CompanyFormData>({
     company_3c_id: '',

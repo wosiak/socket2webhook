@@ -18,7 +18,6 @@ axiosRetry(axios, {
            (error.response?.status >= 500 && error.response?.status < 600);
   },
   onRetry: (retryCount, error, requestConfig) => {
-    console.log(`🔄 RETRY ${retryCount}/3: ${requestConfig.url} - ${error.message}`);
   }
 });
 
@@ -226,11 +225,9 @@ function getOrCreateQueue(companyId) {
     
     // Logging de eventos da fila para debug
     queue.on('active', () => {
-      console.log(`🔄 Fila ${companyId}: Processando evento (${queue.size} pendentes, ${queue.pending} ativos)`);
     });
     
     queue.on('idle', () => {
-      console.log(`✅ Fila ${companyId}: Todos eventos processados`);
     });
     
     queue.on('error', (error) => {
@@ -615,7 +612,6 @@ function queueEventLog(logData) {
   
   // Flush automático se atingiu o tamanho do batch
   if (queue.length >= UNIVERSAL_BATCH_SIZE) {
-    console.log(`📊 FLUSH AUTOMÁTICO: ${queue.length} eventos da empresa ${companyId}`);
     flushUniversalLogs(companyId);
   }
 }
@@ -637,7 +633,6 @@ async function flushUniversalLogs(companyId) {
   universalLogQueue.set(companyId, []);
   
   try {
-    console.log(`📊 BATCH INSERT: ${logsToInsert.length} eventos da empresa ${companyId}`);
     
     // INSERT em lote (1 query para múltiplos registros = performance!)
     const { error } = await supabase
@@ -648,7 +643,6 @@ async function flushUniversalLogs(companyId) {
       console.error(`❌ Erro no batch insert:`, error);
       // Não re-enfileirar para evitar loop infinito em caso de erro persistente
     } else {
-      console.log(`✅ BATCH SALVO: ${logsToInsert.length} eventos com dados pesquisáveis`);
     }
   } catch (dbError) {
     console.error(`❌ Erro crítico no flush de logs:`, dbError);
@@ -663,7 +657,6 @@ async function flushAllUniversalLogs() {
   const totalQueued = Array.from(universalLogQueue.values()).reduce((sum, q) => sum + q.length, 0);
   
   if (totalQueued > 0) {
-    console.log(`🔄 FLUSH PERIÓDICO: ${totalQueued} eventos pendentes em ${universalLogQueue.size} empresas`);
   }
   
   for (const companyId of universalLogQueue.keys()) {
@@ -676,29 +669,22 @@ universalBatchTimer = setInterval(flushAllUniversalLogs, UNIVERSAL_BATCH_INTERVA
 
 // Cleanup ao encerrar servidor (garante que não perde logs pendentes)
 process.on('SIGTERM', async () => {
-  console.log('🛑 SIGTERM recebido, fazendo flush final de logs...');
   clearInterval(universalBatchTimer);
   await flushAllUniversalLogs();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('🛑 SIGINT recebido, fazendo flush final de logs...');
   clearInterval(universalBatchTimer);
   await flushAllUniversalLogs();
   process.exit(0);
 });
 
 // Log inicial
-console.log('🚀 3C Plus Webhook Proxy Server iniciando...');
-console.log('📅 Timestamp:', new Date().toISOString());
 
 // 🚨 VERIFICAR MODO DE OPERAÇÃO (Produção vs Staging)
 if (process.env.DISABLE_WEBHOOK_DISPATCH === 'true') {
-  console.log('⚠️  MODO STAGING ATIVADO: Webhooks serão SIMULADOS (não enviados aos clientes)');
-  console.log('⚠️  Para desativar, remova a variável DISABLE_WEBHOOK_DISPATCH ou defina como "false"');
 } else {
-  console.log('✅ MODO PRODUÇÃO ATIVADO: Webhooks serão enviados normalmente aos clientes');
 }
 
 // Healthcheck endpoint para Render com proteção Standard
@@ -821,7 +807,6 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
   const { companyId } = req.params;
   
   try {
-    console.log(`🔍 Verificando status de webhooks para empresa: ${companyId}`);
     
     // Invalidar cache de webhooks para esta empresa (forçar atualização)
     activeWebhooksCache.delete(companyId);
@@ -859,7 +844,6 @@ app.post('/check-webhooks/:companyId', async (req, res) => {
 // Endpoint para verificar empresas inativas
 app.post('/check-inactive-companies', async (req, res) => {
   try {
-    console.log('🔍 Verificando empresas inativas via endpoint...');
     
     await checkAndDisconnectInactiveCompanies();
     
@@ -882,7 +866,6 @@ app.post('/check-inactive-companies', async (req, res) => {
 // Endpoint para verificar todas as empresas
 app.post('/check-all-webhooks', async (req, res) => {
   try {
-    console.log('🔍 Verificando status de webhooks para todas as empresas...');
     
     // Buscar todas as empresas
     const { data: companies, error } = await supabase
@@ -939,7 +922,6 @@ app.post('/reconnect/:companyId', async (req, res) => {
   const { companyId } = req.params;
   
   try {
-    console.log(`🔄 Forçando reconexão da empresa: ${companyId}`);
     
     // Desconectar se já conectado
     await disconnectCompany(companyId);
@@ -967,7 +949,6 @@ app.get('/debug-company/:companyName', async (req, res) => {
   const { companyName } = req.params;
   
   try {
-    console.log(`🔍 DEBUG: Verificando dados da empresa ${companyName}`);
     
     const { data: company, error } = await supabase
       .from('companies')
@@ -976,7 +957,6 @@ app.get('/debug-company/:companyName', async (req, res) => {
       .single();
     
     if (error) {
-      console.log(`❌ Erro ao buscar empresa ${companyName}:`, error.message);
       return res.status(404).json({ 
         success: false, 
         error: error.message,
@@ -984,7 +964,6 @@ app.get('/debug-company/:companyName', async (req, res) => {
       });
     }
     
-    console.log(`✅ Empresa ${companyName} encontrada:`, {
       id: company.id,
       name: company.name,
       cluster_type: company.cluster_type,
@@ -1017,7 +996,6 @@ app.get('/test-cluster/:clusterType', async (req, res) => {
   const { clusterType } = req.params;
   
   try {
-    console.log(`🧪 TESTE: Testando conectividade com ${clusterType}`);
     
     if (!['cluster1', 'cluster2'].includes(clusterType)) {
       return res.status(400).json({ 
@@ -1027,7 +1005,6 @@ app.get('/test-cluster/:clusterType', async (req, res) => {
     }
     
     const socketUrl = CLUSTER_URLS[clusterType];
-    console.log(`🧪 TESTE: URL do cluster ${clusterType}: ${socketUrl}`);
     
     // Teste básico de conectividade (sem token real)
     const testSocket = io(socketUrl, {
@@ -1071,7 +1048,6 @@ app.get('/test-cluster/:clusterType', async (req, res) => {
       });
     });
     
-    console.log(`🧪 TESTE RESULTADO:`, testResult);
     res.json(testResult);
     
   } catch (error) {
@@ -1087,7 +1063,6 @@ app.get('/test-cluster/:clusterType', async (req, res) => {
 // 🛡️ ENDPOINT DE VERIFICAÇÃO: Verificar compatibilidade de empresas existentes
 app.get('/verify-compatibility', async (req, res) => {
   try {
-    console.log(`🛡️ VERIFICAÇÃO: Testando compatibilidade de empresas existentes`);
     
     // Buscar todas as empresas
     const { data: companies, error } = await supabase
@@ -1119,7 +1094,6 @@ app.get('/verify-compatibility', async (req, res) => {
       cluster2_companies: results.filter(r => r.cluster_type_resolved === 'cluster2').length
     };
     
-    console.log(`🛡️ VERIFICAÇÃO RESULTADO:`, summary);
     
     res.json({
       success: true,
@@ -1140,7 +1114,6 @@ app.get('/verify-compatibility', async (req, res) => {
 // Endpoint para forçar reconexão completa (usado pelo keepalive)
 app.post('/force-reconnect', async (req, res) => {
   try {
-    console.log(`🔄 Forçando reconexão completa de todas as empresas ativas...`);
     
     // Reconectar todas as empresas com webhooks ativos
     await connectAllActiveCompanies({ force: true });
@@ -1250,7 +1223,6 @@ app.post('/api/companies', requireApiToken, async (req, res) => {
 
     if (error) throw error;
 
-    console.log(`✅ API: Empresa "${name}" criada por ${req.apiUser.email}`);
     res.status(201).json({ success: true, data: company });
   } catch (error) {
     console.error('❌ POST /api/companies:', error);
@@ -1333,7 +1305,6 @@ app.post('/api/companies/:companyId/webhooks', requireApiToken, async (req, res)
     // Disparar conexão/atualização de listeners para a empresa
     await checkAndReconnectIfHasActiveWebhooks(companyId);
 
-    console.log(`✅ API: Webhook criado para "${company.name}" por ${req.apiUser.email}`);
 
     res.status(201).json({
       success: true,
@@ -1358,7 +1329,6 @@ app.post('/api/companies/:companyId/webhooks', requireApiToken, async (req, res)
 async function connectCompany(companyId, options = {}) {
   const { force = false } = options;
   try {
-    console.log(`🔌 Conectando empresa: ${companyId}`);
     
     // Verificar se já existe uma conexão ativa para evitar reconexões desnecessárias
     const existingConnection = activeConnections.get(companyId);
@@ -1366,7 +1336,6 @@ async function connectCompany(companyId, options = {}) {
 
     if (!force && existingSocket && existingSocket.connected) {
       const companyName = existingConnection?.company?.name || companyId;
-      console.log(`✅ Empresa ${companyName} já está conectada - ignorando nova tentativa`);
       return;
     }
 
@@ -1412,7 +1381,6 @@ async function connectCompany(companyId, options = {}) {
     
     // 🛡️ VERIFICAR SE CONEXÃO FOI CRIADA (não bloqueada por lock)
     if (!socket) {
-      console.log(`⏳ Conexão para ${company.name} foi bloqueada por lock - tentativa ignorada`);
       return;
     }
     
@@ -1483,10 +1451,8 @@ function registerEventListeners(socket, companyId, companyName, events) {
     socket.on(eventName, handler);
     listenersMap.set(eventName, handler);
     
-    console.log(`👂 Listener registrado: ${eventName} para empresa ${companyName}`);
   });
   
-  console.log(`✅ ${events.length} listeners registrados para empresa ${companyName}`);
 }
 
 // 🚀 NOVO: Remover listeners específicos
@@ -1514,7 +1480,6 @@ async function updateEventListeners(companyId) {
   
   // Verificar se socket está realmente conectado
   if (!socket.connected) {
-    console.log(`⚠️ Socket não está conectado para empresa ${companyId} - não atualizando listeners`);
     return;
   }
   
@@ -1524,7 +1489,6 @@ async function updateEventListeners(companyId) {
   if (!webhooks || webhooks.length === 0) {
     // Sem webhooks, remover todos os listeners
     removeEventListeners(socket, companyId);
-    console.log(`🗑️ Todos os listeners removidos para empresa ${companyId} (sem webhooks ativos)`);
     return;
   }
   
@@ -1541,14 +1505,12 @@ async function connect3CPlusSocket(company, webhooks) {
     try {
       // 🛡️ PREVENIR MÚLTIPLAS CONEXÕES SIMULTÂNEAS
       if (connectionLocks.get(company.id)) {
-        console.log(`⏳ Conexão já em andamento para ${company.name} - aguardando...`);
         return resolve(null); // Não criar nova conexão
       }
       
       // 🔒 FECHAR CONEXÃO EXISTENTE ANTES DE CRIAR NOVA
       const existingSocket = socketInstances.get(company.id);
       if (existingSocket && existingSocket.connected) {
-        console.log(`🔄 Fechando conexão existente para ${company.name} antes de reconectar`);
         existingSocket.disconnect();
         existingSocket.removeAllListeners();
       }
@@ -1560,10 +1522,6 @@ async function connect3CPlusSocket(company, webhooks) {
       const clusterType = company.cluster_type || 'cluster1'; // Padrão cluster1 para compatibilidade
       const socketUrl = CLUSTER_URLS[clusterType];
       
-      console.log(`🔌 Estabelecendo conexão WebSocket para empresa: ${company.name}`);
-      console.log(`   📍 Cluster: ${clusterType}`);
-      console.log(`   🌐 URL: ${socketUrl}`);
-      console.log(`   🔑 Token: ${company.api_token.substring(0, 10)}...`);
       
       const socket = io(socketUrl, {
         query: { token: company.api_token },
@@ -1594,7 +1552,6 @@ async function connect3CPlusSocket(company, webhooks) {
         if (events.length > 0) {
           registerEventListeners(socket, company.id, company.name, events);
         } else {
-          console.log(`⚠️ Nenhum evento configurado para empresa ${company.name}`);
         }
         
         resolve(socket);
@@ -1608,7 +1565,6 @@ async function connect3CPlusSocket(company, webhooks) {
         if (socket.connected) {
           socket.emit('ping');
         } else {
-          console.log(`💔 HEARTBEAT FALHOU: ${company.name} não está conectado!`);
           clearInterval(heartbeatInterval);
         }
       }, 30000);
@@ -1620,7 +1576,6 @@ async function connect3CPlusSocket(company, webhooks) {
           ? `${logLabel}: Socket desconectado manualmente ${company.name}: ${reason}`
           : `${logLabel}: Socket desconectado ${company.name}: ${reason} - TENTANDO RECONECTAR!`;
 
-        console.log(logMessage);
         
         // 🧹 LIMPAR HEARTBEAT (único lugar)
         clearInterval(heartbeatInterval);
@@ -1645,14 +1600,11 @@ async function connect3CPlusSocket(company, webhooks) {
         setTimeout(async () => {
           // 🔒 VERIFICAR LOCK antes de tentar reconectar
           if (connectionLocks.get(company.id)) {
-            console.log(`⏳ Reconexão já em andamento para ${company.name} - pulando timeout`);
             return;
           }
           
           try {
-            console.log(`🔄 RECONECTANDO empresa ${company.name} após desconexão...`);
             await connectCompany(company.id);
-            console.log(`✅ SUCESSO: Empresa ${company.name} reconectada automaticamente!`);
           } catch (error) {
             console.error(`❌ FALHA na reconexão automática de ${company.name}:`, error);
             
@@ -1704,10 +1656,8 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
     
     // 🛡️ ÚLTIMO RECURSO: Agendar tentativa completa em 30 minutos
     setTimeout(async () => {
-      console.log(`🔄 ÚLTIMO RECURSO: Tentando reconectar ${companyName} após 30min...`);
       try {
         await connectCompany(companyId);
-        console.log(`✅ MILAGRE: Empresa ${companyName} reconectada após último recurso!`);
       } catch (error) {
         console.error(`❌ ÚLTIMO RECURSO FALHOU para ${companyName}:`, error);
       }
@@ -1717,19 +1667,15 @@ async function attemptReconnectWithBackoff(companyId, companyName, attempt) {
   
   // 🔒 VERIFICAR LOCK antes de tentar retry
   if (connectionLocks.get(companyId)) {
-    console.log(`⏳ Reconexão já em andamento para ${companyName} - cancelando retry ${attempt}`);
     return;
   }
   
   try {
-    console.log(`🔄 RETRY ${attempt}/${maxAttempts}: Reconectando ${companyName}...`);
     await connectCompany(companyId);
-    console.log(`✅ SUCESSO: Empresa ${companyName} reconectada no retry ${attempt}!`);
   } catch (error) {
     console.error(`❌ RETRY ${attempt} FALHOU para ${companyName}:`, error);
     
     const delay = delays[attempt - 1] || delays[delays.length - 1];
-    console.log(`⏰ Próxima tentativa para ${companyName} em ${delay/1000}s...`);
     
     // 🔒 Só agendar novo retry se não há lock
     if (!connectionLocks.get(companyId)) {
@@ -1783,9 +1729,7 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   const now = Date.now();
   
   if (eventIdentifier) {
-    console.log(`🎯 EVENTO: ${eventName} | ID: ${eventIdentifier} | Empresa: ${companyName}`);
   } else {
-    console.log(`⚠️ SEM ID: ${eventName} - processando sem deduplicação na fila`);
   }
   
   // Deduplicação: verificar se evento já foi adicionado recentemente
@@ -1794,7 +1738,6 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     const cachedEvent = eventCache.get(eventKey);
     
     if (cachedEvent && (now - cachedEvent.timestamp) < EVENT_CACHE_TTL) {
-      console.log(`🔄 DUPLICADO: ${eventName} (ID: ${eventIdentifier}) - mesmo evento em ${now - cachedEvent.timestamp}ms`);
       return;
     }
     
@@ -1810,7 +1753,6 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
   // ✅ ADICIONAR À FILA P-QUEUE (gerencia concorrência automaticamente)
   queue.add(async () => {
     try {
-      console.log(`🎯 EVENTO: ${eventName} recebido de ${companyName}`);
       
       // Processar evento através dos webhooks
       await processEventThroughWebhooks(companyId, eventName, eventData, null);
@@ -1824,7 +1766,6 @@ function addEventToQueue(companyId, eventName, eventData, companyName) {
     console.error(`❌ Erro não capturado ao adicionar evento à fila:`, error);
   });
   
-  console.log(`📥 Evento ${eventName} adicionado à fila de ${companyName} (${queue.size} pendentes, ${queue.pending} processando)`);
 }
 
 // 🚀 FUNÇÃO REMOVIDA: processEventQueue
@@ -1858,7 +1799,6 @@ function cleanupCaches() {
   }
   
   if (expiredEvents > 0 || expiredWebhooks > 0) {
-    console.log(`🧹 Cache limpo: ${expiredEvents} eventos e ${expiredWebhooks} webhooks expirados removidos`);
   }
 }
 
@@ -1966,7 +1906,6 @@ function applyEventFilters(eventData, filters) {
         }
         
         // Campo não existe - log de debug e rejeitar
-        console.log(`🚫 Filtro falhou: Campo '${filter.field_path}' não existe no evento`);
         return false;
       }
       
@@ -1982,7 +1921,6 @@ function applyEventFilters(eventData, filters) {
           result = fieldValue === filterValue;
           
           if (!result) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} (${JSON.stringify(fieldValue)}) !== ${JSON.stringify(filterValue)}`);
           }
           break;
           
@@ -1990,7 +1928,6 @@ function applyEventFilters(eventData, filters) {
           result = fieldValue !== filterValue;
           
           if (!result) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} (${JSON.stringify(fieldValue)}) === ${JSON.stringify(filterValue)} (esperava diferente)`);
           }
           break;
           
@@ -1999,14 +1936,12 @@ function applyEventFilters(eventData, filters) {
           const numFilterValue = Number(filterValue);
           
           if (isNaN(numFieldValue) || isNaN(numFilterValue)) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} - valores não numéricos (${fieldValue} > ${filterValue})`);
             return false;
           }
           
           result = numFieldValue > numFilterValue;
           
           if (!result) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} (${numFieldValue}) <= ${numFilterValue}`);
           }
           break;
           
@@ -2015,14 +1950,12 @@ function applyEventFilters(eventData, filters) {
           const numFilterValueLT = Number(filterValue);
           
           if (isNaN(numFieldValueLT) || isNaN(numFilterValueLT)) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} - valores não numéricos (${fieldValue} < ${filterValue})`);
             return false;
           }
           
           result = numFieldValueLT < numFilterValueLT;
           
           if (!result) {
-            console.log(`🚫 Filtro falhou: ${filter.field_path} (${numFieldValueLT}) >= ${numFilterValueLT}`);
           }
           break;
           
@@ -2037,7 +1970,6 @@ function applyEventFilters(eventData, filters) {
             });
             
             if (!result) {
-              console.log(`🚫 Filtro falhou: Array ${filter.field_path} [${fieldValue.join(', ')}] não contém '${filterValue}'`);
             }
           } else {
             // Comparação normal de strings
@@ -2046,7 +1978,6 @@ function applyEventFilters(eventData, filters) {
             result = strFieldValue.includes(strFilterValue);
             
             if (!result) {
-              console.log(`🚫 Filtro falhou: ${filter.field_path} ('${fieldValue}') não contém '${filterValue}'`);
             }
           }
           break;
@@ -2061,7 +1992,6 @@ function applyEventFilters(eventData, filters) {
             });
             
             if (!result) {
-              console.log(`🚫 Filtro falhou: Array ${filter.field_path} [${fieldValue.join(', ')}] contém '${filterValue}' (esperava NÃO conter)`);
             }
           } else {
             const strFieldValueNC = String(fieldValue || '').toLowerCase();
@@ -2069,7 +1999,6 @@ function applyEventFilters(eventData, filters) {
             result = !strFieldValueNC.includes(strFilterValueNC);
             
             if (!result) {
-              console.log(`🚫 Filtro falhou: ${filter.field_path} ('${fieldValue}') contém '${filterValue}' (esperava NÃO conter)`);
             }
           }
           break;
@@ -2124,7 +2053,6 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
     const currentWebhooks = await getActiveWebhooksForCompany(companyId);
 
     if (!currentWebhooks || currentWebhooks.length === 0) {
-      console.log(`⚠️ SEM WEBHOOKS: Empresa ${companyId} não tem webhooks ativos para ${eventName}`);
       // Se não há webhooks ativos, considerar desconectar a empresa
       await checkAndDisconnectIfNoActiveWebhooks(companyId);
       return;
@@ -2144,7 +2072,6 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
         w.webhook_events?.map(we => we.event?.name) || []
       );
       const uniqueEvents = [...new Set(allListenedEvents)];
-      console.log(`⚠️ EVENTO NÃO MAPEADO: ${eventName} não configurado. Eventos configurados: [${uniqueEvents.join(', ')}]`);
       return;
     }
 
@@ -2167,7 +2094,6 @@ async function processEventThroughWebhooks(companyId, eventName, eventData, webh
 
     // ✅ LOG CRÍTICO: Para debug de perda de eventos
     if (failed > 0) {
-      console.log(`🚨 FALHA: ${eventName} - ${successful} sucessos, ${failed} falhas de ${relevantWebhooks.length} webhooks`);
     }
 
   } catch (error) {
@@ -2180,7 +2106,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
   try {
     // 🚀 NOVO: Verificar se evento já foi processado (ANTES de aplicar filtros)
     if (!eventPostGuard.shouldProcess(webhook.id, eventName, eventData)) {
-      console.log(`🔄 POST DUPLICADO IGNORADO: ${webhook.url} - evento já processado`);
       return { success: false, reason: 'Duplicate POST prevented' };
     }
     
@@ -2196,14 +2121,12 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     if (!applyEventFilters(eventData, eventFilters)) {
       // 🔍 DEBUG: Log quando filtro bloqueia (para diagnosticar problemas)
       if (eventFilters.length > 0) {
-        console.log(`🚫 FILTRADO: ${eventName} bloqueado por filtro em ${webhook.url}`);
       }
       // NÃO marcar como processado se não passou nos filtros (pode ser testado em outro webhook)
       return { success: false, reason: 'Event filtered out' };
     }
     
     // ✅ LOG ESSENCIAL: POST sendo executado (conforme pedido do usuário)
-    console.log(`📤 POST: ${webhook.url} - ${eventName}`);
     
     // Preparar payload do webhook
     const webhookPayload = {
@@ -2224,7 +2147,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
     
     if (isStaging) {
       // 🚫 MODO STAGING: Simular webhook sem enviar para clientes
-      console.log(`🚫 STAGING (Simulação): Webhook ${webhook.id} para ${webhook.url} não enviado.`);
       
       // Simular latência real de rede (100-200ms aleatório)
       const simulatedLatency = 100 + Math.random() * 100;
@@ -2242,7 +2164,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
       
       status = 'success';
       
-      console.log(`✅ STAGING (Simulação): Webhook simulado com sucesso em ${Math.round(simulatedLatency)}ms`);
       
     } else {
       // 🚀 MODO PRODUÇÃO: Enviar webhook real com retry
@@ -2294,9 +2215,7 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 
     // ✅ LOG ESSENCIAL: Console para monitoramento em tempo real
     if (status === 'failed') {
-      console.log(`❌ POST falhou: ${webhook.url} - ${response.status} - ${errorMessage}`);
     } else {
-      console.log(`✅ POST sucesso: ${webhook.url} - ${response.status}`);
     }
     
     return {
@@ -2320,7 +2239,6 @@ async function processWebhookExecution(webhook, eventData, eventId, companyId, e
 // Verificar se empresa deve ser desconectada (sem webhooks ativos)
 async function checkAndDisconnectIfNoActiveWebhooks(companyId) {
   try {
-    console.log(`🔍 Verificando se empresa ${companyId} deve ser desconectada...`);
     
     // Buscar webhooks ativos
     const { data: activeWebhooks, error } = await supabase
@@ -2336,10 +2254,8 @@ async function checkAndDisconnectIfNoActiveWebhooks(companyId) {
     }
     
     if (!activeWebhooks || activeWebhooks.length === 0) {
-      console.log(`🔌 Empresa ${companyId} não tem webhooks ativos - desconectando socket`);
       await disconnectCompany(companyId);
     } else {
-      console.log(`✅ Empresa ${companyId} tem ${activeWebhooks.length} webhooks ativos - mantendo conexão`);
     }
   } catch (error) {
     console.error(`❌ Erro ao verificar webhooks ativos para empresa ${companyId}:`, error);
@@ -2349,11 +2265,9 @@ async function checkAndDisconnectIfNoActiveWebhooks(companyId) {
 // Reconectar empresa se ela tem webhooks ativos mas não está conectada
 async function checkAndReconnectIfHasActiveWebhooks(companyId) {
   try {
-    console.log(`🔍 Verificando se empresa ${companyId} deve ser reconectada...`);
     
     // Verificar se já está conectada
     if (activeConnections.has(companyId)) {
-      console.log(`✅ Empresa ${companyId} já está conectada`);
       // 🚀 NOVO: Atualizar listeners mesmo se já conectada (webhooks podem ter mudado)
       await updateEventListeners(companyId);
       return;
@@ -2373,10 +2287,8 @@ async function checkAndReconnectIfHasActiveWebhooks(companyId) {
     }
     
     if (activeWebhooks && activeWebhooks.length > 0) {
-      console.log(`🔌 Empresa ${companyId} tem ${activeWebhooks.length} webhooks ativos - conectando socket`);
       await connectCompany(companyId);
     } else {
-      console.log(`⚠️ Empresa ${companyId} não tem webhooks ativos - não conectando`);
     }
   } catch (error) {
     console.error(`❌ Erro ao verificar reconexão para empresa ${companyId}:`, error);
@@ -2386,7 +2298,6 @@ async function checkAndReconnectIfHasActiveWebhooks(companyId) {
 // Desconectar empresa
 async function disconnectCompany(companyId) {
   try {
-    console.log(`🔌 Desconectando empresa: ${companyId}`);
     
     const socket = socketInstances.get(companyId);
     if (socket) {
@@ -2397,7 +2308,6 @@ async function disconnectCompany(companyId) {
     }
     
     activeConnections.delete(companyId);
-    console.log(`✅ Empresa ${companyId} desconectada`);
     
   } catch (error) {
     console.error(`❌ Erro ao desconectar empresa ${companyId}:`, error);
@@ -2408,7 +2318,6 @@ async function disconnectCompany(companyId) {
 async function connectAllActiveCompanies(options = {}) {
   const { force = false } = options;
   try {
-    console.log('🚀 Conectando todas as empresas ativas...');
     
     // Buscar empresas com webhooks ativos (incluindo cluster_type)
     const { data: companies, error } = await supabase
@@ -2425,11 +2334,9 @@ async function connectAllActiveCompanies(options = {}) {
     }
 
     if (!companies || companies.length === 0) {
-      console.log('📭 Nenhuma empresa com webhooks ativos encontrada');
       return;
     }
 
-    console.log(`📋 Encontradas ${companies.length} empresas com webhooks ativos`);
 
     // Conectar cada empresa
     const results = await Promise.allSettled(
@@ -2439,8 +2346,6 @@ async function connectAllActiveCompanies(options = {}) {
     const successful = results.filter(r => r.status === 'fulfilled').length;
     const failed = results.filter(r => r.status === 'rejected').length;
 
-    console.log(`📊 Conexões estabelecidas: ${successful} sucessos, ${failed} falhas`);
-    console.log(`🎯 Total de empresas conectadas: ${activeConnections.size}`);
     
   } catch (error) {
     console.error('❌ Erro ao conectar empresas ativas:', error);
@@ -2450,7 +2355,6 @@ async function connectAllActiveCompanies(options = {}) {
 // Verificar e desconectar empresas inativas
 async function checkAndDisconnectInactiveCompanies() {
   try {
-    console.log('🔍 Verificando empresas inativas...');
     
     // Para cada empresa conectada, verificar se ainda está ativa
     for (const [companyId] of activeConnections) {
@@ -2466,13 +2370,11 @@ async function checkAndDisconnectInactiveCompanies() {
       }
       
       if (!company) {
-        console.log(`⚠️ Empresa ${companyId} não encontrada - desconectando`);
         await disconnectCompany(companyId);
         continue;
       }
       
       if (company.status === 'inactive') {
-        console.log(`🔌 Empresa ${company.name} (${companyId}) foi desativada - desconectando socket`);
         await disconnectCompany(companyId);
       }
     }
@@ -2483,7 +2385,6 @@ async function checkAndDisconnectInactiveCompanies() {
 
 // Monitorar conexões a cada 60 segundos
 function startConnectionMonitor() {
-  console.log('🛡️ Iniciando WATCHDOG avançado - garantia 100% de funcionamento...');
   
   setInterval(async () => {
     try {
@@ -2496,13 +2397,11 @@ function startConnectionMonitor() {
         const inactiveTime = now - lastActivity;
         
         if (inactiveTime > maxInactivity && connection.status === 'connected') {
-          console.log(`🚨 WATCHDOG: Empresa ${connection.company.name} sem atividade há ${Math.round(inactiveTime/60000)}min - RECONECTANDO FORÇADO!`);
           
           // Forçar reconexão de empresa suspeita
           try {
             await disconnectCompany(companyId);
             await connectCompany(companyId);
-            console.log(`✅ WATCHDOG: Empresa ${connection.company.name} reconectada com sucesso!`);
           } catch (error) {
             console.error(`❌ WATCHDOG: Falha ao reconectar ${connection.company.name}:`, error);
           }
@@ -2522,10 +2421,8 @@ function startConnectionMonitor() {
       if (!error && companiesWithActiveWebhooks) {
         for (const company of companiesWithActiveWebhooks) {
           if (!activeConnections.has(company.id)) {
-            console.log(`🚨 WATCHDOG: Empresa ${company.name} tem webhooks ativos mas NÃO ESTÁ CONECTADA - CONECTANDO URGENTE!`);
             try {
               await connectCompany(company.id);
-              console.log(`✅ WATCHDOG: Empresa ${company.name} conectada com sucesso!`);
             } catch (error) {
               console.error(`❌ WATCHDOG: Falha ao conectar ${company.name}:`, error);
             }
@@ -2539,12 +2436,10 @@ function startConnectionMonitor() {
         const queuePending = queue.pending;
         
         if (queueSize > 100) {
-          console.log(`⚠️ WATCHDOG: Fila da empresa ${companyId} com ${queueSize} eventos pendentes e ${queuePending} processando`);
         }
         
         // Se fila está muito grande mas nada processando, pode estar travada
         if (queueSize > 50 && queuePending === 0) {
-          console.log(`🚨 WATCHDOG: Fila da empresa ${companyId} parece travada (${queueSize} pendentes, 0 processando)`);
           // P-Queue deve auto-resolver, mas logamos para monitorar
         }
       }
@@ -2566,7 +2461,6 @@ function startConnectionMonitor() {
             
             if (!listenersMap || listenersMap.size === 0) {
               // Empresa conectada mas sem listeners - atualizar (migração de onAny antigo)
-              console.log(`🔄 WATCHDOG: Atualizando listeners para empresa ${connection.company?.name || companyId} (migração)`);
               await updateEventListeners(companyId);
             }
           }
@@ -2586,7 +2480,6 @@ function startConnectionMonitor() {
         totalProcessingEvents += queue.pending;
       }
       
-      console.log(`🛡️ WATCHDOG: ${connected} conectadas, ${disconnected} desconectadas, ${totalQueuedEvents} na fila, ${totalProcessingEvents} processando`);
       
     } catch (error) {
       console.error('❌ Erro no watchdog:', error);
@@ -2596,7 +2489,6 @@ function startConnectionMonitor() {
 
 // Limpeza automática do cache a cada 5 minutos
 function startCacheCleanup() {
-  console.log('🧹 Iniciando limpeza automática do cache...');
   
   setInterval(() => {
     try {
@@ -2618,13 +2510,11 @@ function startMemoryMonitor() {
       
       // ⚠️ ALERTA: Memória alta - limpeza preventiva (STANDARD: 80%)
       if (heapPercent > 80) {
-        console.log(`⚠️ MEMORY: Memória em ${heapPercent}% - limpeza preventiva`);
         cleanupMemory();
       }
       
       // 🚨 CRÍTICO: Memória muito alta - limpeza agressiva (STANDARD: 90%)
       if (heapPercent > 90) {
-        console.log(`🚨 MEMORY: Memória crítica ${heapPercent}% - limpeza agressiva`);
         
         // 🛡️ LIMPEZA SEGURA: NÃO limpar filas de processamento (P-Queue gerencia)
         
@@ -2636,14 +2526,12 @@ function startMemoryMonitor() {
         
         if (global.gc) global.gc();
         
-        console.log(`🔄 MEMORY: Limpeza agressiva concluída`);
         
         // ✅ STANDARD PLAN: Thresholds ajustados para 4GB RAM
         const newMemUsage = process.memoryUsage();
         const newHeapPercent = Math.round((newMemUsage.heapUsed / newMemUsage.heapTotal) * 100);
         
         if (newHeapPercent > 85) {
-          console.log(`🔄 MEMORY: STANDARD - Reconectando empresas após limpeza crítica`);
           connectAllActiveCompanies();
         }
       }
@@ -2657,7 +2545,6 @@ function startMemoryMonitor() {
 // 🚀 NOVO: HOT RELOAD de Listeners - Atualização automática de webhooks
 // Detecta novos webhooks cadastrados sem reiniciar o servidor
 function startListenerHotReload() {
-  console.log('🔄 Iniciando HOT RELOAD de listeners (atualização automática a cada 2 minutos)...');
   
   setInterval(async () => {
     try {
@@ -2693,9 +2580,6 @@ function startListenerHotReload() {
                 currentEvents.some(e => !newEventsSet.has(e));
               
               if (hasChanges) {
-                console.log(`🔄 HOT RELOAD: Detectadas mudanças em webhooks para ${connection.company?.name || companyId}`);
-                console.log(`   Eventos anteriores: [${currentEvents.join(', ')}]`);
-                console.log(`   Eventos novos: [${newEvents.join(', ')}]`);
                 
                 // Atualizar listeners
                 await updateEventListeners(companyId);
@@ -2707,7 +2591,6 @@ function startListenerHotReload() {
       }
       
       if (updatedCount > 0) {
-        console.log(`✅ HOT RELOAD: ${updatedCount} empresa(s) com listeners atualizados`);
       }
       
     } catch (error) {
@@ -2736,11 +2619,6 @@ async function startServer() {
     
     // Iniciar servidor HTTP
     app.listen(PORT, () => {
-      console.log(`🚀 Servidor rodando na porta ${PORT}`);
-      console.log(`🌐 Health check: http://localhost:${PORT}/health`);
-      console.log(`📊 Status: http://localhost:${PORT}/status`);
-      console.log(`✅ Sistema 24/7 iniciado com sucesso!`);
-      console.log(`🔥 HOT RELOAD ativo - novos webhooks detectados automaticamente a cada 2min`);
     });
     
   } catch (error) {
@@ -2751,43 +2629,34 @@ async function startServer() {
 
 // Graceful shutdown
 process.on('SIGTERM', async () => {
-  console.log('🛑 Recebido SIGTERM (shutdown automático do Render), desconectando empresas...');
-  console.log('📋 Empresas ativas:', Array.from(activeConnections.keys()));
   
   // Flush final de todos os logs pendentes
   if (batchFlushTimer) {
     clearInterval(batchFlushTimer);
-    console.log('⏱️ Timer de batch flush cancelado');
   }
   
-  console.log('💾 Fazendo flush final dos logs de call-history pendentes...');
   await flushAllCallHistoryLogs();
   
   for (const [companyId] of activeConnections) {
     await disconnectCompany(companyId);
   }
   
-  console.log('✅ Shutdown concluído - Sistema será reativado no próximo evento');
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
-  console.log('🛑 Recebido SIGINT, desconectando empresas...');
   
   // Flush final de todos os logs pendentes
   if (batchFlushTimer) {
     clearInterval(batchFlushTimer);
-    console.log('⏱️ Timer de batch flush cancelado');
   }
   
-  console.log('💾 Fazendo flush final dos logs de call-history pendentes...');
   await flushAllCallHistoryLogs();
   
   for (const [companyId] of activeConnections) {
     await disconnectCompany(companyId);
   }
   
-  console.log('✅ Shutdown concluído');
   process.exit(0);
 });
 
@@ -2799,13 +2668,11 @@ process.on('uncaughtException', (error) => {
   // Tentar limpeza de emergência
   try {
     cleanupMemory();
-    console.log('🔄 Limpeza de emergência executada');
   } catch (cleanupError) {
     console.error('❌ Erro na limpeza de emergência:', cleanupError);
   }
   
   // Não fazer exit - deixar o Render gerenciar
-  console.log('⚠️ Processo continuando após uncaughtException...');
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -2815,12 +2682,10 @@ process.on('unhandledRejection', (reason, promise) => {
   // Tentar limpeza de emergência
   try {
     cleanupMemory();
-    console.log('🔄 Limpeza de emergência executada');
   } catch (cleanupError) {
     console.error('❌ Erro na limpeza de emergência:', cleanupError);
   }
   
-  console.log('⚠️ Processo continuando após unhandledRejection...');
 });
 
 // Iniciar servidor

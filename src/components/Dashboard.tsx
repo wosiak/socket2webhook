@@ -61,13 +61,9 @@ export function Dashboard({ metrics, companyMetrics, executions, mostUsedEvents,
   
   // Debug: Log metrics recebidas
   useEffect(() => {
-    console.log('📊 [Dashboard] Métricas recebidas:', metrics);
-    console.log('📊 [Dashboard] Número de métricas:', metrics?.length || 0);
-    console.log('📊 [Dashboard] Execuções recebidas:', executions?.length || 0);
     
     // Se as métricas estiverem zeradas ao montar, tentar fazer refresh
     if (metrics.length === 0 || metrics[0]?.total_events === 0) {
-      console.log('⚠️ [Dashboard] Métricas zeradas, tentando refresh automático...');
       if (onRefresh) {
         onRefresh();
       }

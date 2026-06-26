@@ -86,7 +86,6 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
       setLoading(true);
       const offset = (page - 1) * itemsPerPage;
       
-      console.log('🔍 [FullExecutionHistory] Buscando execuções:', { page, searchQuery, companyId: company.id });
       
       // Se está buscando, passa o termo de busca
       const result = await apiService.getExecutions(
@@ -96,7 +95,6 @@ export function FullExecutionHistory({ company, onBack }: FullExecutionHistoryPr
         searchQuery || undefined
       );
       
-      console.log('✅ [FullExecutionHistory] Resultado:', result);
       
       if (result.success) {
         setExecutions(result.data || []);

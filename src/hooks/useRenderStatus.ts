@@ -46,7 +46,6 @@ export function useRenderStatus() {
         error: null
       });
 
-      console.log('✅ Status do servidor Render atualizado:', connectivity);
       
     } catch (error) {
       console.error('❌ Erro ao verificar status do servidor:', error);
@@ -64,7 +63,6 @@ export function useRenderStatus() {
     try {
       const companyStatus = await apiService.getCompanyStatus(companyId);
       
-      console.log(`🔍 Status da empresa ${companyId}:`, companyStatus);
       
       return companyStatus;
     } catch (error) {

@@ -115,11 +115,9 @@ export function CompanyDetail({
   // FRONTEND CONNECT/DISCONNECT DESABILITADO
   // Backend Render gerencia todas as conexões automaticamente
   const handleConnect = async () => {
-    console.log('ℹ️ Conexão gerenciada pelo backend Render 24/7 - não é necessário conectar manualmente');
   };
 
   const handleDisconnect = async () => {
-    console.log('ℹ️ Conexão gerenciada pelo backend Render 24/7 - não é necessário desconectar manualmente');
   };
 
   // Reativar webhooks
@@ -131,7 +129,6 @@ export function CompanyDetail({
       
       if (supabase) {
         const webhookIds = activeWebhooks.map(w => w.id);
-        console.log('🔄 Reativando webhooks:', webhookIds);
         
         const { error } = await supabase
           .from('webhooks')
@@ -144,7 +141,6 @@ export function CompanyDetail({
         if (error) {
           console.error('❌ Erro ao reativar webhooks:', error);
         } else {
-          console.log('✅ Webhooks reativados com sucesso');
         }
       }
     } catch (error) {
@@ -159,14 +155,12 @@ export function CompanyDetail({
     const currentStatus = webhook.status || 'inactive';
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
     
-    console.log(`🔄 Alternando webhook ${webhook.name}: ${currentStatus} → ${newStatus}`);
     
     try {
       await onUpdateWebhook(webhook.id, {
         status: newStatus
       });
       
-      console.log(`✅ Webhook ${newStatus === 'active' ? 'ativado' : 'desativado'} - Notificando backend Render`);
       
       // Notificar backend Render sobre mudança de webhook
       try {
@@ -176,12 +170,9 @@ export function CompanyDetail({
         });
         
         if (response.ok) {
-          console.log('✅ Backend Render notificado sobre mudança do webhook');
         } else {
-          console.log('⚠️ Não foi possível notificar backend Render, mas ele detectará automaticamente');
         }
       } catch (error) {
-        console.log('⚠️ Erro ao notificar backend Render, mas ele detectará automaticamente:', error.message);
       }
       
     } catch (error) {
@@ -208,7 +199,6 @@ export function CompanyDetail({
       
       // Se a empresa foi desativada, notificar o backend para desconectar
       if (companyFormData.status === 'inactive') {
-        console.log('🔌 Empresa desativada - notificando backend para desconectar socket');
         
         try {
           const response = await fetch('https://socket2webhook-dev.onrender.com/check-inactive-companies', {
@@ -217,12 +207,9 @@ export function CompanyDetail({
           });
           
           if (response.ok) {
-            console.log('✅ Backend notificado sobre empresa inativa');
           } else {
-            console.log('⚠️ Não foi possível notificar backend, mas ele detectará automaticamente');
           }
         } catch (error) {
-          console.log('⚠️ Erro ao notificar backend, mas ele detectará automaticamente:', error.message);
         }
       }
     } catch (error) {
@@ -242,14 +229,12 @@ export function CompanyDetail({
   };
 
   const handleEditWebhook = (webhook: Webhook) => {
-    console.log('🔍 Editando webhook:', {
       id: webhook.id,
       name: webhook.name,
       event_types: webhook.event_types,
       webhook_events: webhook.webhook_events
     });
     
-    console.log('🔍 EDIÇÃO - webhook_events detalhado:', JSON.stringify(webhook.webhook_events, null, 2));
 
     // SEMPRE extrair event_ids dos webhook_events (IDs reais, não nomes)
     let eventIds: string[] = [];
@@ -257,7 +242,6 @@ export function CompanyDetail({
     
     if (webhook.webhook_events && webhook.webhook_events.length > 0) {
       eventIds = webhook.webhook_events.map(we => we.event?.id).filter(Boolean) as string[];
-      console.log('🔍 EDIÇÃO - Event IDs extraídos de webhook_events:', eventIds);
       
       // Extrair filtros dos webhook_events
       webhook.webhook_events.forEach(we => {
@@ -269,9 +253,7 @@ export function CompanyDetail({
         }
       });
       
-      console.log('🔍 EDIÇÃO - Filtros extraídos:', eventFilters);
     } else {
-      console.log('⚠️ EDIÇÃO - Nenhum webhook_events encontrado');
     }
 
     setWebhookFormData({
@@ -290,7 +272,6 @@ export function CompanyDetail({
 
     setIsSavingWebhook(true);
     try {
-      console.log('🔄 Salvando webhook:', {
         isEditing: !!editingWebhook,
         name: webhookFormData.name,
         event_ids: webhookFormData.event_ids,
@@ -320,7 +301,6 @@ export function CompanyDetail({
       
       // Recarregar dados para mostrar o webhook criado/atualizado
       if (onRefreshData) {
-        console.log('🔄 Recarregando dados após criar/editar webhook...');
         await onRefreshData();
       }
       
@@ -575,7 +555,6 @@ export function CompanyDetail({
                       selectedEventIds={webhookFormData.event_ids}
                       selectedEventsWithFilters={webhookFormData.event_filters}
                       onSelectionChange={(eventIds) => {
-                        console.log('🔥 CompanyDetail - eventIds selecionados:', eventIds);
                         setWebhookFormData(prev => {
                           // Remover filtros de eventos não selecionados
                           const safeEventFilters = Array.isArray(prev.event_filters) ? prev.event_filters : [];
@@ -587,12 +566,10 @@ export function CompanyDetail({
                             event_ids: eventIds, 
                             event_filters: filteredEventFilters 
                           };
-                          console.log('🔥 CompanyDetail - novo webhookFormData:', newData);
                           return newData;
                         });
                       }}
                       onFiltersChange={(eventsWithFilters) => {
-                        console.log('🔍 CompanyDetail - filtros atualizados:', eventsWithFilters);
                         setWebhookFormData(prev => ({
                           ...prev,
                           event_filters: eventsWithFilters
@@ -617,7 +594,6 @@ export function CompanyDetail({
                      <button
                        type="button"
                        onClick={() => {
-                         console.log('❌ Cancelando criação/edição de webhook');
                          setIsWebhookDialogOpen(false);
                          resetWebhookForm();
                        }}

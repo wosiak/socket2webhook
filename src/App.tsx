@@ -53,7 +53,6 @@ export default function App() {
   const { currentView, currentCompanyId, navigateTo, navigateBack } = useRouter();
   
   // Debug do currentView
-  console.log('🔍 App.tsx - currentView:', currentView);
   
   // Force re-render quando necessário
   const [forceRenderKey, setForceRenderKey] = useState(0);
@@ -61,7 +60,6 @@ export default function App() {
   // Função para forçar re-render (pode ser chamada via window global)
   const forceRefresh = () => {
     setForceRenderKey(prev => prev + 1);
-    console.log('🔄 Forçando re-render do App.tsx');
   };
   
   // Disponibilizar globalmente para debug
@@ -361,7 +359,6 @@ export default function App() {
                 executions={executions}
                 mostUsedEvents={mostUsedEvents}
                 onRefresh={async () => {
-                  console.log('🔄 [App] Refresh manual do Dashboard solicitado');
                   await getMetrics();
                   await getMostUsedEvents();
                 }}

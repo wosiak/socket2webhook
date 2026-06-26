@@ -2618,7 +2618,6 @@ export function InteractiveEventFilter({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔍 Clicou em string:', path, obj);
             handleFieldClick(path, obj);
           }}
           title={`Clique para filtrar por: ${path} = "${obj}"`}
@@ -2635,7 +2634,6 @@ export function InteractiveEventFilter({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔍 Clicou em number:', path, obj);
             handleFieldClick(path, obj);
           }}
           title={`Clique para filtrar por: ${path} = ${obj}`}
@@ -2652,7 +2650,6 @@ export function InteractiveEventFilter({
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔍 Clicou em boolean:', path, obj);
             handleFieldClick(path, obj);
           }}
           title={`Clique para filtrar por: ${path} = ${obj}`}
@@ -2697,7 +2694,6 @@ export function InteractiveEventFilter({
   };
 
   const handleFieldClick = (path: string, value: any) => {
-    console.log('🎯 handleFieldClick chamado:', { path, value, type: typeof value });
     
     // O path deve ser exatamente como chega do servidor, ex: callHistory.status
     // Não precisamos adicionar prefixos
@@ -2752,7 +2748,6 @@ export function InteractiveEventFilter({
       finalPath = path.replace('manual-call-was-updated.', '');
     }
     
-    console.log('🎯 Path final gerado:', finalPath);
     
     setSelectedPath(finalPath);
     setSelectedValue(value);
@@ -2763,7 +2758,6 @@ export function InteractiveEventFilter({
                            'contains';
     setOperator(defaultOperator);
     
-    console.log('🎯 Filtro configurado:', { path: finalPath, value, operator: defaultOperator });
   };
 
   const addFilter = () => {

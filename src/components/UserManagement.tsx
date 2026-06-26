@@ -200,7 +200,6 @@ export function UserManagement() {
           <Button
             variant="outline"
             onClick={() => {
-              console.log('🔄 Forçando volta para dashboard...');
               
               // Tentar múltiplas abordagens para garantir que funcione
               navigateTo('dashboard');
@@ -214,7 +213,6 @@ export function UserManagement() {
               setTimeout(() => {
                 if (window.location.pathname.includes('user-management') || 
                     document.querySelector('[data-testid="user-management"]')) {
-                  console.log('🔄 Fallback: recarregando página...');
                   window.location.href = window.location.origin;
                 }
               }, 500);

@@ -33,7 +33,6 @@ class ApiService {
   // Companies
   async getCompanies() {
     try {
-      console.log('🔍 Buscando empresas...')
       
       const { data, error } = await supabase
         .from('companies')
@@ -45,7 +44,6 @@ class ApiService {
         throw error
       }
       
-      console.log('✅ Empresas carregadas:', data?.length || 0)
       return { success: true, data: data || [] }
     } catch (error) {
       console.error('API Request Failed: getCompanies', error)
@@ -61,7 +59,6 @@ class ApiService {
     cluster_type?: 'cluster1' | 'cluster2' // 🚀 NOVO: Suporte a cluster
   }) {
     try {
-      console.log('Creating company with data:', company)
       
       const { data, error } = await supabase
         .from('companies')
@@ -79,7 +76,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('Created company:', data)
       return { success: true, data }
     } catch (error) {
       console.error('API Request Failed: createCompany', error)
@@ -150,7 +146,6 @@ class ApiService {
   // Webhooks
   async getWebhooks(companyId?: string) {
     try {
-      console.log('🔍 Buscando webhooks para company_id:', companyId)
       
       let query = supabase
         .from('webhooks')
@@ -181,16 +176,10 @@ class ApiService {
         // Status do banco é a ÚNICA fonte de verdade
         const webhookStatus = webhook.status || 'inactive';
         
-        console.log(`🔍 Webhook do banco: ${webhook.name} - Status: ${webhookStatus}`);
-        console.log(`🔍 Webhook events com filtros:`, JSON.stringify(webhook.webhook_events, null, 2));
         
         // 🐛 DEBUG: Verificar filtros específicos
         webhook.webhook_events?.forEach((we: any, index: number) => {
-          console.log(`🔍 DEBUG - Evento ${index}: ${we.event?.name}`);
-          console.log(`🔍 DEBUG - Filtros:`, we.filters);
-          console.log(`🔍 DEBUG - Tipo dos filtros:`, typeof we.filters, Array.isArray(we.filters));
           if (we.filters && we.filters.length > 0) {
-            console.log(`🔍 DEBUG - Primeiro filtro:`, we.filters[0]);
           }
         });
         
@@ -224,7 +213,6 @@ class ApiService {
     event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }) {
     try {
-      console.log('Creating webhook with data:', webhook)
       
       // Create webhook first
       const { data: webhookData, error: webhookError } = await supabase
@@ -243,15 +231,12 @@ class ApiService {
       if (webhookError) throw webhookError
       
       // Create webhook_events relationships
-      console.log('🔍 Criando relacionamentos de eventos:', webhook.event_ids);
-      console.log('🔍 Filtros de eventos:', webhook.event_filters);
       
       if (webhook.event_ids && webhook.event_ids.length > 0) {
         const webhookEvents = webhook.event_ids.map(eventId => {
           // Buscar filtros para este evento específico
           const eventFilters = webhook.event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
           
-          console.log(`🔍 Para evento ${eventId}:`, { eventFilters, type: typeof eventFilters, isArray: Array.isArray(eventFilters) });
           
           const webhookEvent = {
             webhook_id: webhookData.id,
@@ -260,11 +245,9 @@ class ApiService {
             created_at: new Date().toISOString()
           };
           
-          console.log(`🔍 Webhook event montado:`, webhookEvent);
           return webhookEvent;
         });
         
-        console.log('🔍 Webhook events para inserir:', JSON.stringify(webhookEvents, null, 2));
         
         const { data: insertedEvents, error: eventsError } = await supabase
           .from('webhook_events')
@@ -275,10 +258,8 @@ class ApiService {
           console.error('❌ Erro ao criar webhook_events:', eventsError);
           throw eventsError;
         } else {
-          console.log('✅ Webhook events criados com sucesso:', insertedEvents);
         }
       } else {
-        console.log('⚠️ Nenhum evento selecionado para o webhook');
       }
       
       // Get the created webhook with its events
@@ -334,7 +315,6 @@ class ApiService {
     event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }>) {
     try {
-      console.log('🔄 Atualizando webhook:', id, updates)
       
       const { event_ids, event_filters, ...webhookUpdates } = updates
       
@@ -362,20 +342,15 @@ class ApiService {
       
       if (webhookError) throw webhookError
       
-      console.log('✅ Webhook atualizado no banco de dados')
       
       // Update events if provided
-      console.log('🔍 EDIÇÃO - event_ids recebidos:', event_ids);
-      console.log('🔍 EDIÇÃO - event_filters recebidos:', event_filters);
       
       // 🆕 NOVA ABORDAGEM: Se apenas event_filters fornecidos, UPDATE direto dos filtros
       if (event_filters && event_filters.length > 0 && event_ids === undefined) {
-        console.log('🔧 EDIÇÃO - Atualizando APENAS filtros (sem mexer em eventos)...');
         
         for (const eventFilter of event_filters) {
           const { eventId, filters } = eventFilter;
           
-          console.log(`🔧 EDIÇÃO - Atualizando filtros para evento ${eventId}:`, filters);
           
           const { error: updateError, data: updatedData } = await supabase
             .from('webhook_events')
@@ -388,20 +363,15 @@ class ApiService {
             console.error(`❌ EDIÇÃO - Erro ao atualizar filtros para evento ${eventId}:`, updateError);
             throw updateError;
           } else {
-            console.log(`✅ EDIÇÃO - Filtros atualizados para evento ${eventId}:`, updatedData);
             
             // 🐛 DEBUG: Verificar se os filtros foram salvos
             updatedData?.forEach((event: any, index: number) => {
-              console.log(`🔍 EDIÇÃO DEBUG - Evento atualizado ${index}:`, event.event_id);
-              console.log(`🔍 EDIÇÃO DEBUG - Filtros atualizados:`, event.filters);
-              console.log(`🔍 EDIÇÃO DEBUG - Tipo dos filtros atualizados:`, typeof event.filters, Array.isArray(event.filters));
             });
           }
         }
       }
       // 🔄 ABORDAGEM ORIGINAL: Se event_ids fornecidos, delete/recreate
       else if (event_ids !== undefined) {
-        console.log('🗑️ EDIÇÃO - Deletando webhook_events existentes para webhook:', id);
         
         // Delete existing webhook_events
         const { error: deleteError } = await supabase
@@ -413,18 +383,15 @@ class ApiService {
           console.error('❌ EDIÇÃO - Erro ao deletar webhook_events:', deleteError);
           throw deleteError;
         } else {
-          console.log('✅ EDIÇÃO - Webhook_events deletados com sucesso');
         }
         
         // Create new webhook_events
         if (event_ids && event_ids.length > 0) {
-          console.log('📝 EDIÇÃO - Criando novos webhook_events:', event_ids);
           
           const webhookEvents = event_ids.map(eventId => {
             // 🔧 BUG FIX: Buscar filtros para este evento específico na EDIÇÃO
             const eventFiltersForEvent = event_filters?.find(ef => ef.eventId === eventId)?.filters || [];
             
-            console.log(`🔧 EDIÇÃO - Para evento ${eventId}:`, { eventFiltersForEvent, hasFilters: eventFiltersForEvent.length > 0 });
             
             return {
               webhook_id: id,
@@ -434,7 +401,6 @@ class ApiService {
             };
           });
           
-          console.log('📤 EDIÇÃO - Dados para inserir (COM FILTROS):', JSON.stringify(webhookEvents, null, 2));
           
           const { error: eventsError, data: insertedEvents } = await supabase
             .from('webhook_events')
@@ -445,20 +411,14 @@ class ApiService {
             console.error('❌ EDIÇÃO - Erro ao criar novos webhook_events:', eventsError);
             throw eventsError;
           } else {
-            console.log('✅ EDIÇÃO - Novos webhook_events criados com sucesso:', insertedEvents);
             
             // 🐛 DEBUG: Verificar se os filtros foram salvos
             insertedEvents?.forEach((event: any, index: number) => {
-              console.log(`🔍 EDIÇÃO DEBUG - Evento salvo ${index}:`, event.event_id);
-              console.log(`🔍 EDIÇÃO DEBUG - Filtros salvos:`, event.filters);
-              console.log(`🔍 EDIÇÃO DEBUG - Tipo dos filtros salvos:`, typeof event.filters, Array.isArray(event.filters));
             });
           }
         } else {
-          console.log('⚠️ EDIÇÃO - Nenhum evento para associar');
         }
       } else {
-        console.log('⏭️ EDIÇÃO - Nem event_ids nem event_filters fornecidos, pulando atualização de eventos');
       }
       
       // Return updated webhook
@@ -472,7 +432,6 @@ class ApiService {
 
   async deleteWebhook(id: string) {
     try {
-      console.log('🗑️ Fazendo soft delete do webhook:', id)
       
       // Soft delete: apenas marcar como deletado
       // NÃO deletamos webhook_events para preservar métricas
@@ -487,7 +446,6 @@ class ApiService {
       
       if (webhookError) throw webhookError
       
-      console.log('✅ Webhook marcado como deletado (soft delete) - métricas preservadas')
       
       return { success: true, message: 'Webhook deleted successfully (soft delete)' }
     } catch (error) {
@@ -499,13 +457,11 @@ class ApiService {
   // Executions
   async getExecutions(companyId?: string, limit: number = 100, offset: number = 0, searchTerm?: string) {
     try {
-      console.log('📊 [getExecutions] Iniciando busca de execuções...', { companyId, limit, offset, searchTerm });
       
       // Se tem companyId, usar função RPC que bypassa RLS
       if (companyId) {
         // Se tem busca, usar função específica
         if (searchTerm && searchTerm.trim()) {
-          console.log('🔍 [getExecutions] Buscando com termo via RPC:', searchTerm);
           
           const { data: rpcData, error: rpcError } = await supabase
             .rpc('search_executions_by_phone', {
@@ -518,7 +474,6 @@ class ApiService {
             // Fallback para query direta
             console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
           } else {
-            console.log('✅ [getExecutions] Dados da função RPC (busca):', rpcData?.length || 0, 'registros');
             
             // Transformar dados para formato esperado
             const transformedData = (rpcData || []).map((exec: any) => ({
@@ -532,7 +487,6 @@ class ApiService {
           }
         } else {
           // Busca normal por empresa
-          console.log('🏢 [getExecutions] Buscando execuções da empresa via RPC');
           
           const { data: rpcData, error: rpcError } = await supabase
             .rpc('get_company_executions', {
@@ -547,7 +501,6 @@ class ApiService {
             // Fallback para query direta
             console.warn('⚠️ [getExecutions] Tentando fallback com query direta...');
           } else {
-            console.log('✅ [getExecutions] Dados da função RPC:', rpcData?.length || 0, 'registros');
             
             // Transformar dados para formato esperado
             const transformedData = (rpcData || []).map((exec: any) => ({
@@ -563,7 +516,6 @@ class ApiService {
       }
       
       // Fallback ou busca sem companyId: usar query direta
-      console.log('📄 [getExecutions] Usando query direta (fallback ou sem companyId)');
       
       let query = supabase
         .from('webhook_executions')
@@ -599,7 +551,6 @@ class ApiService {
         throw error;
       }
       
-      console.log('✅ [getExecutions] Query direta retornou:', data?.length || 0, 'registros');
       return { success: true, data: data || [] }
     } catch (error) {
       console.error('❌ [getExecutions] Erro crítico:', error)
@@ -610,7 +561,6 @@ class ApiService {
   // Webhook connection methods (for socket service)
   async connectWebhook(companyId: string) {
     try {
-      console.log('🔌 Conectando webhook para empresa:', companyId)
       
       // Get company
       const { data: company, error: companyError } = await supabase
@@ -626,7 +576,6 @@ class ApiService {
       const webhooksResult = await this.getWebhooks(companyId)
       const activeWebhooks = webhooksResult.data.filter(w => w.is_active)
       
-      console.log('🔍 Webhooks ativos encontrados:', activeWebhooks.length)
       
       if (activeWebhooks.length === 0) {
         throw new Error('No active webhooks found for this company')
@@ -665,7 +614,6 @@ class ApiService {
   // Metrics
   async getMetrics() {
     try {
-      console.log('📊 [getMetrics] Iniciando busca de métricas...')
       
       // Get total companies
       const { count: companiesCount, error: companiesError } = await supabase
@@ -675,7 +623,6 @@ class ApiService {
       if (companiesError) {
         console.error('❌ [getMetrics] Erro ao buscar count de companies:', companiesError)
       }
-      console.log('📊 [getMetrics] Total de empresas:', companiesCount)
       
       // Get total webhooks
       const { count: webhooksCount, error: webhooksError } = await supabase
@@ -685,13 +632,10 @@ class ApiService {
       if (webhooksError) {
         console.error('❌ [getMetrics] Erro ao buscar count de webhooks:', webhooksError)
       }
-      console.log('📊 [getMetrics] Total de webhooks:', webhooksCount)
       
       // Get total executions and success/failure counts
-      console.log('📊 [getMetrics] Buscando execuções de webhooks...');
       
       // 🚀 USAR FUNÇÃO SQL QUE BYPASSA RLS
-      console.log('📊 [getMetrics] Chamando função SQL get_webhook_execution_metrics()...');
       
       const { data: metricsData, error: metricsError } = await supabase
         .rpc('get_webhook_execution_metrics')
@@ -721,7 +665,6 @@ class ApiService {
         const successfulExecutions = successCount || 0;
         const failedExecutions = failedCount || 0;
         
-        console.log('⚠️ [getMetrics] Fallback - Total:', totalExecutions, 'Sucessos:', successfulExecutions, 'Falhas:', failedExecutions);
         
         const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0;
         
@@ -736,23 +679,16 @@ class ApiService {
           averageResponseTime: 250
         }
         
-        console.log('✅ [getMetrics] Métricas carregadas via fallback:', metrics);
         return { success: true, data: metrics }
       }
       
       // Sucesso ao chamar a função RPC
-      console.log('✅ [getMetrics] Dados da função RPC:', metricsData);
       
       const totalExecutions = metricsData?.totalExecutions || 0;
       const successfulExecutions = metricsData?.successfulExecutions || 0;
       const failedExecutions = metricsData?.failedExecutions || 0;
       const successRate = totalExecutions > 0 ? (successfulExecutions / totalExecutions) * 100 : 0
       
-      console.log('📊 [getMetrics] === RESUMO DAS MÉTRICAS ===');
-      console.log('📊 [getMetrics] Total de execuções:', totalExecutions);
-      console.log('📊 [getMetrics] Sucessos:', successfulExecutions);
-      console.log('📊 [getMetrics] Falhas:', failedExecutions);
-      console.log('📊 [getMetrics] Taxa de sucesso:', successRate.toFixed(2) + '%');
       
       // Get active webhooks (não deletados)
       const { count: activeWebhooksCount, error: activeError } = await supabase
@@ -764,7 +700,6 @@ class ApiService {
       if (activeError) {
         console.error('❌ [getMetrics] Erro ao buscar count de webhooks ativos:', activeError)
       }
-      console.log('📊 [getMetrics] Webhooks ativos:', activeWebhooksCount)
       
       const metrics = {
         totalCompanies: companiesCount || 0,
@@ -777,7 +712,6 @@ class ApiService {
         averageResponseTime: 250 // Mock response time in ms
       }
       
-      console.log('✅ [getMetrics] Métricas carregadas com sucesso:', metrics)
       return { success: true, data: metrics }
     } catch (error) {
       console.error('❌ [getMetrics] ERRO CRÍTICO ao carregar métricas:', error)
@@ -804,7 +738,6 @@ class ApiService {
   // Metrics by company
   async getMetricsByCompany() {
     try {
-      console.log('📊 Buscando métricas por empresa...')
       
       // Get companies first (limited to 10 for dashboard performance)
       const { data: companiesData, error: companiesError } = await supabase
@@ -821,7 +754,6 @@ class ApiService {
       // Process metrics for each company using counts
       const companyMetrics = await Promise.all(
         companiesData?.map(async (company) => {
-          console.log(`📊 Calculando métricas para empresa: ${company.name}`);
           
           // Get total executions count for this company
           const { count: totalCount } = await supabase
@@ -848,7 +780,6 @@ class ApiService {
           const failed = failedCount || 0;
           const successRate = total > 0 ? (successful / total) * 100 : 0;
           
-          console.log(`📊 ${company.name}: Total=${total}, Sucesso=${successful}, Falha=${failed}, Taxa=${successRate.toFixed(1)}%`);
           
           return {
             company: company.name,
@@ -861,7 +792,6 @@ class ApiService {
         }) || []
       )
       
-      console.log('✅ Métricas por empresa carregadas:', companyMetrics.length)
       return { success: true, data: companyMetrics }
     } catch (error) {
       console.error('❌ Erro ao carregar métricas por empresa:', error)
@@ -872,7 +802,6 @@ class ApiService {
   // Most used events
   async getMostUsedEvents() {
     try {
-      console.log('📊 Buscando eventos mais usados...')
       
       // Get events with their usage count from webhook_events
       const { data, error } = await supabase
@@ -884,7 +813,6 @@ class ApiService {
         `)
       
       if (error) {
-        console.log('❌ Erro na query complexa, tentando query simples...')
         // Fallback to simple query - get all events and count their usage manually
         const { data: allEvents, error: eventsError } = await supabase
           .from('events')
@@ -914,8 +842,6 @@ class ApiService {
         .sort((a: any, b: any) => b.count - a.count) // Sort by count descending
         .slice(0, 10) || []
         
-        console.log('✅ Eventos mais usados carregados (fallback):', events.length)
-        console.log('🔍 Eventos ordenados por uso:', events)
         return { success: true, data: events }
       }
       
@@ -944,9 +870,6 @@ class ApiService {
         .sort((a: any, b: any) => b.count - a.count) // Sort by count descending
         .slice(0, 10)
       
-      console.log('✅ Eventos mais usados carregados:', events.length)
-      console.log('🔍 Primeiro evento:', events[0])
-      console.log('📊 Todos eventos ordenados:', events)
       return { success: true, data: events }
     } catch (error) {
       console.error('❌ Erro ao carregar eventos mais usados:', error)
@@ -962,8 +885,6 @@ class ApiService {
   // Login user - SIMPLIFIED VERSION WITHOUT HASH
   async login(credentials: LoginCredentials): Promise<{ success: boolean; data?: AuthSession; error?: string }> {
     try {
-      console.log('🔐 [NOVO MÉTODO] Tentando fazer login:', credentials.email)
-      console.log('🔐 [DEBUG] Senha recebida:', credentials.password)
       
       // Query user directly from database WITH PASSWORD CHECK
       const { data: userData, error: userError } = await supabase
@@ -973,17 +894,13 @@ class ApiService {
         .eq('is_active', true)
         .single()
       
-      console.log('🔐 [DEBUG] Resultado da query:', userData, userError)
       
       if (userError || !userData) {
-        console.log('❌ Usuário não encontrado ou inativo')
         return { success: false, error: 'Email não encontrado ou usuário inativo' }
       }
       
       // Check password against stored password_hash (plain text for development)
       if (credentials.password !== userData.password_hash) {
-        console.log('❌ Senha incorreta')
-        console.log('🔐 [DEBUG] Senha esperada:', userData.password_hash)
         return { success: false, error: 'Senha incorreta' }
       }
       
@@ -1029,7 +946,6 @@ class ApiService {
         expires_at: expiresAt
       }
       
-      console.log('✅ Login bem-sucedido:', session.user.email)
       return { success: true, data: session }
     } catch (error) {
       console.error('❌ Erro ao fazer login:', error)
@@ -1040,7 +956,6 @@ class ApiService {
   // Logout user
   async logout(token: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('🚪 Fazendo logout...')
       
       const { error } = await supabase
         .from('user_sessions')
@@ -1049,7 +964,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('✅ Logout realizado com sucesso')
       return { success: true }
     } catch (error) {
       console.error('❌ Erro ao fazer logout:', error)
@@ -1100,7 +1014,6 @@ class ApiService {
   // Get all users (Super Admin only)
   async getUsers(): Promise<{ success: boolean; data?: User[]; error?: string }> {
     try {
-      console.log('👥 Buscando usuários...')
       
       const { data, error } = await supabase
         .from('users')
@@ -1109,7 +1022,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('✅ Usuários carregados:', data?.length || 0)
       return { success: true, data: data || [] }
     } catch (error) {
       console.error('❌ Erro ao buscar usuários:', error)
@@ -1120,7 +1032,6 @@ class ApiService {
   // Create user (Super Admin only)
   async createUser(userData: CreateUserPayload): Promise<{ success: boolean; data?: User; error?: string }> {
     try {
-      console.log('👤 Criando usuário:', userData.email)
       
       // Store password as plain text for simplicity (development only)
       const passwordHash = userData.password;
@@ -1143,7 +1054,6 @@ class ApiService {
         throw error
       }
       
-      console.log('✅ Usuário criado:', newUser.email)
       return { success: true, data: newUser as User }
     } catch (error) {
       console.error('❌ Erro ao criar usuário:', error)
@@ -1154,7 +1064,6 @@ class ApiService {
   // Update user
   async updateUser(userId: string, updates: UpdateUserPayload): Promise<{ success: boolean; data?: User; error?: string }> {
     try {
-      console.log('📝 Atualizando usuário:', userId)
       
       const { data: updatedUser, error } = await supabase
         .from('users')
@@ -1165,7 +1074,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('✅ Usuário atualizado:', updatedUser.email)
       return { success: true, data: updatedUser as User }
     } catch (error) {
       console.error('❌ Erro ao atualizar usuário:', error)
@@ -1176,7 +1084,6 @@ class ApiService {
   // Delete user (Super Admin only)
   async deleteUser(userId: string): Promise<{ success: boolean; error?: string }> {
     try {
-      console.log('🗑️ Deletando usuário:', userId)
       
       const { error } = await supabase
         .from('users')
@@ -1185,7 +1092,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('✅ Usuário deletado com sucesso')
       return { success: true }
     } catch (error) {
       console.error('❌ Erro ao deletar usuário:', error)
@@ -1217,7 +1123,6 @@ class ApiService {
       
       if (error) throw error
       
-      console.log('🧹 Sessões expiradas removidas:', data)
       return { success: true, data: data || 0 }
     } catch (error) {
       console.error('❌ Erro ao limpar sessões:', error)

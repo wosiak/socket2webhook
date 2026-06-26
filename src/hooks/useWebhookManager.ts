@@ -21,7 +21,6 @@ export const useWebhookManager = () => {
   // Função para buscar eventos diretamente do Supabase
   const loadEventsDirectly = useCallback(async () => {
     try {
-      console.log('Buscando eventos diretamente do Supabase...')
       const { data, error } = await supabase
         .from('events')
         .select('*')
@@ -32,7 +31,6 @@ export const useWebhookManager = () => {
         return []
       }
       
-      console.log('Eventos encontrados:', data)
       return data || []
     } catch (error) {
       console.error('Erro na busca direta de eventos:', error)
@@ -43,7 +41,6 @@ export const useWebhookManager = () => {
   // ✅ SISTEMA LIMPO: Apenas Render 24/7 - sem Edge Functions desnecessárias
   const connectAllActiveCompanies = useCallback(async () => {
     try {
-      console.log('🚀 Sistema usando apenas Render 24/7 - sem Edge Functions!')
       
       // Buscar empresa com webhooks ativos apenas para logs
       const companyWithActiveWebhooks = companies.find(company => {
@@ -53,11 +50,9 @@ export const useWebhookManager = () => {
       })
       
       if (!companyWithActiveWebhooks) {
-        console.log('📭 Nenhuma empresa com webhooks ativos encontrada')
         return
       }
       
-      console.log(`✅ Empresa ${companyWithActiveWebhooks.name} sendo processada no Render 24/7`)
       
       // ✅ ECONOMIA: Sem chamadas para Edge Functions = sem custos extras
       
@@ -71,7 +66,6 @@ export const useWebhookManager = () => {
   // Conectar automaticamente quando dados são carregados (apenas uma vez)
   useEffect(() => {
     if (companies.length > 0 && webhooks.length > 0 && !loading) {
-      console.log('🚀 Dados carregados, iniciando conexão automática...')
       // Delay para evitar múltiplas conexões
       const timer = setTimeout(() => {
         connectAllActiveCompanies()
@@ -86,12 +80,10 @@ export const useWebhookManager = () => {
       setLoading(true)
       setError(null)
 
-      console.log('Starting data load...')
 
       // First check if server is available
       try {
         await apiService.healthCheck()
-        console.log('Health check passed')
       } catch (healthError) {
         console.error('Health check failed:', healthError)
         throw new Error(`Servidor não disponível: ${healthError.message}`)
@@ -108,7 +100,6 @@ export const useWebhookManager = () => {
         apiService.getMetricsByCompany()
       ])
 
-      console.log('API results:', results)
 
       // Process companies
       if (results[0].status === 'fulfilled') {
@@ -123,7 +114,6 @@ export const useWebhookManager = () => {
         setEvents(results[1].value.data || [])
       } else {
         console.error('Failed to load events from API:', results[1].reason)
-        console.log('Tentando buscar eventos diretamente...')
         const directEvents = await loadEventsDirectly()
         setEvents(directEvents)
       }
@@ -133,7 +123,6 @@ export const useWebhookManager = () => {
         setWebhooks(results[2].value.data || [])
       } else {
         console.error('Failed to load webhooks from API:', results[2].reason)
-        console.log('Tentando buscar webhooks diretamente...')
         
         try {
           const { data: webhooksData, error } = await supabase
@@ -150,8 +139,6 @@ export const useWebhookManager = () => {
           if (error) {
             console.error('Erro ao buscar webhooks diretamente:', error)
           } else {
-            console.log('Webhooks encontrados:', webhooksData)
-            console.log('Primeiro webhook webhook_events:', webhooksData?.[0]?.webhook_events)
             setWebhooks(webhooksData || [])
           }
         } catch (directError) {
@@ -178,7 +165,6 @@ export const useWebhookManager = () => {
           created_at: execution.created_at
         }))
         setExecutions(transformedExecutions)
-        console.log('Executions transformed:', transformedExecutions.length)
       } else {
         console.error('Failed to load executions:', results[3].reason)
       }
@@ -186,7 +172,6 @@ export const useWebhookManager = () => {
       // Process metrics (general metrics)
       if (results[4].status === 'fulfilled') {
         const metricsData = results[4].value.data
-        console.log('📊 Métricas recebidas da API:', metricsData)
         
         // Usar os dados reais da API de métricas
         const metricsArray = [{
@@ -199,7 +184,6 @@ export const useWebhookManager = () => {
           company_name: 'Global'
         }]
         
-        console.log('📊 Métricas transformadas para Dashboard:', metricsArray)
         setMetrics(metricsArray)
       } else {
         console.error('Failed to load metrics:', results[4].reason)
@@ -218,7 +202,6 @@ export const useWebhookManager = () => {
       if (results[6].status === 'fulfilled') {
         const companyMetricsData = results[6].value.data
         setCompanyMetrics(companyMetricsData || [])
-        console.log('✅ Métricas por empresa carregadas:', companyMetricsData?.length || 0)
       } else {
         console.error('Failed to load company metrics:', results[6].reason)
         setCompanyMetrics([])
@@ -289,7 +272,6 @@ export const useWebhookManager = () => {
     event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }) => {
     try {
-      console.log('Tentando criar webhook via API...')
       const response = await apiService.createWebhook(webhook)
       const newWebhook = response.data
       setWebhooks(prev => [newWebhook, ...prev])
@@ -365,20 +347,17 @@ export const useWebhookManager = () => {
     event_filters?: Array<{ eventId: string; filters: Array<{ field_path: string; operator: string; value: any; description?: string }> }>
   }) => {
     try {
-      console.log('Tentando atualizar webhook via API...')
       const response = await apiService.updateWebhook(id, updates)
       const updatedWebhook = response.data
       
       // CORREÇÃO INTELIGENTE: Atualizar estado local apenas para toggles simples de status
       if (updates.status && !updates.event_ids && !updates.name && !updates.url) {
-        console.log('✅ Toggle simples de status - atualizando estado local imediatamente')
         setWebhooks(prev => prev.map(w => 
           w.id === id 
             ? { ...w, status: updates.status, is_active: updates.status === 'active' }
             : w
         ))
       } else {
-        console.log('✅ Webhook atualizado via API, aguardando refresh para mudanças complexas...')
       }
       
       return updatedWebhook
@@ -457,11 +436,9 @@ export const useWebhookManager = () => {
           return webhookData
         }
         
-        console.log('✅ Webhook atualizado diretamente')
         
         // CORREÇÃO INTELIGENTE: Atualizar estado local apenas para toggles simples de status
         if (updates.status && !updates.event_ids && !updates.name && !updates.url) {
-          console.log('✅ Toggle simples de status - atualizando estado local imediatamente (fallback)')
           setWebhooks(prev => prev.map(w => 
             w.id === id 
               ? { ...w, status: updates.status, is_active: updates.status === 'active' }
@@ -479,7 +456,6 @@ export const useWebhookManager = () => {
 
   const deleteWebhook = useCallback(async (id: string) => {
     try {
-      console.log('Tentando deletar webhook via API...')
       await apiService.deleteWebhook(id)
       setWebhooks(prev => prev.filter(w => w.id !== id))
     } catch (error) {
@@ -507,7 +483,6 @@ export const useWebhookManager = () => {
           throw new Error(`Erro ao deletar webhook: ${webhookError.message}`)
         }
         
-        console.log('Webhook deletado com sucesso')
         setWebhooks(prev => prev.filter(w => w.id !== id))
       } catch (directError) {
         console.error('Erro na deleção direta:', directError)
