@@ -229,12 +229,6 @@ export function CompanyDetail({
   };
 
   const handleEditWebhook = (webhook: Webhook) => {
-      id: webhook.id,
-      name: webhook.name,
-      event_types: webhook.event_types,
-      webhook_events: webhook.webhook_events
-    });
-    
 
     // SEMPRE extrair event_ids dos webhook_events (IDs reais, não nomes)
     let eventIds: string[] = [];
@@ -272,12 +266,6 @@ export function CompanyDetail({
 
     setIsSavingWebhook(true);
     try {
-        isEditing: !!editingWebhook,
-        name: webhookFormData.name,
-        event_ids: webhookFormData.event_ids,
-        event_filters: webhookFormData.event_filters,
-        url: webhookFormData.url
-      });
 
       if (editingWebhook) {
         await onUpdateWebhook(editingWebhook.id, {
