@@ -9,6 +9,12 @@ import type {
 import { supabase } from '../utils/supabase/client'
 
 class ApiService {
+  private async hashPassword(password: string): Promise<string> {
+    const data = new TextEncoder().encode(password);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return btoa(String.fromCharCode(...new Uint8Array(hash)));
+  }
+
   // Health check
   async healthCheck() {
     try {
@@ -899,8 +905,8 @@ class ApiService {
         return { success: false, error: 'Email não encontrado ou usuário inativo' }
       }
       
-      // Check password against stored password_hash (plain text for development)
-      if (credentials.password !== userData.password_hash) {
+      const hashedInput = await this.hashPassword(credentials.password);
+      if (hashedInput !== userData.password_hash) {
         return { success: false, error: 'Senha incorreta' }
       }
       
@@ -1033,8 +1039,7 @@ class ApiService {
   async createUser(userData: CreateUserPayload): Promise<{ success: boolean; data?: User; error?: string }> {
     try {
       
-      // Store password as plain text for simplicity (development only)
-      const passwordHash = userData.password;
+      const passwordHash = await this.hashPassword(userData.password);
       
       const { data: newUser, error } = await supabase
         .from('users')

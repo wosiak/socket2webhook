@@ -964,14 +964,7 @@ app.get('/debug-company/:companyName', async (req, res) => {
       });
     }
     
-      id: company.id,
-      name: company.name,
-      cluster_type: company.cluster_type,
-      token_preview: company.api_token?.substring(0, 10) + '...',
-      status: company.status
-    });
-    
-    res.json({ 
+    res.json({
       success: true, 
       company: {
         id: company.id,

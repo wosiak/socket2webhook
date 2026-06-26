@@ -1,24 +1,7 @@
--- =============================================
--- ATUALIZAR USUÁRIO ADMIN COM SENHA EM TEXTO PLANO
--- Socket2Webhook | 3C Plus
--- =============================================
-
--- Atualizar usuário admin para usar senha em texto plano (para testes)
-UPDATE users 
-SET password_hash = 'admin123'
-WHERE email = 'admin@3cplus.com';
-
--- Verificar se foi atualizado
-SELECT 
-  'Usuário admin atualizado:' as status,
-  email, 
-  name, 
-  password_hash,
-  role, 
-  is_active
-FROM users 
-WHERE email = 'admin@3cplus.com';
-
--- =============================================
--- AGORA A SENHA ESTÁ EM TEXTO PLANO: admin123
--- =============================================
+-- This migration previously set admin password to plaintext (development only).
+-- Passwords are now stored as SHA-256 base64 hashes.
+-- To reset the admin password, run:
+--
+--   UPDATE users
+--   SET password_hash = encode(digest('YOUR_NEW_PASSWORD', 'sha256'), 'base64')
+--   WHERE email = 'admin@3cplus.com';
