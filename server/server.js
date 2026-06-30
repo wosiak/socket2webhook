@@ -1330,11 +1330,13 @@ app.post('/api/companies/:companyId/webhooks', requireApiToken, async (req, res)
 });
 
 // GET /api/companies/:companyId/webhooks — listar webhooks de uma empresa
-// Query params (todos opcionais): status, url, event
+// Query params (todos opcionais): status, url, name, event (aceita múltiplos separados por vírgula)
 app.get('/api/companies/:companyId/webhooks', requireApiToken, async (req, res) => {
   try {
     const { companyId } = req.params;
-    const { status, url, event } = req.query;
+    const { status, url, name } = req.query;
+    const eventParam = req.query.event;
+    const eventNames = eventParam ? eventParam.split(',').map(e => e.trim()).filter(Boolean) : null;
 
     // Verificar empresa
     const { data: company, error: companyError } = await supabase
@@ -1347,27 +1349,31 @@ app.get('/api/companies/:companyId/webhooks', requireApiToken, async (req, res) 
       return res.status(404).json({ success: false, error: 'Empresa não encontrada' });
     }
 
-    // Se filtrou por evento, resolve os IDs dos webhooks que têm esse evento
+    // Se filtrou por evento(s), resolve os IDs dos webhooks que têm ao menos um deles
     let webhookIdsByEvent = null;
-    if (event) {
-      const { data: eventData, error: eventError } = await supabase
+    if (eventNames) {
+      const { data: eventsData, error: eventsError } = await supabase
         .from('events')
-        .select('id')
-        .eq('name', event)
-        .single();
+        .select('id, name')
+        .in('name', eventNames);
 
-      if (eventError || !eventData) {
-        return res.status(404).json({ success: false, error: `Evento '${event}' não encontrado` });
+      if (eventsError) throw eventsError;
+
+      const notFound = eventNames.filter(n => !(eventsData || []).some(e => e.name === n));
+      if (notFound.length > 0) {
+        return res.status(404).json({ success: false, error: `Eventos não encontrados: ${notFound.join(', ')}` });
       }
+
+      const eventIds = eventsData.map(e => e.id);
 
       const { data: weRows, error: weError } = await supabase
         .from('webhook_events')
         .select('webhook_id')
-        .eq('event_id', eventData.id);
+        .in('event_id', eventIds);
 
       if (weError) throw weError;
 
-      webhookIdsByEvent = (weRows || []).map(r => r.webhook_id);
+      webhookIdsByEvent = [...new Set((weRows || []).map(r => r.webhook_id))];
     }
 
     let query = supabase
@@ -1385,6 +1391,7 @@ app.get('/api/companies/:companyId/webhooks', requireApiToken, async (req, res) 
 
     if (status) query = query.eq('status', status);
     if (url) query = query.eq('url', url);
+    if (name) query = query.ilike('name', `%${name}%`);
     if (webhookIdsByEvent !== null) query = query.in('id', webhookIdsByEvent);
 
     const { data: webhooks, error } = await query;
