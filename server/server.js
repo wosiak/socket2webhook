@@ -1329,6 +1329,89 @@ app.post('/api/companies/:companyId/webhooks', requireApiToken, async (req, res)
   }
 });
 
+// GET /api/companies/:companyId/webhooks — listar webhooks de uma empresa
+// Query params (todos opcionais): status, url, event
+app.get('/api/companies/:companyId/webhooks', requireApiToken, async (req, res) => {
+  try {
+    const { companyId } = req.params;
+    const { status, url, event } = req.query;
+
+    // Verificar empresa
+    const { data: company, error: companyError } = await supabase
+      .from('companies')
+      .select('id')
+      .eq('id', companyId)
+      .single();
+
+    if (companyError || !company) {
+      return res.status(404).json({ success: false, error: 'Empresa não encontrada' });
+    }
+
+    // Se filtrou por evento, resolve os IDs dos webhooks que têm esse evento
+    let webhookIdsByEvent = null;
+    if (event) {
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('id')
+        .eq('name', event)
+        .single();
+
+      if (eventError || !eventData) {
+        return res.status(404).json({ success: false, error: `Evento '${event}' não encontrado` });
+      }
+
+      const { data: weRows, error: weError } = await supabase
+        .from('webhook_events')
+        .select('webhook_id')
+        .eq('event_id', eventData.id);
+
+      if (weError) throw weError;
+
+      webhookIdsByEvent = (weRows || []).map(r => r.webhook_id);
+    }
+
+    let query = supabase
+      .from('webhooks')
+      .select(`
+        id, name, url, status, deleted, created_at, updated_at,
+        webhook_events(
+          event:events(name, display_name),
+          filters
+        )
+      `)
+      .eq('company_id', companyId)
+      .eq('deleted', false)
+      .order('created_at', { ascending: false });
+
+    if (status) query = query.eq('status', status);
+    if (url) query = query.eq('url', url);
+    if (webhookIdsByEvent !== null) query = query.in('id', webhookIdsByEvent);
+
+    const { data: webhooks, error } = await query;
+
+    if (error) throw error;
+
+    const result = (webhooks || []).map(w => ({
+      id: w.id,
+      name: w.name,
+      url: w.url,
+      status: w.status,
+      created_at: w.created_at,
+      updated_at: w.updated_at,
+      events: (w.webhook_events || []).map(we => ({
+        name: we.event?.name,
+        display_name: we.event?.display_name,
+        filters: we.filters
+      }))
+    }));
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    console.error('❌ GET /api/companies/:companyId/webhooks:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Conectar empresa específica
 async function connectCompany(companyId, options = {}) {
   const { force = false } = options;
