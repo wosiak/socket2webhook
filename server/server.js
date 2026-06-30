@@ -1171,12 +1171,23 @@ async function requireApiToken(req, res, next) {
 // =============================================
 
 // GET /api/companies — listar empresas
+// Query params (todos opcionais): company_3c_id, name, status, cluster_type
 app.get('/api/companies', requireApiToken, async (req, res) => {
   try {
-    const { data: companies, error } = await supabase
+    const ALLOWED_FILTERS = ['company_3c_id', 'name', 'status', 'cluster_type'];
+
+    let query = supabase
       .from('companies')
       .select('id, name, company_3c_id, status, cluster_type, created_at, updated_at')
       .order('created_at', { ascending: false });
+
+    for (const field of ALLOWED_FILTERS) {
+      if (req.query[field]) {
+        query = query.eq(field, req.query[field]);
+      }
+    }
+
+    const { data: companies, error } = await query;
 
     if (error) throw error;
 
